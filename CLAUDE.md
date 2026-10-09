@@ -43,8 +43,17 @@ Worker (run from `worker/`):
 ```sh
 uv sync                              # install
 uv run python -m datatales --help    # CLI
+uv run python -m datatales db-check  # Supabase connection, tables, RLS, buckets
 uv run ruff check . && uv run ruff format --check . && uv run pytest
 ```
+
+## Database
+
+- Migrations: `supabase/migrations/NNNN_name.sql`, plain SQL, wrapped in `begin; ... commit;`. The user runs them in the Supabase SQL Editor. Never edit an applied migration; add a new one.
+- Every new table must: `enable row level security`, have **no** policies, `revoke all ... from anon, authenticated`, `grant all ... to service_role`. `db-check` fails on any public table that breaks this.
+- Functions: `set search_path = ''` and fully qualified names; revoke execute from `public, anon, authenticated`.
+- DB-level rule: a story cannot be `approved`/`published` unless `verify_status = 'passed'`.
+- Config is read by `datatales.config.load_settings()` (env vars override `worker/.env`). The key is a `SecretStr`, so never call `get_secret_value()` except when creating the client.
 
 ## Conventions
 
@@ -57,4 +66,5 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest
 ## Status
 
 - M0 Scaffold: done
-- Next: M1 Database
+- M1 Database: done (migration 0001 + `db-check`)
+- Next: M2 Public site + Hashnode migration

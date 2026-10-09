@@ -47,6 +47,26 @@ uv run ruff format --check .
 uv run pytest
 ```
 
+## Database setup (Supabase)
+
+One-time, per Supabase project. Migrations live in `supabase/migrations/` and are run by hand,
+in number order, in the Supabase **SQL Editor**.
+
+1. Open your project at [supabase.com/dashboard](https://supabase.com/dashboard) → **SQL Editor** → **New query**.
+2. Paste the whole of `supabase/migrations/0001_init.sql` and click **Run**.
+   It should end with "Success. No rows returned". It runs in a transaction, so on error nothing is applied.
+3. Check from the worker:
+   ```sh
+   cd worker
+   uv run python -m datatales db-check
+   ```
+   Every line should start with `OK`, ending in "Database check passed."
+
+What the migration creates: tables `sources`, `datasets`, `recipes`, `clean_tables`, `findings`,
+`stories`, `jobs` (all with RLS on and **no** policies, so only the service role can touch them);
+private storage buckets `raw` and `clean`; and a `dt_security_status()` function (service role only)
+that `db-check` uses to confirm nothing is exposed.
+
 ## Public site
 
 Arrives in Milestone 2. Cloudflare Pages builds it from `site/` using only committed files.
@@ -70,7 +90,7 @@ Only `.env.example` files (placeholder names, no values) are committed.
 ## Milestones
 
 - [x] M0 Scaffold
-- [ ] M1 Database (migrations, RLS, buckets, `db-check`)
+- [x] M1 Database (migrations, RLS, buckets, `db-check`)
 - [ ] M2 Public site + Hashnode migration
 - [ ] M3 Ingest, profile, clean
 - [ ] M4 Detect
