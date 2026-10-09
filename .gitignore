@@ -1,0 +1,52 @@
+# ---- Secrets: never commit ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+
+# ---- Node ----
+node_modules/
+.npm/
+npm-debug.log*
+.astro/
+.next/
+out/
+dist/
+.vercel/
+.wrangler/
+
+# ---- Data (raw/clean data lives in Supabase Storage, not git) ----
+worker/data/inbox/*
+worker/data/cache/*
+!worker/data/inbox/.gitkeep
+!worker/data/cache/.gitkeep
+*.parquet
+*.duckdb
+*.duckdb.wal
+*.xlsx
+*.xls
+*.ods
+# Small, hand-made test fixtures are allowed
+!worker/tests/fixtures/**
+
+# ---- Editors / OS ----
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
