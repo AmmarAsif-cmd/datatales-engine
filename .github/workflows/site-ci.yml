@@ -1,0 +1,26 @@
+name: site-ci
+
+on:
+  pull_request:
+    paths:
+      - "site/**"
+      - ".github/workflows/site-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - ".github/workflows/site-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Placeholder until the Astro site lands in M2, when this becomes:
+      # setup-node (npm cache) -> npm ci -> astro check -> npm run build
+      - name: Placeholder
+        run: echo "Astro site not scaffolded yet (Milestone 2)."

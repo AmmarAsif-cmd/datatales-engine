@@ -1,0 +1,13 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "uv"
+    directory: "/worker"
+    schedule:
+      interval: "weekly"
+
+  # npm entries for /site (M2) and /dashboard (M6) are added once their package.json exists.

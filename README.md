@@ -1,0 +1,79 @@
+# DataTales Story Engine
+
+Turns raw UK public datasets into verified, publish-ready data stories for
+[datatales.co.uk](https://datatales.co.uk).
+
+```
+ingest → profile → clean → detect → narrate → verify → review → publish
+```
+
+- **Python does all the maths.** Every number in a story is computed by code and stored with the story.
+- **Claude only writes words** around numbers it is given. In this phase there is no Claude API: prompts are copied into Claude chat and the JSON reply is pasted back.
+- **Nothing is published until it is approved** in the local review dashboard.
+- **The public site is fully static** and holds no secrets.
+- **£0 running cost:** Supabase free tier, GitHub Actions and Cloudflare Pages.
+
+## Repository layout
+
+| Folder | What it is | Runs where |
+|---|---|---|
+| `worker/` | Python 3.12 pipeline (DuckDB, pandas, pydantic) | Your machine + GitHub Actions |
+| `site/` | Astro public site | Built by Cloudflare Pages |
+| `dashboard/` | Next.js review app | **Your machine only** |
+| `supabase/migrations/` | Plain SQL migrations | Run by you against Supabase |
+| `.github/` | CI, weekly pipeline, Dependabot | GitHub |
+
+## Prerequisites
+
+- [uv](https://docs.astral.sh/uv/) (Python env and dependency manager). On Windows:
+  `winget install astral-sh.uv`. uv installs Python 3.12 for you.
+- Node.js 22+ and npm (for `site/` and `dashboard/`)
+- Git
+
+## Worker
+
+```sh
+cd worker
+cp .env.example .env      # then fill in values (never commit .env)
+uv sync                   # creates .venv with Python 3.12 + deps
+uv run python -m datatales --help
+```
+
+Checks (the same ones CI runs):
+
+```sh
+uv run ruff check .
+uv run ruff format --check .
+uv run pytest
+```
+
+## Public site
+
+Arrives in Milestone 2. Cloudflare Pages builds it from `site/` using only committed files.
+
+## Review dashboard
+
+Arrives in Milestone 6.
+
+> ⚠️ **Never deploy the dashboard.** It holds the Supabase service-role key, has no login,
+> and is meant to run only on `127.0.0.1`.
+
+## Secrets
+
+| Secret | Where it lives |
+|---|---|
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | `worker/.env` (local), GitHub Actions secrets, `dashboard/.env.local` |
+| *(none)* | `site/` never holds or reads any key |
+
+Only `.env.example` files (placeholder names, no values) are committed.
+
+## Milestones
+
+- [x] M0 Scaffold
+- [ ] M1 Database (migrations, RLS, buckets, `db-check`)
+- [ ] M2 Public site + Hashnode migration
+- [ ] M3 Ingest, profile, clean
+- [ ] M4 Detect
+- [ ] M5 Narrate + verify
+- [ ] M6 Review dashboard
+- [ ] M7 Publish + weekly pipeline

@@ -1,0 +1,17 @@
+name: pipeline
+
+# Weekly schedule (Monday 06:00 UTC) is added in Milestone 7, once the pipeline exists.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      # Placeholder. In M7: ingest -> profile -> clean (approved recipes only) -> detect,
+      # using secrets SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, writing a jobs row per run.
+      - name: Placeholder
+        run: echo "Pipeline not implemented yet (Milestone 7)."
