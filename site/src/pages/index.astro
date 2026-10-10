@@ -1,0 +1,74 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import FeedList from '../components/FeedList.astro';
+import { getFeed } from '../lib/content';
+import { SITE } from '../lib/site';
+
+const feed = await getFeed();
+const latest = feed.slice(0, 10);
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: SITE.name,
+  url: SITE.url,
+  description: SITE.description,
+  inLanguage: 'en-GB',
+  publisher: {
+    '@type': 'Person',
+    name: SITE.author,
+  },
+};
+---
+
+<BaseLayout title={SITE.name} description={SITE.description} jsonLd={jsonLd}>
+  <div class="container">
+    <section class="intro measure">
+      <h1>UK public data, told plainly.</h1>
+      <p class="lede">
+        Short, clear stories from UK public datasets. Every number is computed from the source data
+        and checked before it is published, with the source and method shown on every story.
+      </p>
+    </section>
+
+    <section class="measure" aria-labelledby="latest-heading">
+      <h2 id="latest-heading" class="section-heading">
+        Latest
+      </h2>
+      <FeedList items={latest} headingLevel="h3" />
+      {feed.length > latest.length && (
+        <p class="more">
+          <a href="/archive">See everything in the archive →</a>
+        </p>
+      )}
+    </section>
+  </div>
+</BaseLayout>
+
+<style>
+  .intro {
+    padding: 3rem 0 2rem;
+  }
+  h1 {
+    font-size: clamp(2rem, 6vw, 3rem);
+    margin: 0 0 0.75rem;
+  }
+  .lede {
+    font-size: 1.2rem;
+    color: var(--ink-2);
+    margin: 0;
+  }
+  .section-heading {
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 0.5rem;
+    margin: 1rem 0 0;
+  }
+  .more {
+    margin-top: 1.5rem;
+  }
+</style>

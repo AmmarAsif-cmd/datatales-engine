@@ -1,0 +1,121 @@
+---
+import { formatDate } from '../lib/content';
+
+interface Props {
+  source: { name: string; publisher?: string; url: string; licence?: string };
+  fetchedAt: Date;
+  recipeVersion: string;
+  datasetChecksum?: string;
+  period?: string;
+  updated?: Date;
+}
+const { source, fetchedAt, recipeVersion, datasetChecksum, period, updated } = Astro.props;
+---
+
+<aside class="source" aria-labelledby="source-heading">
+  <h2 id="source-heading">Source &amp; method</h2>
+  <dl>
+    <dt>Source</dt>
+    <dd>
+      <a href={source.url} rel="noopener">
+        {source.name}
+      </a>
+      {source.publisher && <span> ({source.publisher})</span>}
+    </dd>
+    {period && (
+      <>
+        <dt>Period</dt>
+        <dd>{period}</dd>
+      </>
+    )}
+    <dt>Data fetched</dt>
+    <dd>
+      <time datetime={fetchedAt.toISOString()}>{formatDate(fetchedAt)}</time>
+    </dd>
+    <dt>Cleaning recipe</dt>
+    <dd>{recipeVersion}</dd>
+    {datasetChecksum && (
+      <>
+        <dt>Dataset checksum</dt>
+        <dd>
+          <code title={datasetChecksum}>{datasetChecksum.slice(0, 12)}…</code>
+        </dd>
+      </>
+    )}
+    {source.licence && (
+      <>
+        <dt>Licence</dt>
+        <dd>{source.licence}</dd>
+      </>
+    )}
+    {updated && (
+      <>
+        <dt>Last updated</dt>
+        <dd>
+          <time datetime={updated.toISOString()}>{formatDate(updated)}</time>
+        </dd>
+      </>
+    )}
+  </dl>
+  <p class="verified">
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M5 12.5l4.5 4.5L19 7.5"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      ></path>
+    </svg>
+    Every number in this story was computed from the source data and checked against it before
+    publishing.
+  </p>
+</aside>
+
+<style>
+  .source {
+    margin: 2.5rem 0 0;
+    padding: 1.25rem;
+    background: var(--surface-2);
+    border-radius: var(--radius);
+    font-size: 0.95rem;
+  }
+  h2 {
+    font-size: 1.1rem;
+    margin: 0 0 0.75rem;
+  }
+  dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.35rem 1rem;
+    margin: 0;
+  }
+  dt {
+    color: var(--muted);
+  }
+  dd {
+    margin: 0;
+    min-width: 0;
+  }
+  .verified {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    margin: 1rem 0 0;
+    color: var(--ink-2);
+  }
+  .verified svg {
+    flex: none;
+    margin-top: 0.2rem;
+    color: var(--accent);
+  }
+  @media (max-width: 30rem) {
+    dl {
+      grid-template-columns: 1fr;
+    }
+    dd {
+      margin-bottom: 0.4rem;
+    }
+  }
+</style>

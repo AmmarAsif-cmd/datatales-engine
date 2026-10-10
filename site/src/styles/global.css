@@ -1,0 +1,375 @@
+/* DataTales: global styles. Tokens first; light is default, dark via OS or toggle. */
+
+:root {
+  color-scheme: light;
+  --bg: #fcfcfb;
+  --surface: #ffffff;
+  --surface-2: #f4f3ef;
+  --ink: #111110;
+  --ink-2: #52514e;
+  --muted: #6f6e69;
+  --rule: #e1e0d9;
+  --rule-strong: #c3c2b7;
+  --accent: #5a3fe0; /* DataTales purple, darkened for AA text contrast */
+  --accent-2: #c2452f; /* DataTales coral, darkened for AA text contrast */
+  --link: var(--accent);
+  --focus: #2a78d6;
+  --code-bg: #f1f0ec;
+
+  /* chart roles (validated palette, see components/Chart.tsx) */
+  --chart-surface: #fcfcfb;
+  --chart-grid: #e1e0d9;
+  --chart-axis: #c3c2b7;
+  --chart-muted: #b9b8b1;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace;
+
+  --measure: 42rem;
+  --wide: 64rem;
+  --gutter: 1rem;
+  --radius: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #1a1a19;
+    --surface: #222221;
+    --surface-2: #2a2a28;
+    --ink: #f4f3ef;
+    --ink-2: #c3c2b7;
+    --muted: #a3a29b;
+    --rule: #2c2c2a;
+    --rule-strong: #4a4a46;
+    --accent: #a898ff;
+    --accent-2: #ff8a7a;
+    --focus: #6da7ec;
+    --code-bg: #2a2a28;
+    --chart-surface: #1a1a19;
+    --chart-grid: #2c2c2a;
+    --chart-axis: #4a4a46;
+    --chart-muted: #5a5a56;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #1a1a19;
+  --surface: #222221;
+  --surface-2: #2a2a28;
+  --ink: #f4f3ef;
+  --ink-2: #c3c2b7;
+  --muted: #a3a29b;
+  --rule: #2c2c2a;
+  --rule-strong: #4a4a46;
+  --accent: #a898ff;
+  --accent-2: #ff8a7a;
+  --focus: #6da7ec;
+  --code-bg: #2a2a28;
+  --chart-surface: #1a1a19;
+  --chart-grid: #2c2c2a;
+  --chart-axis: #4a4a46;
+  --chart-muted: #5a5a56;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  overflow-wrap: break-word;
+  overflow-x: clip; /* 100vw breakouts must never cause sideways scroll */
+}
+
+img,
+svg,
+video,
+iframe {
+  max-width: 100%;
+}
+
+img {
+  height: auto;
+}
+
+a {
+  color: var(--link);
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.skip-link {
+  position: absolute;
+  left: 0.5rem;
+  top: -3rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--ink);
+  color: var(--bg);
+  z-index: 10;
+}
+
+.skip-link:focus {
+  top: 0.5rem;
+}
+
+.container {
+  width: 100%;
+  max-width: var(--wide);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.measure {
+  max-width: var(--measure);
+  margin-inline: auto;
+}
+
+.kicker {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  margin: 0 0 0.5rem;
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.sample-banner {
+  border: 2px dashed var(--accent-2);
+  background: var(--surface-2);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  font-weight: 600;
+  margin: 1rem 0;
+}
+
+/* ---- Article body (markdown) ---- */
+
+.prose {
+  font-size: 1.125rem;
+  line-height: 1.7;
+}
+
+.prose > * + * {
+  margin-top: 1.1em;
+}
+
+.prose p,
+.prose ul,
+.prose ol {
+  margin-block: 0 1.1em;
+}
+
+.prose h2 {
+  font-size: 1.6rem;
+  margin: 2.2em 0 0.6em;
+}
+
+.prose h3 {
+  font-size: 1.3rem;
+  margin: 1.8em 0 0.5em;
+}
+
+.prose h4 {
+  font-size: 1.1rem;
+  margin: 1.6em 0 0.4em;
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 1.4em;
+}
+
+.prose li {
+  margin-block: 0.3em;
+}
+
+.prose li > ul,
+.prose li > ol {
+  margin-block: 0.3em;
+}
+
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--rule);
+  margin: 2.5em 0;
+}
+
+.prose blockquote {
+  margin: 1.5em 0;
+  padding-left: 1em;
+  border-left: 3px solid var(--accent);
+  color: var(--ink-2);
+}
+
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--code-bg);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+
+.prose pre {
+  background: var(--code-bg);
+  padding: 1rem;
+  border-radius: var(--radius);
+  overflow-x: auto;
+}
+
+.prose pre code {
+  background: none;
+  padding: 0;
+}
+
+.prose img {
+  display: block;
+  margin: 1.5em auto;
+  border-radius: var(--radius);
+  background: #fff; /* migrated diagrams are drawn on white */
+}
+
+.prose table,
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.prose th,
+.prose td,
+.data-table th,
+.data-table td {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+.prose th,
+.data-table th {
+  font-weight: 600;
+  border-bottom: 2px solid var(--rule-strong);
+}
+
+.data-table td.num,
+.data-table th.num {
+  text-align: right;
+}
+
+/* Responsive embeds (Power BI dashboards in migrated posts) */
+.prose .embed {
+  position: relative;
+  aspect-ratio: 800 / 486;
+  /* break out of the text column, up to the wide container */
+  width: min(calc(var(--wide) - 2 * var(--gutter)), calc(100vw - 2 * var(--gutter)));
+  margin-block: 2em;
+  margin-left: 50%;
+  transform: translateX(-50%);
+}
+
+.prose .embed iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+@media (max-width: 40rem) {
+  .prose .embed {
+    aspect-ratio: 4 / 5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

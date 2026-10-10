@@ -10,4 +10,12 @@ updates:
     schedule:
       interval: "weekly"
 
-  # npm entries for /site (M2) and /dashboard (M6) are added once their package.json exists.
+  - package-ecosystem: "npm"
+    directory: "/site"
+    schedule:
+      interval: "weekly"
+    groups:
+      astro:
+        patterns: ["astro", "@astrojs/*"]
+
+  # npm entry for /dashboard is added in M6 once its package.json exists.

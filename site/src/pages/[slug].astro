@@ -1,0 +1,96 @@
+---
+// Migrated Hashnode posts, served at the site root to keep their original URLs.
+import { render } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { formatDate, getPosts, type Post } from '../lib/content';
+import { SITE } from '../lib/site';
+
+export async function getStaticPaths() {
+  const posts = await getPosts();
+  return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props as { post: Post };
+const { Content } = await render(post);
+const d = post.data;
+const url = `${SITE.url}/${post.id}`;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: d.title,
+  description: d.description,
+  datePublished: d.date.toISOString(),
+  dateModified: (d.updated ?? d.date).toISOString(),
+  url,
+  mainEntityOfPage: url,
+  image: d.cover ? new URL(d.cover, SITE.url).href : undefined,
+  inLanguage: 'en-GB',
+  keywords: d.tags.join(', ') || undefined,
+  author: { '@type': 'Person', name: SITE.author },
+  publisher: {
+    '@type': 'Organization',
+    name: SITE.name,
+    logo: { '@type': 'ImageObject', url: new URL(SITE.logo, SITE.url).href },
+  },
+};
+---
+
+<BaseLayout
+  title={d.seoTitle ?? d.title}
+  description={d.description}
+  image={d.cover}
+  imageAlt={d.coverAlt}
+  type="article"
+  published={d.date}
+  modified={d.updated}
+  jsonLd={jsonLd}
+>
+  <article class="container">
+    <header class="measure head">
+      <p class="kicker">Article</p>
+      <h1>{d.title}</h1>
+      <p class="meta">
+        By {SITE.author} · <time datetime={d.date.toISOString()}>{formatDate(d.date)}</time>
+        {d.updated && formatDate(d.updated) !== formatDate(d.date) && (
+          <>
+            {' '}
+            · Updated <time datetime={d.updated.toISOString()}>{formatDate(d.updated)}</time>
+          </>
+        )}
+      </p>
+    </header>
+    {d.cover && (
+      <img
+        class="cover"
+        src={d.cover}
+        alt={d.coverAlt ?? ''}
+        width="1600"
+        height="900"
+        decoding="async"
+        fetchpriority="high"
+      />
+    )}
+    <div class="measure prose">
+      <Content />
+    </div>
+  </article>
+</BaseLayout>
+
+<style>
+  .head {
+    padding: 2.5rem 0 1.25rem;
+  }
+  h1 {
+    font-size: clamp(1.9rem, 5vw, 2.6rem);
+    margin: 0 0 0.75rem;
+  }
+  .cover {
+    display: block;
+    width: 100%;
+    max-width: var(--wide);
+    height: auto;
+    margin: 0 auto 2rem;
+    border-radius: var(--radius);
+  }
+</style>

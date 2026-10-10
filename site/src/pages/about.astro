@@ -1,0 +1,56 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { SITE } from '../lib/site';
+---
+
+<BaseLayout
+  title="About"
+  description="What DataTales is, where the data comes from, and how every number is checked."
+>
+  <div class="container measure">
+    <h1>About DataTales</h1>
+    <div class="prose">
+      <p>
+        DataTales turns UK public data into short, readable stories: what changed, who moved, and
+        what stands out. It is written and run by {SITE.author}.
+      </p>
+
+      <h2>Where the data comes from</h2>
+      <p>
+        Stories use published datasets from official and open sources such as the Office for
+        National Statistics. Each story links to its source and says when the data was fetched.
+      </p>
+
+      <h2>How the numbers are checked</h2>
+      <ul>
+        <li>Every number is calculated by code from the source data, never typed in by hand.</li>
+        <li>
+          The raw file is stored untouched, with a checksum, and cleaned using a written, versioned
+          recipe.
+        </li>
+        <li>
+          Before a story is published, every figure in the text is checked automatically against the
+          calculated values. A story with an unmatched number cannot be approved.
+        </li>
+        <li>A person reviews and approves every story before it goes live.</li>
+      </ul>
+      <p>
+        The “Source &amp; method” box at the end of each story shows the source, the fetch date and
+        the cleaning recipe version.
+      </p>
+
+      <h2>Corrections</h2>
+      <p>
+        If you spot a mistake, please <a href="/contact">get in touch</a>. Corrections are made
+        openly and the story’s “last updated” date changes.
+      </p>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  h1 {
+    font-size: 2.4rem;
+    margin: 2.5rem 0 1rem;
+  }
+</style>

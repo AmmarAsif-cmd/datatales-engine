@@ -1,0 +1,40 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import FeedList from '../components/FeedList.astro';
+import { getFeed } from '../lib/content';
+
+const latest = (await getFeed()).slice(0, 3);
+---
+
+<BaseLayout title="Page not found" description="This page could not be found." noindex>
+  <div class="container measure">
+    <h1>Page not found</h1>
+    <p class="lede">
+      That page doesn't exist, or it has moved. Try the <a href="/archive">archive</a> or the
+      <a href="/">home page</a>.
+    </p>
+    <h2 class="sub">Latest</h2>
+    <FeedList items={latest} headingLevel="h3" />
+  </div>
+</BaseLayout>
+
+<style>
+  h1 {
+    font-size: 2.4rem;
+    margin: 2.5rem 0 0.75rem;
+  }
+  .lede {
+    font-size: 1.15rem;
+    color: var(--ink-2);
+  }
+  .sub {
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 0.5rem;
+    margin-top: 2.5rem;
+  }
+</style>

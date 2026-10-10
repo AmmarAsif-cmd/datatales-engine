@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://datatales.co.uk/sitemap.xml

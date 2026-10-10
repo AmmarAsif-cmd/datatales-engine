@@ -1,0 +1,30 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { SITE } from '../lib/site';
+---
+
+<BaseLayout title="Contact" description="How to get in touch with DataTales.">
+  <div class="container measure">
+    <h1>Contact</h1>
+    <div class="prose">
+      <p>Questions, corrections or ideas for a dataset to look at? I'd like to hear from you.</p>
+      {SITE.email ? (
+        <p class="email">
+          Email: <a href={`mailto:${SITE.email}`}>{SITE.email}</a>
+        </p>
+      ) : (
+        <p class="email">An email address will be added here shortly.</p>
+      )}
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  h1 {
+    font-size: 2.4rem;
+    margin: 2.5rem 0 1rem;
+  }
+  .email {
+    font-size: 1.25rem;
+  }
+</style>

@@ -1,0 +1,55 @@
+---
+interface Props {
+  items: { label: string; value: string; note?: string }[];
+}
+const { items } = Astro.props;
+---
+
+<section class="numbers" aria-label="Key numbers">
+  <ul>
+    {items.map((n) => (
+      <li class="card">
+        <span class="value">{n.value}</span>
+        <span class="label">{n.label}</span>
+        {n.note && <span class="note">{n.note}</span>}
+      </li>
+    ))}
+  </ul>
+</section>
+
+<style>
+  ul {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 0.75rem;
+    list-style: none;
+    margin: 1.75rem 0;
+    padding: 0;
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--accent);
+    border-radius: var(--radius);
+  }
+  .value {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: 1.9rem;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .label {
+    font-size: 0.95rem;
+    color: var(--ink-2);
+  }
+  .note {
+    font-size: 0.8125rem;
+    color: var(--muted);
+  }
+</style>

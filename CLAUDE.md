@@ -47,6 +47,21 @@ uv run python -m datatales db-check  # Supabase connection, tables, RLS, buckets
 uv run ruff check . && uv run ruff format --check . && uv run pytest
 ```
 
+Site (run from `site/`):
+
+```sh
+npm run dev | npm run build | npm run check | npm run lint | npm run format
+```
+
+## Site
+
+- Astro 7, static, `build.format: 'file'` + `trailingSlash: 'never'`: URLs are `/slug` with no trailing slash. Don't change this; the migrated Hashnode URLs depend on it.
+- Posts: `site/src/content/posts/<slug>.md` → `/<slug>` (migrated, frozen). Stories: `site/src/content/stories/<slug>.md` → `/stories/<slug>`.
+- **Story front matter is the publish contract** (schema in `site/src/content.config.ts`): `title, description, hook, date, updated?, source{name,publisher?,url,licence?}, fetchedAt, recipeVersion, datasetChecksum?, period?, keyNumbers[1-5]{label,value,note?}, chart_spec{type,x,y,series?,highlight?,annotation?,title?,yLabel?}, chart_data[], numbers{}`. `publish.py` (M7) must write exactly this.
+- `sample: true` = fake data, dev only. `scripts/check-dist.mjs` fails the build if sample content, a Supabase URL or a key reaches `dist/`.
+- Charts: `Chart.tsx` (Observable Plot, `client:visible`) inside `ChartFigure.astro` (caption, legend, data table). Palette = validated dataviz default via CSS vars `--series-1..8` (light/dark); highlighted series coloured, others grey; line y-axis not zero-based; ≥2 series ⇒ legend.
+- No analytics, no external fonts, no third-party scripts (migrated posts embed public Power BI iframes only).
+
 ## Database
 
 - Migrations: `supabase/migrations/NNNN_name.sql`, plain SQL, wrapped in `begin; ... commit;`. The user runs them in the Supabase SQL Editor. Never edit an applied migration; add a new one.
@@ -67,4 +82,5 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest
 
 - M0 Scaffold: done
 - M1 Database: done (migration 0001 + `db-check`)
-- Next: M2 Public site + Hashnode migration
+- M2 Public site + Hashnode migration: done
+- Next: M3 Ingest, profile, clean

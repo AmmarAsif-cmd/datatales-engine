@@ -1,0 +1,7 @@
+# Cloudflare Pages redirects. Old Hashnode paths -> new site.
+# /archive and /rss.xml exist natively on this site at the same paths, so they need no redirect.
+/members        /          301
+/newsletter     /          301
+/series/*       /archive   301
+/tag/*          /archive   301
+/sitemap-index.xml /sitemap.xml 301

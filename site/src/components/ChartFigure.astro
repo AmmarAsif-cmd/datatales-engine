@@ -1,0 +1,149 @@
+---
+import Chart from './Chart';
+import { colouredSeries, type ChartSpec, type Row } from '../lib/chart';
+
+interface Props {
+  spec: ChartSpec;
+  data: Row[];
+  /** Used as the chart's accessible name when the spec has no title. */
+  fallbackTitle: string;
+}
+
+const { spec, data, fallbackTitle } = Astro.props;
+const title = spec.title ?? fallbackTitle;
+const coloured = colouredSeries(spec, data);
+const hasOthers =
+  !!spec.series && new Set(data.map((r) => String(r[spec.series!]))).size > coloured.length;
+const columns = Array.from(new Set(data.flatMap((r) => Object.keys(r))));
+const isNum = (c: string) => data.every((r) => r[c] === null || typeof r[c] === 'number');
+const fmt = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 3, useGrouping: true });
+const cell = (v: Row[string], c: string) =>
+  v === null ? '–' : typeof v === 'number' && !/year/i.test(c) ? fmt.format(v) : String(v);
+const id = `chart-${title
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-|-$/g, '')}`;
+---
+
+<figure class="chart" aria-labelledby={`${id}-title`}>
+  <figcaption>
+    <p class="chart-title" id={`${id}-title`}>
+      {title}
+    </p>
+    <p class="chart-sub">{spec.yLabel ?? spec.y}</p>
+    {coloured.length >= 2 && (
+      <ul class="legend" aria-label="Legend">
+        {coloured.map((s, i) => (
+          <li>
+            <span class="key" style={`background: var(--series-${i + 1})`} />
+            {s}
+          </li>
+        ))}
+        {hasOthers && (
+          <li>
+            <span class="key" style="background: var(--chart-muted)" />
+            Other
+          </li>
+        )}
+      </ul>
+    )}
+  </figcaption>
+
+  <div class="chart-frame">
+    <Chart client:visible spec={spec} data={data} label={title} />
+  </div>
+
+  {spec.annotation && <p class="chart-note">{spec.annotation}</p>}
+
+  <details class="chart-table">
+    <summary>View the data behind this chart</summary>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            {columns.map((c) => (
+              <th scope="col" class={isNum(c) ? 'num' : undefined}>
+                {c}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((r) => (
+            <tr>
+              {columns.map((c) => (
+                <td class={isNum(c) ? 'num' : undefined}>{cell(r[c] ?? null, c)}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</figure>
+
+<style>
+  .chart {
+    margin: 2rem 0;
+    padding: 1.25rem 1rem 1rem;
+    background: var(--chart-surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+  }
+  figcaption p {
+    margin: 0;
+  }
+  .chart-title {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--ink);
+  }
+  .chart-sub {
+    color: var(--ink-2);
+    font-size: 0.9rem;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    list-style: none;
+    padding: 0;
+    margin: 0.6rem 0 0;
+    font-size: 0.875rem;
+    color: var(--ink-2);
+  }
+  .legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .key {
+    display: inline-block;
+    width: 14px;
+    height: 3px;
+    border-radius: 2px;
+  }
+  .chart-frame {
+    margin-top: 0.75rem;
+    min-height: 260px; /* reserve space before the island hydrates */
+  }
+  .chart-note {
+    margin: 0.5rem 0 0;
+    font-size: 0.9rem;
+    color: var(--ink-2);
+  }
+  .chart-table {
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+  }
+  .chart-table summary {
+    cursor: pointer;
+    color: var(--link);
+    font-weight: 500;
+  }
+  .chart-table .table-scroll {
+    margin-top: 0.5rem;
+    max-height: 22rem;
+    overflow: auto;
+  }
+</style>

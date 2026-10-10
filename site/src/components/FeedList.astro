@@ -1,0 +1,79 @@
+---
+import { formatDate, type FeedItem } from '../lib/content';
+
+interface Props {
+  items: FeedItem[];
+  headingLevel?: 'h2' | 'h3';
+}
+const { items, headingLevel: H = 'h2' } = Astro.props;
+---
+
+<ul class="feed">
+  {items.map((item) => (
+    <li>
+      <p class="kind">
+        {item.kind === 'story' ? 'Data story' : 'Article'}
+        {item.sample && <span class="sample-tag">Sample · fake data</span>}
+      </p>
+      <H class="title">
+        <a href={item.url}>{item.title}</a>
+      </H>
+      <p class="desc">{item.description}</p>
+      <p class="meta">
+        <time datetime={item.date.toISOString()}>{formatDate(item.date)}</time>
+      </p>
+    </li>
+  ))}
+</ul>
+
+<style>
+  .feed {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  li {
+    padding: 1.5rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  li:first-child {
+    padding-top: 0.5rem;
+  }
+  .kind {
+    margin: 0 0 0.3rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--accent-2);
+  }
+  .sample-tag {
+    margin-left: 0.5rem;
+    padding: 0.05rem 0.4rem;
+    border: 1px dashed currentColor;
+    border-radius: 4px;
+  }
+  .title {
+    margin: 0;
+    font-size: 1.45rem;
+  }
+  .title a {
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .title a:hover {
+    text-decoration: underline;
+  }
+  .desc {
+    margin: 0.4rem 0;
+    color: var(--ink-2);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .meta {
+    margin: 0;
+  }
+</style>

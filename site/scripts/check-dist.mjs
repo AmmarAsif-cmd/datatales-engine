@@ -1,0 +1,73 @@
+// Post-build checks for the production site in dist/. Exits 1 on any failure.
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+
+const DIST = new URL('../dist/', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+const problems = [];
+const must = (cond, msg) => cond || problems.push(msg);
+
+// 1. Every migrated Hashnode URL must still exist (served without trailing slash).
+const LEGACY = [
+  'welcome-to-datatales-where-your-data-speaks',
+  'are-petrol-cars-still-king-in-uk',
+  'uk-laptop-imports-vs-exports',
+  'wellbeing-in-the-uk',
+];
+for (const slug of LEGACY)
+  must(existsSync(join(DIST, `${slug}.html`)), `missing legacy post /${slug}`);
+
+// 2. Required site files.
+for (const f of [
+  'index.html',
+  '404.html',
+  'archive.html',
+  'about.html',
+  'contact.html',
+  'rss.xml',
+  'sitemap.xml',
+  'robots.txt',
+  '_redirects',
+  'favicon.svg',
+]) {
+  must(existsSync(join(DIST, f)), `missing ${f}`);
+}
+
+// 3. Walk every built file.
+const files = [];
+const walk = (dir) => {
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) walk(p);
+    else files.push(p);
+  }
+};
+walk(DIST);
+
+const SECRET_PATTERNS = [
+  /sb_secret_[A-Za-z0-9_-]{10,}/,
+  /SUPABASE_SERVICE_ROLE_KEY/,
+  /service_role/,
+  /eyJhbGciOi[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/, // JWT
+  /\.supabase\.co/,
+];
+for (const f of files.filter((p) => /\.(html|js|xml|txt|json|css)$/.test(p))) {
+  const text = readFileSync(f, 'utf8');
+  const rel = f.slice(DIST.length);
+  // 4. Sample stories must never reach production.
+  must(
+    !/SAMPLE STORY|sample-fake-data-demo|"sample":\s*true/.test(text),
+    `sample content found in ${rel}`,
+  );
+  for (const re of SECRET_PATTERNS)
+    must(!re.test(text), `possible secret/Supabase reference (${re}) in ${rel}`);
+}
+must(
+  !existsSync(join(DIST, 'stories', 'sample-fake-data-demo.html')),
+  'sample story page was built',
+);
+
+if (problems.length) {
+  console.error(`check-dist: ${problems.length} problem(s)\n - ` + problems.join('\n - '));
+  process.exit(1);
+}
+console.log(`check-dist: OK (${files.length} files)`);

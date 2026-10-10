@@ -1,0 +1,127 @@
+---
+import { render } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ChartFigure from '../../components/ChartFigure.astro';
+import NumberCards from '../../components/NumberCards.astro';
+import SourceNote from '../../components/SourceNote.astro';
+import { formatDate, getStories, type Story } from '../../lib/content';
+import { SITE } from '../../lib/site';
+
+export async function getStaticPaths() {
+  const stories = await getStories();
+  return stories.map((story) => ({ params: { slug: story.id }, props: { story } }));
+}
+
+const { story } = Astro.props as { story: Story };
+const { Content } = await render(story);
+const d = story.data;
+const url = `${SITE.url}/stories/${story.id}`;
+
+const article = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: d.title,
+  description: d.description,
+  datePublished: d.date.toISOString(),
+  dateModified: (d.updated ?? d.date).toISOString(),
+  url,
+  mainEntityOfPage: url,
+  image: new URL(SITE.defaultOgImage, SITE.url).href,
+  inLanguage: 'en-GB',
+  author: { '@type': 'Person', name: SITE.author },
+  publisher: {
+    '@type': 'Organization',
+    name: SITE.name,
+    logo: { '@type': 'ImageObject', url: new URL(SITE.logo, SITE.url).href },
+  },
+  isBasedOn: d.source.url,
+};
+const dataset = {
+  '@context': 'https://schema.org',
+  '@type': 'Dataset',
+  name: d.source.name,
+  url: d.source.url,
+  description: `Source dataset for “${d.title}”.`,
+  creator: d.source.publisher ? { '@type': 'Organization', name: d.source.publisher } : undefined,
+  license: d.source.licence,
+  temporalCoverage: d.period,
+};
+---
+
+<BaseLayout
+  title={d.title}
+  description={d.description}
+  type="article"
+  published={d.date}
+  modified={d.updated}
+  noindex={d.sample}
+  jsonLd={d.sample ? undefined : [article, dataset]}
+>
+  <article class="container">
+    <div class="measure">
+      {d.sample && (
+        <p class="sample-banner" role="note">
+          SAMPLE STORY: made-up numbers for layout testing only. This page is never built for the
+          live site.
+        </p>
+      )}
+      <header class="head">
+        <p class="kicker">Data story</p>
+        <h1>{d.title}</h1>
+        <p class="hook">{d.hook}</p>
+        <p class="meta">
+          <time datetime={d.date.toISOString()}>{formatDate(d.date)}</time>
+          {d.updated && formatDate(d.updated) !== formatDate(d.date) && (
+            <>
+              {' '}
+              · Updated <time datetime={d.updated.toISOString()}>{formatDate(d.updated)}</time>
+            </>
+          )}
+          {' · '}Source:{' '}
+          <a href={d.source.url} rel="noopener">
+            {d.source.name}
+          </a>
+        </p>
+      </header>
+    </div>
+
+    <div class="wide-chart">
+      <ChartFigure spec={d.chart_spec} data={d.chart_data} fallbackTitle={d.title} />
+    </div>
+
+    <div class="measure">
+      <NumberCards items={d.keyNumbers} />
+      <div class="prose">
+        <Content />
+      </div>
+      <SourceNote
+        source={d.source}
+        fetchedAt={d.fetchedAt}
+        recipeVersion={d.recipeVersion}
+        datasetChecksum={d.datasetChecksum}
+        period={d.period}
+        updated={d.updated ?? d.date}
+      />
+    </div>
+  </article>
+</BaseLayout>
+
+<style>
+  .head {
+    padding: 2.5rem 0 0.5rem;
+  }
+  h1 {
+    font-size: clamp(1.9rem, 5vw, 2.7rem);
+    margin: 0 0 0.75rem;
+  }
+  .hook {
+    font-size: 1.25rem;
+    line-height: 1.5;
+    color: var(--ink-2);
+    margin: 0 0 0.75rem;
+  }
+  .wide-chart {
+    max-width: 52rem;
+    margin-inline: auto;
+  }
+</style>

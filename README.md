@@ -69,7 +69,15 @@ that `db-check` uses to confirm nothing is exposed.
 
 ## Public site
 
-Arrives in Milestone 2. Cloudflare Pages builds it from `site/` using only committed files.
+```sh
+cd site
+npm install
+npm run dev      # http://127.0.0.1:4321
+npm run build    # production build + checks
+```
+
+Cloudflare Pages builds it from `site/` using only committed files. See [site/README.md](site/README.md)
+for the Pages settings, content folders and how sample stories are kept out of production.
 
 ## Review dashboard
 
@@ -91,7 +99,7 @@ Only `.env.example` files (placeholder names, no values) are committed.
 
 - [x] M0 Scaffold
 - [x] M1 Database (migrations, RLS, buckets, `db-check`)
-- [ ] M2 Public site + Hashnode migration
+- [x] M2 Public site + Hashnode migration
 - [ ] M3 Ingest, profile, clean
 - [ ] M4 Detect
 - [ ] M5 Narrate + verify

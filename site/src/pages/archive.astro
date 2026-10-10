@@ -1,0 +1,48 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import FeedList from '../components/FeedList.astro';
+import { getFeed, type FeedItem } from '../lib/content';
+
+const feed = await getFeed();
+const byYear = new Map<number, FeedItem[]>();
+for (const item of feed) {
+  const y = Number(
+    new Intl.DateTimeFormat('en-GB', { year: 'numeric', timeZone: 'Europe/London' }).format(
+      item.date,
+    ),
+  );
+  byYear.set(y, [...(byYear.get(y) ?? []), item]);
+}
+---
+
+<BaseLayout title="Archive" description="Every DataTales story and article, newest first.">
+  <div class="container measure">
+    <h1>Archive</h1>
+    <p class="meta">
+      {feed.length} {feed.length === 1 ? 'piece' : 'pieces'}, newest first.
+    </p>
+    {[...byYear.entries()].map(([year, items]) => (
+      <section aria-labelledby={`y${year}`}>
+        <h2 id={`y${year}`} class="year">
+          {year}
+        </h2>
+        <FeedList items={items} headingLevel="h3" />
+      </section>
+    ))}
+  </div>
+</BaseLayout>
+
+<style>
+  h1 {
+    font-size: 2.4rem;
+    margin: 2.5rem 0 0.25rem;
+  }
+  .year {
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    color: var(--muted);
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 0.4rem;
+    margin: 2.5rem 0 0;
+  }
+</style>

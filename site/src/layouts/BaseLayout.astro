@@ -1,0 +1,163 @@
+---
+import '../styles/global.css';
+import Seo, { type Props as SeoProps } from '../components/Seo.astro';
+import ThemeToggle from '../components/ThemeToggle.astro';
+import { SITE } from '../lib/site';
+
+export type Props = SeoProps;
+const props = Astro.props;
+const year = new Date().getFullYear();
+const nav = [
+  { href: '/archive', label: 'Archive' },
+  { href: '/about', label: 'About' },
+  { href: '/contact', label: 'Contact' },
+];
+const here = Astro.url.pathname.replace(/\.html$/, '');
+---
+
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="generator" content={Astro.generator} />
+    <!-- Apply a saved theme before first paint to avoid a flash. -->
+    <script is:inline>
+      try {
+        const t = localStorage.getItem('theme');
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+      } catch {
+        // storage blocked: fall back to the OS theme
+      }
+    </script>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title={SITE.name} href="/rss.xml" />
+    <link rel="sitemap" href="/sitemap.xml" />
+    <Seo {...props} />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">
+      Skip to content
+    </a>
+    <header class="site-header">
+      <div class="container bar">
+        <a class="wordmark" href="/" aria-label="DataTales home">
+          <span class="w1">Data</span>
+          <span class="w2">Tales</span>
+        </a>
+        <nav aria-label="Main">
+          <ul>
+            {nav.map((item) => (
+              <li>
+                <a href={item.href} aria-current={here === item.href ? 'page' : undefined}>
+                  {item.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <ThemeToggle />
+      </div>
+    </header>
+
+    <main id="main">
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <p>
+          <span class="wordmark small">
+            <span class="w1">Data</span>
+            <span class="w2">Tales</span>
+          </span>
+          {SITE.tagline}
+        </p>
+        <p class="meta">
+          <a href="/rss.xml">RSS</a> · <a href="/archive">Archive</a> · <a href="/about">About</a> ·
+          <a href="/contact">Contact</a>
+        </p>
+        <p class="meta">
+          © {year}
+          {SITE.author}. Source data remains under each publisher's licence.
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .site-header {
+    border-bottom: 1px solid var(--rule);
+  }
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-height: 4rem;
+  }
+  .wordmark {
+    display: inline-flex; /* no whitespace gap between "Data" and "Tales" */
+    font-family: var(--font-sans);
+    font-weight: 800;
+    font-size: 1.4rem;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+    margin-right: auto;
+  }
+  .wordmark.small {
+    font-size: 1rem;
+    margin-right: 0.5rem;
+  }
+  .w1 {
+    color: var(--accent);
+  }
+  .w2 {
+    color: var(--accent-2);
+  }
+  nav ul {
+    display: flex;
+    gap: 1.1rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  nav a {
+    color: var(--ink-2);
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-weight: 500;
+  }
+  nav a:hover,
+  nav a[aria-current='page'] {
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.35em;
+  }
+  main {
+    min-height: 60vh;
+    padding-bottom: 4rem;
+  }
+  .site-footer {
+    border-top: 1px solid var(--rule);
+    padding-block: 2rem;
+    color: var(--ink-2);
+    font-size: 0.95rem;
+  }
+  .site-footer p {
+    margin: 0.35rem 0;
+  }
+  @media (max-width: 30rem) {
+    .bar {
+      gap: 0.75rem;
+    }
+    nav ul {
+      gap: 0.75rem;
+    }
+    .wordmark {
+      font-size: 1.15rem;
+    }
+  }
+</style>
