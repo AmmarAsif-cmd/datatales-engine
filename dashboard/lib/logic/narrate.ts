@@ -3,13 +3,17 @@
  * Must match Python (checked against worker/tests/golden/cases.json). The reply is parsed
  * with JSON.parse only; nothing in it is ever executed.
  */
+import { CHECK_KINDS, type CheckKind } from "./chartfacts.ts";
 import { decToString } from "./decimal.ts";
 import { flattenNumbers } from "./verify.ts";
 
 export const HEADLINE_MAX_CHARS = 70;
 export const SUMMARY_MAX_WORDS = 120;
-export const BODY_MAX_WORDS = 400;
+export const BODY_MIN_WORDS = 450; // the prompt asks for 500-700; a little slack either side
+export const BODY_MAX_WORDS = 750;
 export const VIDEO_MAX_WORDS = 90;
+export const REQUIRED_SECTIONS = ["How it compares", "What the data can't tell us"];
+export type Check = { kind: CheckKind; group?: string; period?: string; start?: string; end?: string };
 
 export class NarrationError extends Error {}
 
@@ -31,7 +35,7 @@ export type Narration = {
     title?: string | null;
     yLabel?: string | null;
   };
-  claims: { sentence: string; keys: string[] }[];
+  claims: { sentence: string; keys: string[]; checks: Check[] }[];
 };
 
 const chars = (s: string) => [...s].length;
@@ -43,6 +47,12 @@ export function wordCount(text: string): number {
     if (m[0].replace(/^['’-]+|['’-]+$/g, "")) n += 1;
   }
   return n;
+}
+
+/** A '## Title' (or ###) heading; straight or curly apostrophes both count. */
+export function hasSection(body: string, title: string): boolean {
+  const norm = title.toLowerCase().replace(/'/g, "['’]");
+  return new RegExp(`^#{2,3}\\s*${norm}\\s*$`, "im").test(body);
 }
 
 function stripFences(text: string): string {
@@ -111,10 +121,14 @@ export function parseNarration(text: string, chartData: Row[]): Narration {
   }
   const body = strField(obj, "body_md", "body_md", p, { strip: true, min: 50 });
   if (body !== undefined) {
-    if (wordCount(body) > BODY_MAX_WORDS) {
-      p.push(["body_md", `Value error, is ${wordCount(body)} words; max ${BODY_MAX_WORDS}`]);
+    const n = wordCount(body);
+    const missing = REQUIRED_SECTIONS.filter((t) => !hasSection(body, t));
+    if (n > BODY_MAX_WORDS || n < BODY_MIN_WORDS) {
+      p.push(["body_md", `Value error, is ${n} words; must be ${BODY_MIN_WORDS} to ${BODY_MAX_WORDS}`]);
     } else if (/<\s*(script|iframe|style)|javascript:/i.test(body)) {
       p.push(["body_md", "Value error, must be plain Markdown (no scripts, iframes or styles)"]);
+    } else if (missing.length) {
+      p.push(["body_md", `Value error, needs '## ' sections: ${missing.join(", ")}`]);
     }
   }
   const video = strField(obj, "video_script", "video_script", p, { strip: true, min: 10 });
@@ -171,15 +185,20 @@ export function parseNarration(text: string, chartData: Row[]): Narration {
         return;
       }
       const co = c as Record<string, unknown>;
-      checkExtra(co, ["sentence", "keys"], `${loc}.`, p);
+      checkExtra(co, ["sentence", "keys", "checks"], `${loc}.`, p);
+      const before = p.length;
       const sentence = strField(co, "sentence", `${loc}.sentence`, p, { strip: true, min: 5, max: 600 });
-      const keys = co.keys;
-      if (keys === undefined) p.push([`${loc}.keys`, "Field required"]);
-      else if (!Array.isArray(keys) || !keys.every((k) => typeof k === "string")) {
+      const keys = co.keys ?? [];
+      if (!Array.isArray(keys) || !keys.every((k) => typeof k === "string")) {
         p.push([`${loc}.keys`, "Input should be a valid list of strings"]);
-      } else if (keys.length < 1) p.push([`${loc}.keys`, "List should have at least 1 item after validation, not 0"]);
-      else if (keys.length > 12) p.push([`${loc}.keys`, "List should have at most 12 items after validation"]);
-      else if (sentence !== undefined) claims.push({ sentence, keys: keys.map((k) => (k as string).trim()) });
+      } else if (keys.length > 12) p.push([`${loc}.keys`, "List should have at most 12 items after validation"]);
+      const checks = parseChecks(co.checks ?? [], `${loc}.checks`, p);
+      if (p.length !== before || sentence === undefined) return;
+      if (!(keys as string[]).length && !checks.length) {
+        p.push([loc, "Value error, needs at least one key or check"]);
+        return;
+      }
+      claims.push({ sentence, keys: (keys as string[]).map((k) => k.trim()), checks });
     });
   }
 
@@ -198,6 +217,48 @@ export function parseNarration(text: string, chartData: Row[]): Narration {
   };
   checkChart(narration.chart_spec, chartData);
   return narration;
+}
+
+export function parseChecks(raw: unknown, loc: string, p: [string, string][]): Check[] {
+  if (!Array.isArray(raw)) {
+    p.push([loc, "Input should be a valid list"]);
+    return [];
+  }
+  if (raw.length > 6) {
+    p.push([loc, "List should have at most 6 items after validation"]);
+    return [];
+  }
+  const out: Check[] = [];
+  raw.forEach((c, j) => {
+    const at = `${loc}.${j}`;
+    if (!c || typeof c !== "object" || Array.isArray(c)) {
+      p.push([at, "Input should be a valid dictionary"]);
+      return;
+    }
+    const co = c as Record<string, unknown>;
+    const before = p.length;
+    checkExtra(co, ["kind", "group", "period", "start", "end"], `${at}.`, p);
+    if (!CHECK_KINDS.includes(co.kind as CheckKind)) {
+      p.push([`${at}.kind`, `Input should be ${CHECK_KINDS.slice(0, -1).map((k) => `'${k}'`).join(", ")} or '${CHECK_KINDS.at(-1)}'`]);
+    }
+    const fields: Record<string, string | undefined> = {};
+    for (const f of ["group", "period", "start", "end"]) {
+      fields[f] = strField(co, f, `${at}.${f}`, p, { strip: true, optional: true });
+    }
+    if (p.length !== before) return;
+    const kind = co.kind as CheckKind;
+    const needs = kind === "highest" || kind === "lowest" ? ["period"] : ["start", "end"];
+    if (kind !== "all_rise" && kind !== "all_fall") needs.push("group");
+    const missing = needs.filter((f) => !fields[f]);
+    if (missing.length) {
+      p.push([at, `Value error, ${kind} needs ${missing.join(", ")}`]);
+      return;
+    }
+    const check: Check = { kind };
+    for (const f of ["group", "period", "start", "end"] as const) if (fields[f] !== undefined) check[f] = fields[f];
+    out.push(check);
+  });
+  return out;
 }
 
 function checkChart(spec: Narration["chart_spec"], chartData: Row[]): void {
@@ -252,57 +313,86 @@ export function pyDumps(obj: unknown, indent?: number, level = 0): string {
 
 // ---- prompt (keep in sync with narrate.py) ----
 
+/** Generated from narrate.py OUTPUT_SCHEMA (golden-tested). */
 export const OUTPUT_SCHEMA = {
-  headline: `string, at most ${HEADLINE_MAX_CHARS} characters, search-friendly, e.g. "UK wellbeing by region 2011–2023"`,
-  hook: "string, exactly one sentence",
-  summary: `string, at most ${SUMMARY_MAX_WORDS} words`,
-  body_md: `string, Markdown, at most ${BODY_MAX_WORDS} words, no headings above ##`,
-  video_script: `string, at most ${VIDEO_MAX_WORDS} words, to be read aloud`,
-  chart_spec: {
-    type: "line | bar | dot",
-    x: "column name in chart_data",
-    y: "column name in chart_data",
-    series: "column name in chart_data (optional)",
-    highlight: "a value (or list of values) of the series column to highlight",
-    annotation: "short note under the chart, at most 200 characters (optional)",
-    title: "chart title, at most 120 characters (optional)",
-    yLabel: "label for the values, e.g. the unit (optional)",
+  "headline": "string, at most 70 characters: the single strongest finding as a statement, e.g. \"Northern Ireland is the only UK nation where low anxiety rose\"",
+  "hook": "string, exactly one sentence",
+  "summary": "string, at most 120 words",
+  "body_md": "string, Markdown, 500 to 700 words, with the sections \"## How it compares\" and \"## What the data can't tell us\"; no headings above ##",
+  "video_script": "string, at most 90 words, to be read aloud",
+  "chart_spec": {
+    "type": "line | bar | dot",
+    "x": "column name in chart_data",
+    "y": "column name in chart_data",
+    "series": "column name in chart_data (optional)",
+    "highlight": "a value (or list of values) of the series column to highlight",
+    "annotation": "short note under the chart, at most 200 characters (optional)",
+    "title": "chart title, at most 120 characters (optional)",
+    "yLabel": "label for the values, e.g. the unit (optional)"
   },
-  claims: [
+  "claims": [
     {
-      sentence:
-        "a sentence copied EXACTLY from headline/hook/summary/body_md/video_script that contains a number (other than a year)",
-      keys: ["the KEYS (from the KEYS table) that each number in it comes from"],
-    },
-  ],
+      "sentence": "a sentence copied EXACTLY from headline/hook/summary/body_md/video_script that contains a number (other than a year) or a rank word",
+      "keys": [
+        "the KEYS (from the KEYS table) that each number in it comes from"
+      ],
+      "checks": [
+        {
+          "kind": "only_rise | only_fall | all_rise | all_fall | highest | lowest | biggest_rise | biggest_fall",
+          "group": "geography (not for all_rise/all_fall)",
+          "start": "first period (rise/fall kinds)",
+          "end": "last period (rise/fall kinds)",
+          "period": "period (highest/lowest)"
+        }
+      ]
+    }
+  ]
 };
 
 export const RULES = `Rules (follow every one):
 1. Use ONLY numbers that appear in NUMBERS below. Do not calculate new numbers (no new
    differences, ratios, averages or percentages) and do not round to a different figure
-   than one you could get by rounding a number given. Years must be within the data period.
+   than one you could get by rounding a number given. Years must be within the data period
+   (years mentioned in \`caveats\` are also allowed).
 2. UK English. Plain, calm language for a general reader. No hype words ("shocking",
-   "soaring", "plummeting", "crisis").
-3. Every change or gap in NUMBERS is statistically clear (confidence intervals do not
+   "soaring", "plummeting", "crisis"). Write financial years with an en dash: 2011–12.
+3. HEADLINE: state the single strongest finding as a statement with its key fact, e.g.
+   "Northern Ireland is the only UK nation where low anxiety rose". Never a topic label
+   such as "Wellbeing in Northern Ireland 2011–2023".
+4. FRAMING: \`chart_facts.supported_checks\` lists what the chart data clearly supports
+   (only_rise, only_fall, all_rise, all_fall, highest, lowest, biggest_rise, biggest_fall).
+   When one is supported, prefer that framing ("the only nation where…", "the biggest rise
+   of the four…"), or rank-change framing from \`rank_change\`/\`overtook\` in the findings.
+5. Every change or gap in NUMBERS is statistically clear (confidence intervals do not
    overlap). Say "clearly higher/lower" if useful; never say "significant".
-4. Respect polarity: \`higher_is_better\` and \`good_news\` say whether a rise is good. For
+6. Respect polarity: \`higher_is_better\` and \`good_news\` say whether a rise is good. For
    anxiety, a LOWER score is better. Band labels for anxiety mean: Poor = high anxiety,
    Fair = medium, Good = low, Very good = very low anxiety. Never write "very good anxiety";
    write "very low anxiety".
-5. When \`unit\` starts with "%", a change in \`change\` is in percentage points: write
+7. When \`unit\` starts with "%", a change in \`change\` is in percentage points: write
    "5.4 percentage points", never "5.4%". \`pct_change\` is a relative change.
-6. Look at \`series[].notable_moves\` and \`moves_shared_by_most_geographies\`. If they show a
-   notable dip or rise (for example around 2020-21), mention it briefly with its numbers.
-   If they are empty, do not invent one.
-7. Describe the shape honestly. The findings compare the first and last year; \`series[].points\`
-   has every year. If the series peaked or bottomed out in between (for example rose, then
-   fell back), say so with those numbers instead of implying a steady trend.
-8. Say where the data comes from (source name) and the period covered.
-9. CLAIMS: for EVERY sentence in any field that contains a number other than a year, add
-   one claim {"sentence": <the sentence copied exactly>, "keys": [<KEYS it uses>]}. Each
-   number in the sentence must equal (after rounding) one of its keys. If the same sentence
-   is used in two fields, one claim covers both. Count words like "four" as numbers.
-10. Return ONLY a JSON object with exactly these keys, no Markdown fences, no comments.
+8. SHAPE: \`series[].points\` has every year and \`series[].peak\` the peak and low point. If
+   \`latest_well_below_peak\` is true, say plainly that the latest value is well below the
+   peak, with both numbers and years. Mention notable dips or rises from \`notable_moves\` and
+   \`moves_shared_by_most_geographies\` (for example 2020–21) briefly, with their numbers. If
+   they are empty, do not invent one.
+9. STRUCTURE of body_md (500 to 700 words): first the main finding and its shape; then
+   "## How it compares" (the other geographies and the other measures in NUMBERS); then
+   "## What the data can't tell us" (these are survey estimates with confidence intervals;
+   the data does not explain causes; and every point in \`caveats\`, such as the paused annual
+   release). Say where the data comes from (source name) and the period covered.
+10. RANK WORDS: use "only", "all", "highest", "lowest", "biggest" or "largest" only for the
+   charted measure, and only when a check proves it (rule 11). Otherwise avoid these words.
+11. CLAIMS: for EVERY sentence in any field that contains a number other than a year, or any
+   of the rank words above, add one claim:
+   {"sentence": <copied exactly>, "keys": [<KEYS used>], "checks": [<checks>]}.
+   Each number must equal (after rounding) one of its keys. Each rank word needs a check of
+   the matching kind: only -> only_rise/only_fall; all -> all_rise/all_fall; highest ->
+   highest; lowest -> lowest; biggest/largest -> biggest_rise/biggest_fall. Copy checks from
+   \`chart_facts.supported_checks\` (without "detail"), or write one with other periods; every
+   check is re-tested against chart_data. If the same sentence is used in two fields, one
+   claim covers both. Count words like "four" as numbers.
+12. Return ONLY a JSON object with exactly these keys, no Markdown fences, no comments.
 `;
 
 export function buildPrompt(

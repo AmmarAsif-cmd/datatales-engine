@@ -2,6 +2,17 @@
  "numbers": {
   "series": [
    {
+    "peak": {
+     "low_value": 34.11,
+     "low_period": "2011-12",
+     "peak_value": 46.95,
+     "peak_period": "2017-18",
+     "latest_value": 39.53,
+     "latest_period": "2022-23",
+     "latest_is_peak": false,
+     "latest_below_peak_by": 7.42,
+     "latest_well_below_peak": true
+    },
     "unit": "% of people",
     "points": [
      {
@@ -162,6 +173,17 @@
     ]
    },
    {
+    "peak": {
+     "low_value": 2.53,
+     "low_period": "2017-18",
+     "peak_value": 3.15,
+     "peak_period": "2011-12",
+     "latest_value": 2.91,
+     "latest_period": "2022-23",
+     "latest_is_peak": false,
+     "latest_below_peak_by": 0.24,
+     "latest_well_below_peak": false
+    },
     "unit": "average score out of 10",
     "points": [
      {
@@ -314,6 +336,17 @@
     ]
    },
    {
+    "peak": {
+     "low_value": 7.76,
+     "low_period": "2011-12",
+     "peak_value": 8.1,
+     "peak_period": "2014-15",
+     "latest_value": 7.93,
+     "latest_period": "2022-23",
+     "latest_is_peak": false,
+     "latest_below_peak_by": 0.17,
+     "latest_well_below_peak": true
+    },
     "unit": "average score out of 10",
     "points": [
      {
@@ -446,6 +479,17 @@
     ]
    },
    {
+    "peak": {
+     "low_value": 7.39,
+     "low_period": "2011-12",
+     "peak_value": 7.8,
+     "peak_period": "2017-18",
+     "latest_value": 7.57,
+     "latest_period": "2022-23",
+     "latest_is_peak": false,
+     "latest_below_peak_by": 0.23,
+     "latest_well_below_peak": true
+    },
     "unit": "average score out of 10",
     "points": [
      {
@@ -598,6 +642,12 @@
    "licence": "Open Government Licence v3.0",
    "publisher": "Office for National Statistics"
   },
+  "caveats": [
+   "ONS paused its annual personal well-being estimates after April 2022 to March 2023 because of falling response rates and weighting problems in the Annual Population Survey, so 2022-23 is the latest year available.",
+   "Since October 2024, ONS has classed these estimates as official statistics in development rather than accredited official statistics.",
+   "The figures are survey estimates. Each has a confidence interval, so small differences between years or places may not be real differences.",
+   "The survey reports how people rated their own well-being. It does not say why scores changed."
+  ],
   "findings": [
    {
     "id": "bab61877-a4a4-4bee-b72c-1de2ec617f9c",
@@ -831,6 +881,36 @@
   "geo_level": "country",
   "geography": "Northern Ireland",
   "good_news": true,
+  "chart_facts": {
+   "end": "2022-23",
+   "group": "Northern Ireland",
+   "start": "2011-12",
+   "groups_rising": 1,
+   "groups_falling": 3,
+   "groups_compared": 4,
+   "supported_checks": [
+    {
+     "kind": "highest",
+     "group": "Northern Ireland",
+     "detail": "Northern Ireland 39.53 vs next Scotland 35.81 in 2022-23, clear",
+     "period": "2022-23"
+    },
+    {
+     "end": "2022-23",
+     "kind": "only_rise",
+     "group": "Northern Ireland",
+     "start": "2011-12",
+     "detail": "Northern Ireland 5.42; all 3 others did not"
+    },
+    {
+     "end": "2022-23",
+     "kind": "biggest_rise",
+     "group": "Northern Ireland",
+     "start": "2011-12",
+     "detail": "Northern Ireland 5.42, next -2.24"
+    }
+   ]
+  },
   "data_period": {
    "last": "2022-23",
    "first": "2011-12"
@@ -1178,81 +1258,192 @@
   "x": "period",
   "y": "value",
   "type": "line",
-  "title": "Share reporting very low anxiety, UK nations, 2011-12 to 2022-23",
+  "title": "Share reporting very low anxiety, UK nations, 2011–12 to 2022–23",
   "series": "geography",
   "yLabel": "% of people",
   "highlight": "Northern Ireland",
-  "annotation": "Very low anxiety means a score of 0 to 1 out of 10. All four nations dipped in 2020-21."
+  "annotation": "Very low anxiety means a rating of 0 or 1 out of 10 for how anxious people felt the day before."
  },
  "reply": {
-  "headline": "Northern Ireland anxiety and wellbeing 2011–2023",
-  "hook": "Northern Ireland saw the biggest rise of the four UK nations in people reporting very low anxiety.",
-  "summary": "In Northern Ireland, 39.53% of people reported very low anxiety in 2022-23, up from 34.11% in 2011-12. That rise of 5.42 percentage points is the largest of the four UK nations. The rise was not steady: the share peaked at 46.95% in 2017-18 and dipped to 35.94% in 2020-21 before recovering. Average anxiety fell from 3.15 to 2.91 out of 10.",
-  "body_md": "Fewer people in Northern Ireland report feeling anxious than a decade ago, according to the Office for National Statistics' annual personal well-being estimates.\n\nIn Northern Ireland, 39.53% of people reported very low anxiety in 2022-23, up from 34.11% in 2011-12. That rise of 5.42 percentage points is the largest of the four UK nations, and the change is clear of the survey's margin of error.\n\n## Not a straight line\n\nThe rise was not steady: the share peaked at 46.95% in 2017-18 and dipped to 35.94% in 2020-21 before recovering. The 2020-21 fall was not unique to Northern Ireland: the share with very low anxiety fell clearly in all 4 nations that year. By 2021-22 it was back to 39.71%.\n\n## Other measures\n\nAverage anxiety fell from 3.15 to 2.91 out of 10, where a lower score is better. Average happiness rose from 7.39 to 7.57, and the feeling that the things you do are worthwhile rose from 7.76 to 7.93.",
-  "video_script": "Northern Ireland is calmer than it was. In 2011-12, 34.11% of people reported very low anxiety. By 2022-23 it was 39.53%, the biggest rise of the four nations, despite a dip to 35.94% in 2020-21.",
+  "headline": "Northern Ireland is the only UK nation where very low anxiety rose",
+  "hook": "Between 2011–12 and 2022–23, the share of people in Northern Ireland reporting very low anxiety rose from 34.11% to 39.53%, while it fell in the other three UK nations.",
+  "summary": "Northern Ireland moved from 4th of the four UK nations in 2011–12 to the highest share of people reporting very low anxiety in 2022–23. The share peaked at 46.95% in 2017–18 and is now 7.42 percentage points below that peak. Average anxiety, happiness and worthwhile scores also improved over the same period.",
+  "body_md": "Northern Ireland is the only UK nation where the share of people reporting very low anxiety rose between 2011–12 and 2022–23. It went from 34.11% to 39.53%, a rise of 5.42 percentage points, according to the Office for National Statistics' annual personal well-being estimates. Very low anxiety means that people rated how anxious they felt the day before at the very bottom of the scale.\n\nNorthern Ireland started 4th of the four nations on this measure and ended 1st. In 2022–23 it had the highest share of the four, at 39.53%, clearly above Scotland's 35.81%. That is a striking turnaround for a nation that began the period behind the rest of the UK.\n\n## A rise, then a fall\n\nThe rise was not steady. The share climbed year after year to a peak of 46.95% in 2017–18. It then fell by 5.85 percentage points in a single year, to 41.1% in 2018–19. In 2020–21 it dipped again, from 40.54% to 35.94%, a fall of 4.6 percentage points. That dip was shared across the UK: all four nations saw the share fall in 2020–21.\n\nBy 2021–22 the share in Northern Ireland had recovered to 39.71%, and in 2022–23 it was 39.53%. That latest figure is still 7.42 percentage points below the 2017–18 peak of 46.95%, so the gains made up to 2017–18 have not fully returned. The overall rise is real, but the recent picture is flatter than the early years suggested.\n\n## How it compares\n\nElsewhere in the UK, the picture went the other way. In Scotland, the share reporting very low anxiety fell from 38.41% in 2011–12 to 35.81% in 2022–23. In Wales it fell from 38.5% to 35.01%. England also ended the period lower than it started. Across the four nations, the median change was a fall of 2.42 percentage points, against a rise of 5.42 in Northern Ireland. Northern Ireland's rise was the biggest of the four nations.\n\nThe other well-being measures for Northern Ireland moved in the same, better direction. Average anxiety fell from 3.15 to 2.91 out of 10, where a lower score is better. Average anxiety reached its low point of 2.53 in 2017–18, the same year that very low anxiety peaked. Average happiness rose from 7.39 to 7.57 out of 10. The average score for feeling that the things you do in life are worthwhile rose from 7.76 to 7.93. Each of these changes is clear of the survey's margin of error. They are smaller than the shift in very low anxiety, but they point the same way.\n\n## What the data can't tell us\n\nThese are survey estimates, not counts of every person. Each figure has a confidence interval: for Northern Ireland in 2022–23, the share with very low anxiety is estimated at between 37.74% and 41.32%. In 2011–12 the range was 31.96% to 36.27%. The ranges for the start and end years do not overlap, which is why the rise can be called clear, but small moves from one year to the next may not be real changes.\n\nThe survey records how people rated their own feelings. It does not say why more people in Northern Ireland reported very low anxiety, or why fewer did elsewhere, so the data cannot link the change to any policy, event or to the pandemic.\n\nONS paused its annual personal well-being estimates after April 2022 to March 2023 because of falling response rates and weighting problems in the Annual Population Survey, so 2022–23 is the latest year available. Since October 2024, ONS has classed these estimates as official statistics in development rather than accredited official statistics. The figures should be read with some caution, and this story will be updated if ONS publishes newer annual data.\n\nThe numbers come from the Office for National Statistics dataset Personal well-being estimates by local authority, covering 2011–12 to 2022–23.",
+  "video_script": "Here is a clear finding from UK well-being data. Northern Ireland is the only UK nation where the share of people reporting very low anxiety rose between 2011–12 and 2022–23. It went from 34.11% to 39.53%. It peaked at 46.95% in 2017–18, dipped in 2020–21 like the rest of the UK, and is now 7.42 percentage points below that peak. In Scotland and Wales, the share fell. The data comes from the Office for National Statistics.",
   "chart_spec": {
    "type": "line",
    "x": "period",
    "y": "value",
    "series": "geography",
    "highlight": "Northern Ireland",
-   "title": "Share reporting very low anxiety, UK nations, 2011-12 to 2022-23",
+   "title": "Share reporting very low anxiety, UK nations, 2011–12 to 2022–23",
    "yLabel": "% of people",
-   "annotation": "Very low anxiety means a score of 0 to 1 out of 10. All four nations dipped in 2020-21."
+   "annotation": "Very low anxiety means a rating of 0 or 1 out of 10 for how anxious people felt the day before."
   },
   "claims": [
    {
-    "sentence": "Northern Ireland saw the biggest rise of the four UK nations in people reporting very low anxiety.",
-    "keys": [
-     "f1.groups_compared"
+    "sentence": "Northern Ireland is the only UK nation where very low anxiety rose",
+    "checks": [
+     {
+      "kind": "only_rise",
+      "group": "Northern Ireland",
+      "start": "2011-12",
+      "end": "2022-23"
+     }
     ]
    },
    {
-    "sentence": "In Northern Ireland, 39.53% of people reported very low anxiety in 2022-23, up from 34.11% in 2011-12.",
+    "sentence": "Between 2011–12 and 2022–23, the share of people in Northern Ireland reporting very low anxiety rose from 34.11% to 39.53%, while it fell in the other three UK nations.",
     "keys": [
+     "f1.start_value",
      "f1.end_value",
-     "f1.start_value"
+     "chart_facts.groups_falling"
     ]
    },
    {
-    "sentence": "That rise of 5.42 percentage points is the largest of the four UK nations.",
+    "sentence": "Northern Ireland moved from 4th of the four UK nations in 2011–12 to the highest share of people reporting very low anxiety in 2022–23.",
     "keys": [
-     "f1.change",
+     "f1.related.1.numbers.start_rank",
      "f1.groups_compared"
+    ],
+    "checks": [
+     {
+      "kind": "highest",
+      "group": "Northern Ireland",
+      "period": "2022-23"
+     }
     ]
    },
    {
-    "sentence": "That rise of 5.42 percentage points is the largest of the four UK nations, and the change is clear of the survey's margin of error.",
+    "sentence": "The share peaked at 46.95% in 2017–18 and is now 7.42 percentage points below that peak.",
     "keys": [
-     "f1.change",
-     "f1.groups_compared"
+     "s1.peak.peak_value",
+     "s1.peak.latest_below_peak_by"
     ]
    },
    {
-    "sentence": "The rise was not steady: the share peaked at 46.95% in 2017-18 and dipped to 35.94% in 2020-21 before recovering.",
+    "sentence": "Northern Ireland is the only UK nation where the share of people reporting very low anxiety rose between 2011–12 and 2022–23.",
+    "checks": [
+     {
+      "kind": "only_rise",
+      "group": "Northern Ireland",
+      "start": "2011-12",
+      "end": "2022-23"
+     }
+    ]
+   },
+   {
+    "sentence": "It went from 34.11% to 39.53%, a rise of 5.42 percentage points, according to the Office for National Statistics' annual personal well-being estimates.",
     "keys": [
-     "s1.points.2017-18.value",
-     "s1.points.2020-21.value"
+     "f1.start_value",
+     "f1.end_value",
+     "f1.change"
     ]
    },
    {
-    "sentence": "Average anxiety fell from 3.15 to 2.91 out of 10.",
+    "sentence": "Northern Ireland started 4th of the four nations on this measure and ended 1st.",
     "keys": [
-     "f2.start_value",
-     "f2.end_value",
-     "f2.scale_max"
+     "f1.related.1.numbers.start_rank",
+     "f1.related.1.numbers.end_rank"
     ]
    },
    {
-    "sentence": "The 2020-21 fall was not unique to Northern Ireland: the share with very low anxiety fell clearly in all 4 nations that year.",
+    "sentence": "In 2022–23 it had the highest share of the four, at 39.53%, clearly above Scotland's 35.81%.",
+    "keys": [
+     "f1.groups_compared",
+     "f1.end_value",
+     "f1.related.1.numbers.overtook.Scotland.end_value"
+    ],
+    "checks": [
+     {
+      "kind": "highest",
+      "group": "Northern Ireland",
+      "period": "2022-23"
+     }
+    ]
+   },
+   {
+    "sentence": "The share climbed year after year to a peak of 46.95% in 2017–18.",
+    "keys": [
+     "s1.peak.peak_value"
+    ]
+   },
+   {
+    "sentence": "It then fell by 5.85 percentage points in a single year, to 41.1% in 2018–19.",
+    "keys": [
+     "s1.notable_moves.2018-19.change",
+     "s1.notable_moves.2018-19.value"
+    ]
+   },
+   {
+    "sentence": "In 2020–21 it dipped again, from 40.54% to 35.94%, a fall of 4.6 percentage points.",
+    "keys": [
+     "s1.notable_moves.2020-21.previous_value",
+     "s1.notable_moves.2020-21.value",
+     "s1.notable_moves.2020-21.change"
+    ]
+   },
+   {
+    "sentence": "That dip was shared across the UK: all four nations saw the share fall in 2020–21.",
     "keys": [
      "s1.moves_shared_by_most_geographies.2020-21.groups"
+    ],
+    "checks": [
+     {
+      "kind": "all_fall",
+      "start": "2019-20",
+      "end": "2020-21"
+     }
     ]
    },
    {
-    "sentence": "By 2021-22 it was back to 39.71%.",
+    "sentence": "By 2021–22 the share in Northern Ireland had recovered to 39.71%, and in 2022–23 it was 39.53%.",
     "keys": [
-     "s1.points.2021-22.value"
+     "s1.notable_moves.2020-21.next_value",
+     "f1.end_value"
+    ]
+   },
+   {
+    "sentence": "That latest figure is still 7.42 percentage points below the 2017–18 peak of 46.95%, so the gains made up to 2017–18 have not fully returned.",
+    "keys": [
+     "s1.peak.latest_below_peak_by",
+     "s1.peak.peak_value"
+    ]
+   },
+   {
+    "sentence": "In Scotland, the share reporting very low anxiety fell from 38.41% in 2011–12 to 35.81% in 2022–23.",
+    "keys": [
+     "f1.related.1.numbers.overtook.Scotland.start_value",
+     "f1.related.1.numbers.overtook.Scotland.end_value"
+    ]
+   },
+   {
+    "sentence": "In Wales it fell from 38.5% to 35.01%.",
+    "keys": [
+     "f1.related.1.numbers.overtook.Wales.start_value",
+     "f1.related.1.numbers.overtook.Wales.end_value"
+    ]
+   },
+   {
+    "sentence": "Across the four nations, the median change was a fall of 2.42 percentage points, against a rise of 5.42 in Northern Ireland.",
+    "keys": [
+     "f1.groups_compared",
+     "f1.median_change",
+     "f1.change"
+    ]
+   },
+   {
+    "sentence": "Northern Ireland's rise was the biggest of the four nations.",
+    "keys": [
+     "f1.groups_compared"
+    ],
+    "checks": [
+     {
+      "kind": "biggest_rise",
+      "group": "Northern Ireland",
+      "start": "2011-12",
+      "end": "2022-23"
+     }
     ]
    },
    {
@@ -1264,26 +1455,52 @@
     ]
    },
    {
-    "sentence": "Average happiness rose from 7.39 to 7.57, and the feeling that the things you do are worthwhile rose from 7.76 to 7.93.",
+    "sentence": "Average anxiety reached its low point of 2.53 in 2017–18, the same year that very low anxiety peaked.",
+    "keys": [
+     "s2.peak.low_value"
+    ]
+   },
+   {
+    "sentence": "Average happiness rose from 7.39 to 7.57 out of 10.",
     "keys": [
      "f4.start_value",
      "f4.end_value",
+     "f4.scale_max"
+    ]
+   },
+   {
+    "sentence": "The average score for feeling that the things you do in life are worthwhile rose from 7.76 to 7.93.",
+    "keys": [
      "f3.start_value",
      "f3.end_value"
     ]
    },
    {
-    "sentence": "In 2011-12, 34.11% of people reported very low anxiety.",
+    "sentence": "Each figure has a confidence interval: for Northern Ireland in 2022–23, the share with very low anxiety is estimated at between 37.74% and 41.32%.",
     "keys": [
-     "f1.start_value"
+     "f1.end_ci.lower",
+     "f1.end_ci.upper"
     ]
    },
    {
-    "sentence": "By 2022-23 it was 39.53%, the biggest rise of the four nations, despite a dip to 35.94% in 2020-21.",
+    "sentence": "In 2011–12 the range was 31.96% to 36.27%.",
     "keys": [
-     "f1.end_value",
-     "f1.groups_compared",
-     "s1.points.2020-21.value"
+     "f1.start_ci.lower",
+     "f1.start_ci.upper"
+    ]
+   },
+   {
+    "sentence": "It went from 34.11% to 39.53%.",
+    "keys": [
+     "f1.start_value",
+     "f1.end_value"
+    ]
+   },
+   {
+    "sentence": "It peaked at 46.95% in 2017–18, dipped in 2020–21 like the rest of the UK, and is now 7.42 percentage points below that peak.",
+    "keys": [
+     "s1.peak.peak_value",
+     "s1.peak.latest_below_peak_by"
     ]
    }
   ]

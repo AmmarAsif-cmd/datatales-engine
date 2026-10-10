@@ -123,7 +123,15 @@ export function StatusButtons({ story }: { story: Story }) {
           </button>
         )}
         {story.status === "published" && (
-          <span className="small muted">Published. Edits need a new story for now.</span>
+          <>
+            <button type="submit" name="status" value="draft" className="secondary" disabled={pending}>
+              Revise
+            </button>
+            <span className="small muted">
+              Moves it back to draft. The live page stays up, at the same address, until you approve
+              it again.
+            </span>
+          </>
         )}
       </div>
       <p className="small muted">

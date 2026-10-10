@@ -10,13 +10,25 @@ export type Finding = {
   created_at: string;
 };
 
+export type CheckResult = {
+  kind?: string;
+  group?: string;
+  period?: string;
+  start?: string;
+  end?: string;
+  ok: boolean;
+  detail: string;
+};
+
 export type ClaimResult = {
   sentence: string;
   keys: string[];
   fields: string[];
-  status: "ok" | "sentence_not_found" | "unknown_keys" | "mismatch";
+  status: "ok" | "sentence_not_found" | "unknown_keys" | "mismatch" | "assertion_missing" | "assertion_failed";
   numbers: { text: string; key: string | null }[];
+  checks?: CheckResult[];
   unknown_keys?: string[];
+  missing_checks?: string[];
   key_values?: Record<string, string>;
 };
 

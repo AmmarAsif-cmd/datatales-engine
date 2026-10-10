@@ -4,6 +4,7 @@
  * worker/tests/golden/cases.json is checked by dashboard/tests/logic.test.ts.
  * Change verify.py first, regenerate the golden file, then mirror the change here.
  */
+import { type CheckInput, evaluate } from "./chartfacts.ts";
 import { type Dec, decAbs, decFromNumber, decKey, decToString, parseDec, roundsTo } from "./decimal.ts";
 
 export const TEXT_FIELDS = ["headline", "hook", "summary", "body_md", "video_script"] as const;
@@ -34,15 +35,41 @@ export type Token = {
   end: number;
 };
 
-export type Claim = { sentence: string; keys: string[] };
+const PLAIN_YEAR = /(?<![\p{L}\p{N}_])((?:19|20)\d{2})(?![\p{L}\p{N}_])/gu;
+
+/** Rank / exclusivity words and the chart_data checks that can prove them (chartfacts.ts). */
+export const RANK_WORDS: Record<string, string[]> = {
+  only: ["only_rise", "only_fall"],
+  all: ["all_rise", "all_fall"],
+  highest: ["highest"],
+  lowest: ["lowest"],
+  biggest: ["biggest_rise", "biggest_fall"],
+  largest: ["biggest_rise", "biggest_fall"],
+};
+const RANK_SOURCE = `(?<![\\p{L}\\p{N}_])(${Object.keys(RANK_WORDS).join("|")})(?![\\p{L}\\p{N}_])`;
+const CHECK_FIELDS = ["kind", "group", "period", "start", "end"] as const;
+
+export type Claim = { sentence: string; keys?: string[]; checks?: CheckInput[] };
+
+export type CheckResult = {
+  kind?: string;
+  group?: string;
+  period?: string;
+  start?: string;
+  end?: string;
+  ok: boolean;
+  detail: string;
+};
 
 export type ClaimResult = {
   sentence: string;
   keys: string[];
   fields: string[];
   numbers: { text: string; key: string | null }[];
-  status: "ok" | "sentence_not_found" | "unknown_keys" | "mismatch";
+  checks: CheckResult[];
+  status: "ok" | "sentence_not_found" | "unknown_keys" | "mismatch" | "assertion_missing" | "assertion_failed";
   unknown_keys?: string[];
+  missing_checks?: string[];
   key_values?: Record<string, string>;
 };
 
@@ -235,14 +262,27 @@ function dataYears(numbers: { [k: string]: JsonValue }, fallback: Set<number>): 
   return use.size ? [Math.min(...use), Math.max(...use)] : [null, null];
 }
 
+/** Years quoted in the source's caveats (e.g. when a release was paused) are allowed. */
+export function caveatYears(numbers: { [k: string]: JsonValue }): Set<number> {
+  const years = new Set<number>();
+  const caveats = Array.isArray(numbers.caveats) ? numbers.caveats : [];
+  for (const text of caveats) {
+    yearsFromLabel(String(text), years);
+    for (const m of String(text).matchAll(PLAIN_YEAR)) years.add(Number(m[1]));
+  }
+  return years;
+}
+
 export function verifyText(
   fields: Partial<Record<TextField, string | null>>,
   numbers: { [k: string]: JsonValue },
   claims: Claim[] | null = null,
+  chartData: Record<string, string | number | null>[] | null = null,
 ): Report {
   const { values, years } = allowedFromNumbers(numbers);
   const allowed = [...values.values()];
   const [lo, hi] = dataYears(numbers, years);
+  const extraYears = caveatYears(numbers);
   const report: Report = {
     status: "passed",
     checked: 0,
@@ -266,7 +306,8 @@ export function verifyText(
           const m = /((?:19|20)\d{2})\s*[-–/]\s*(\d{2})(?!\d)/.exec(tok.text);
           if (m) ys.push(Number(m[1].slice(0, 2) + m[2]));
         }
-        if (lo === null || ys.some((y) => y < lo || y > (hi as number))) {
+        const outside = ys.filter((y) => !extraYears.has(y) && (lo === null || y < lo || y > (hi as number)));
+        if (outside.length) {
           report.years_out_of_range.push({ field: name, text: tok.text, allowed: [lo, hi] });
         }
       } else if (!matches(tok, allowed)) {
@@ -275,7 +316,7 @@ export function verifyText(
     }
   }
 
-  if (claims !== null) checkClaims(report, texts, tokens, numbers, claims);
+  if (claims !== null) checkClaims(report, texts, tokens, numbers, claims, chartData ?? []);
 
   const failed =
     report.unmatched.length > 0 ||
@@ -292,6 +333,7 @@ function checkClaims(
   tokens: Record<TextField, Token[]>,
   numbers: { [k: string]: JsonValue },
   claims: Claim[],
+  chartData: Record<string, string | number | null>[],
 ): void {
   report.claims_checked = true;
   const keyTable = flattenNumbers(numbers);
@@ -303,7 +345,8 @@ function checkClaims(
   for (const claim of claims) {
     const sentence = String(claim.sentence ?? "");
     const keys = (claim.keys ?? []).map(String);
-    const result: ClaimResult = { sentence, keys, fields: [], numbers: [], status: "ok" };
+    const checks = (claim.checks ?? []).map((c) => ({ ...c }));
+    const result: ClaimResult = { sentence, keys, fields: [], numbers: [], checks: [], status: "ok" };
     const unknown = keys.filter((k) => !keyTable.has(k));
     const foundIn: [TextField, [number, number]][] = [];
     for (const name of TEXT_FIELDS) {
@@ -328,14 +371,37 @@ function checkClaims(
         result.numbers.push({ text: tok.text, key: hit });
         mismatched = mismatched || hit === null;
       }
+      const kinds = new Set(checks.map((c) => c.kind));
+      const words = [...new Set([...sentence.matchAll(new RegExp(RANK_SOURCE, "giu"))].map((m) => m[1].toLowerCase()))].sort();
+      const missing = words.filter((w) => !RANK_WORDS[w].some((k) => kinds.has(k)));
+      for (const c of checks) {
+        const [ok, detail] = evaluate(c, chartData);
+        const input = Object.fromEntries(
+          CHECK_FIELDS.filter((f) => c[f] !== null && c[f] !== undefined).map((f) => [f, c[f]]),
+        );
+        result.checks.push({ ...input, ok, detail });
+      }
       if (mismatched) {
         result.status = "mismatch";
         result.key_values = Object.fromEntries(keys.map((k) => [k, decToString(keyTable.get(k) as Dec)]));
+      } else if (missing.length) {
+        result.status = "assertion_missing";
+        result.missing_checks = missing;
+      } else if (!result.checks.every((c) => c.ok)) {
+        result.status = "assertion_failed";
       } else {
         result.status = "ok";
       }
     }
     report.claims.push(result);
+  }
+
+  for (const name of TEXT_FIELDS) {
+    for (const m of texts[name].matchAll(new RegExp(RANK_SOURCE, "giu"))) {
+      if (!covered[name].some(([s, e]) => s <= m.index && m.index < e)) {
+        report.uncovered.push({ field: name, text: m[0], sentence: sentenceAround(texts[name], m.index) });
+      }
+    }
   }
 
   for (const name of TEXT_FIELDS) {

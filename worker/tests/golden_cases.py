@@ -16,9 +16,11 @@ from pathlib import Path
 from typing import Any
 
 from datatales.candidates import shortlist
+from datatales.chartfacts import evaluate, facts_for
 from datatales.narrate import NarrationError, build_prompt, parse_narration, word_count
 from datatales.stories import slugify
 from datatales.verify import extract_tokens, flatten_numbers, verify_text
+from tests.textkit import padded_body
 
 GOLDEN = Path(__file__).parent / "golden"
 CASES = GOLDEN / "cases.json"
@@ -149,6 +151,132 @@ VERIFY_CASES: list[dict[str, Any]] = [
     },
 ]
 
+
+def _pt(period: str, geo: str, value: float | None, half: float | None = 1.0) -> dict[str, Any]:
+    lo = None if value is None or half is None else value - half
+    hi = None if value is None or half is None else value + half
+    return {"period": period, "geography": geo, "value": value, "lower": lo, "upper": hi}
+
+
+FAKE_CHART: list[dict[str, Any]] = [
+    _pt("2011-12", "North", 30.0),
+    _pt("2011-12", "East", 35.0),
+    _pt("2011-12", "South", 32.0),
+    _pt("2011-12", "West", 28.0),
+    _pt("2019-20", "North", 33.0),
+    _pt("2020-21", "North", 25.0),
+    _pt("2020-21", "East", None),
+    _pt("2020-21", "South", 30.0),
+    _pt("2020-21", "West", 26.0),
+    _pt("2021-22", "North", 40.0, None),
+    _pt("2021-22", "East", 30.0),
+    _pt("2022-23", "North", 40.0),
+    _pt("2022-23", "East", 34.0),
+    _pt("2022-23", "South", 31.0),
+    _pt("2022-23", "West", 27.5),
+]
+
+SPAN = {"start": "2011-12", "end": "2022-23"}
+CHART_CHECKS: list[dict[str, Any]] = [
+    {"kind": "highest", "group": "North", "period": "2022-23"},
+    {"kind": "highest", "group": "East", "period": "2011-12"},
+    {"kind": "highest", "group": "North", "period": "2011-12"},
+    {"kind": "highest", "group": "North", "period": "2019-20"},
+    {"kind": "highest", "group": "North", "period": "2021-22"},
+    {"kind": "lowest", "group": "West", "period": "2022-23"},
+    {"kind": "lowest", "group": "West", "period": "2011-12"},
+    {"kind": "lowest", "group": "North", "period": "2020-21"},
+    {"kind": "lowest", "group": "East", "period": "2020-21"},
+    {"kind": "only_rise", "group": "North", **SPAN},
+    {"kind": "only_fall", "group": "East", **SPAN},
+    {"kind": "only_fall", "group": "North", **SPAN},
+    {"kind": "only_rise", "group": "North", "start": "2019-20", "end": "2022-23"},
+    {"kind": "only_rise", "group": "North", "start": "2020-21", "end": "2022-23"},
+    {"kind": "all_fall", "start": "2011-12", "end": "2020-21"},
+    {"kind": "all_rise", **SPAN},
+    {"kind": "all_fall", **SPAN},
+    {"kind": "biggest_rise", "group": "North", **SPAN},
+    {"kind": "biggest_fall", "group": "East", **SPAN},
+    {"kind": "biggest_fall", "group": "West", **SPAN},
+    {"kind": "biggest_fall", "group": "North", "start": "2011-12", "end": "2020-21"},
+    {"kind": "biggest_fall", "group": "South", "start": "2011-12", "end": "2020-21"},
+    {"kind": "middle", "group": "North"},
+    {"kind": "highest", "group": "Nowhere", "period": "2022-23"},
+]
+
+CAVEAT_NUMBERS: dict[str, Any] = {
+    "data_period": {"first": "2011-12", "last": "2022-23"},
+    "caveats": ["Paused after April 2022 to March 2023; a review is due in 2026."],
+    "findings": [{"start_value": 30.0, "end_value": 40.0, "change": 10.0, "groups_compared": 4}],
+}
+ONLY = "North had the only rise, from 30 to 40."
+ONLY_CHECK = {"kind": "only_rise", "group": "North", **SPAN}
+UP = ["f1.start_value", "f1.end_value"]
+
+RANK_CASES: list[dict[str, Any]] = [
+    {
+        "name": "rank_ok",
+        "fields": {"body_md": ONLY},
+        "claims": [{"sentence": ONLY, "keys": UP, "checks": [ONLY_CHECK]}],
+    },
+    {
+        "name": "rank_missing_check",
+        "fields": {"body_md": ONLY},
+        "claims": [{"sentence": ONLY, "keys": UP}],
+    },
+    {
+        "name": "rank_wrong_kind",
+        "fields": {"body_md": "North had the highest rise."},
+        "claims": [
+            {
+                "sentence": "North had the highest rise.",
+                "keys": [],
+                "checks": [{"kind": "biggest_rise", "group": "North", **SPAN}],
+            }
+        ],
+    },
+    {
+        "name": "rank_failed",
+        "fields": {"headline": "East saw the only fall"},
+        "claims": [
+            {
+                "sentence": "East saw the only fall",
+                "checks": [{"kind": "only_fall", "group": "East", **SPAN}],
+            }
+        ],
+    },
+    {
+        "name": "rank_mismatch_first",
+        "fields": {"body_md": "North had the only rise, to 41."},
+        "claims": [
+            {"sentence": "North had the only rise, to 41.", "keys": UP, "checks": [ONLY_CHECK]}
+        ],
+    },
+    {
+        "name": "rank_uncovered",
+        "fields": {"body_md": "All areas fell in 2020-21. Overall it was small."},
+        "claims": [],
+    },
+    {
+        "name": "rank_words_mixed_case",
+        "fields": {"summary": "The LARGEST rise and the Lowest score."},
+        "claims": [
+            {
+                "sentence": "The LARGEST rise and the Lowest score.",
+                "checks": [
+                    {"kind": "biggest_rise", "group": "North", **SPAN},
+                    {"kind": "lowest", "group": "West", "period": "2022-23"},
+                ],
+            }
+        ],
+    },
+    {
+        "name": "caveat_years",
+        "fields": {"body_md": "Paused after 2022-23; a review is due in 2026, not 2027."},
+        "claims": [],
+    },
+]
+
 CHART = [
     {"period": "2011-12", "geography": "North", "value": 7.0},
     {"period": "2012-13", "geography": "North", "value": 7.4},
@@ -160,8 +288,10 @@ def _reply(**over: Any) -> str:
         "headline": "North wellbeing 2011–2013",
         "hook": "People in North reported higher wellbeing.",
         "summary": "Average scores rose from 7.0 to 7.4 between 2011-12 and 2012-13.",
-        "body_md": "Average scores in North rose from 7.0 to 7.4 between 2011-12 and 2012-13. "
-        "The data comes from the ONS.",
+        "body_md": padded_body(
+            "Average scores in North rose from 7.0 to 7.4 between 2011-12 and 2012-13. "
+            "The data comes from the ONS."
+        ),
         "video_script": "North felt better: up from 7.0 to 7.4.",
         "chart_spec": {"type": "line", "x": "period", "y": "value", "series": "geography",
                        "highlight": "North"},
@@ -180,7 +310,63 @@ NARRATION_CASES: list[dict[str, Any]] = [
     {"name": "headline_short", "reply": _reply(headline="short"), "error": "headline"},
     {"name": "hook_two", "reply": _reply(hook="One sentence. Two sentences."), "error": "hook"},
     {"name": "summary_long", "reply": _reply(summary="word " * 121), "error": "summary"},
-    {"name": "body_long", "reply": _reply(body_md="word " * 401), "error": "body_md"},
+    {"name": "body_long", "reply": _reply(body_md=padded_body("Long.", 760)), "error": "body_md"},
+    {
+        "name": "body_short",
+        "reply": _reply(
+            body_md="## How it compares\n\nx\n\n## What the data can't tell us\n\n" + "word " * 100
+        ),
+        "error": "body_md",
+    },  # noqa: E501
+    {"name": "body_no_sections", "reply": _reply(body_md="word " * 520), "error": "sections"},
+    {
+        "name": "curly_apostrophe_section",
+        "reply": _reply(body_md=padded_body("Core.").replace("can't", "can’t")),
+        "error": None,
+    },  # noqa: E501
+    {
+        "name": "claim_with_check",
+        "reply": _reply(
+            claims=[
+                {
+                    "sentence": "Only North rose here.",
+                    "checks": [
+                        {
+                            "kind": "only_rise",
+                            "group": "North",
+                            "start": "2011-12",
+                            "end": "2012-13",
+                        }
+                    ],
+                }
+            ]
+        ),
+        "error": None,
+    },  # noqa: E501
+    {
+        "name": "check_missing_field",
+        "reply": _reply(
+            claims=[
+                {
+                    "sentence": "North was highest here.",
+                    "checks": [{"kind": "highest", "group": "North"}],
+                }
+            ]
+        ),
+        "error": "claims",
+    },  # noqa: E501
+    {
+        "name": "check_bad_kind",
+        "reply": _reply(
+            claims=[
+                {
+                    "sentence": "North was best here.",
+                    "checks": [{"kind": "best", "group": "North", "period": "2011-12"}],
+                }
+            ]
+        ),
+        "error": "claims",
+    },  # noqa: E501
     {"name": "video_long", "reply": _reply(video_script="word " * 91), "error": "video_script"},
     {
         "name": "script_tag",
@@ -292,29 +478,37 @@ def build() -> dict[str, Any]:
     broken_claims = [dict(c) for c in real["reply"]["claims"]]
     for c in broken_claims:
         if c["sentence"].startswith("Average happiness"):
-            c["keys"] = ["f3.start_value", "f3.end_value"]
+            c["keys"] = ["f3.start_value", "f3.end_value", "f3.scale_max"]  # wrong measure
+        if c["sentence"].startswith("Northern Ireland's rise was the biggest"):
+            c["checks"] = [{"kind": "biggest_fall", "group": "Northern Ireland", **SPAN}]
     broken_fields = dict(
         real_fields, body_md=real_fields["body_md"] + "\n\nThat is 4.6 points below its peak."
     )
 
-    verify_cases = [
-        {**c, "numbers": FAKE_NUMBERS, "claims": c.get("claims")} for c in VERIFY_CASES
-    ] + [
-        {
-            "name": "real_ni_story",
-            "fields": real_fields,
-            "numbers": real["numbers"],
-            "claims": real["reply"]["claims"],
-        },
-        {
-            "name": "real_ni_story_broken",
-            "fields": broken_fields,
-            "numbers": real["numbers"],
-            "claims": broken_claims,
-        },
-    ]
+    verify_cases = (
+        [{**c, "numbers": FAKE_NUMBERS, "claims": c.get("claims")} for c in VERIFY_CASES]
+        + [{**c, "numbers": CAVEAT_NUMBERS, "chart_data": FAKE_CHART} for c in RANK_CASES]
+        + [
+            {
+                "name": "real_ni_story",
+                "fields": real_fields,
+                "numbers": real["numbers"],
+                "claims": real["reply"]["claims"],
+                "chart_data": real["chart_data"],
+            },
+            {
+                "name": "real_ni_story_broken",
+                "fields": broken_fields,
+                "numbers": real["numbers"],
+                "claims": broken_claims,
+                "chart_data": real["chart_data"],
+            },
+        ]
+    )
     for c in verify_cases:
-        c["report"] = verify_text(c["fields"], c["numbers"], c["claims"]).to_json()
+        c["report"] = verify_text(
+            c["fields"], c["numbers"], c["claims"], c.get("chart_data")
+        ).to_json()
 
     narration = []
     for c in NARRATION_CASES:
@@ -352,6 +546,13 @@ def build() -> dict[str, Any]:
                 for n in (FAKE_NUMBERS, real["numbers"])
             ],
             "verify": verify_cases,
+            "chartfacts": {
+                "chart_data": FAKE_CHART,
+                "evaluate": [
+                    {"check": c, "result": list(evaluate(c, FAKE_CHART))} for c in CHART_CHECKS
+                ],
+                "facts_for": {g: facts_for(FAKE_CHART, g) for g in ("North", "East", "Nowhere")},
+            },
             "narration": narration,
             "word_count": [{"text": t, "count": word_count(t)} for t in WORD_TEXTS],
             "slugify": [{"text": t, "slug": slugify(t)} for t in SLUG_TEXTS],

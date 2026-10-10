@@ -8,6 +8,7 @@ cover: /images/posts/wellbeing-in-the-uk/cover.jpeg
 coverAlt: "Cover image for Wellbeing in the UK (2011–2023): Data Trends and Insights"
 tags: ["UKWellbeing", "wellbeingdata", "wellbeingtrends", "ukdata", "mentalhealthuk", "life satisfaction", "ONSData", "wellbeing", "Data Science", "data analysis", "data analytics", "data storytelling", "PowerBI", "Mental Health", "Happiness"]
 originalUrl: https://datatales.co.uk/wellbeing-in-the-uk
+sources: ["https://www.ons.gov.uk/datasets/wellbeing-local-authority"]
 ---
 ## Introduction – Why look at wellbeing now?
 

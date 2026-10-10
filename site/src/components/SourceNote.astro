@@ -32,16 +32,6 @@ const { source, fetchedAt, recipeVersion, datasetChecksum, period, updated } = A
     <dd>
       <time datetime={fetchedAt.toISOString()}>{formatDate(fetchedAt)}</time>
     </dd>
-    <dt>Cleaning recipe</dt>
-    <dd>{recipeVersion}</dd>
-    {datasetChecksum && (
-      <>
-        <dt>Dataset checksum</dt>
-        <dd>
-          <code title={datasetChecksum}>{datasetChecksum.slice(0, 12)}…</code>
-        </dd>
-      </>
-    )}
     {source.licence && (
       <>
         <dt>Licence</dt>
@@ -57,6 +47,27 @@ const { source, fetchedAt, recipeVersion, datasetChecksum, period, updated } = A
       </>
     )}
   </dl>
+  <details class="tech">
+    <summary>Technical details</summary>
+    <dl>
+      <dt>Cleaning recipe</dt>
+      <dd>
+        <code>{recipeVersion}</code>
+      </dd>
+      {datasetChecksum && (
+        <>
+          <dt>Dataset checksum (SHA-256)</dt>
+          <dd>
+            <code class="checksum">{datasetChecksum}</code>
+          </dd>
+        </>
+      )}
+    </dl>
+    <p class="small">
+      The checksum identifies the exact file downloaded from the publisher, so anyone can check this
+      story was built from it.
+    </p>
+  </details>
   <p class="verified">
     <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
       <path
@@ -97,6 +108,28 @@ const { source, fetchedAt, recipeVersion, datasetChecksum, period, updated } = A
   dd {
     margin: 0;
     min-width: 0;
+  }
+  .tech {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--rule);
+  }
+  .tech summary {
+    cursor: pointer;
+    color: var(--link);
+    font-weight: 500;
+  }
+  .tech dl {
+    margin-top: 0.75rem;
+  }
+  .tech .small {
+    margin: 0.75rem 0 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .checksum {
+    overflow-wrap: anywhere;
+    font-size: 0.8rem;
   }
   .verified {
     display: flex;

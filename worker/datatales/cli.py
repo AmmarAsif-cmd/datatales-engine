@@ -208,6 +208,15 @@ def cmd_story_new(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_story_refresh(args: argparse.Namespace) -> int:
+    from datatales.stories import refresh_story
+
+    story = refresh_story(_repo(), args.story_id)
+    print(f"Refreshed {story['slug']}: numbers and chart data rebuilt; status draft,")
+    print("verification pending. Next: story-prompt, then story-paste the new reply.")
+    return 0
+
+
 def cmd_story_prompt(args: argparse.Namespace) -> int:
     from datatales.stories import story_prompt
 
@@ -372,6 +381,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = add("story-paste", cmd_story_paste, "Validate a pasted JSON reply, verify numbers, save.")
     p.add_argument("story_id")
     p.add_argument("file", help="file containing the JSON reply from Claude")
+
+    p = add("story-refresh", cmd_story_refresh, "Rebuild a story's numbers/chart data; URL kept.")
+    p.add_argument("story_id")
 
     p = add("story-verify", cmd_story_verify, "Re-run number verification on a story.")
     p.add_argument("story_id")

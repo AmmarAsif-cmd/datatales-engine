@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from datatales.candidates import Candidate
+from datatales.chartfacts import facts_for
 from datatales.detect.base import ci_of, cis_separate, r, robust_sd, yoy_diffs
 from datatales.detect.prepare import prepare
 from datatales.sources import DetectConfig, SourceDef
@@ -86,6 +87,33 @@ def common_moves(sub: pd.DataFrame) -> list[dict[str, Any]]:
     return out
 
 
+def peak_info(points: list[dict[str, Any]], typical: float) -> dict[str, Any]:
+    """Peak and low point of a series, and whether the latest value is well below the peak
+    (confidence intervals apart AND at least 2x the typical yearly change)."""
+    if not points:
+        return {}
+    peak = max(points, key=lambda p: p["value"])
+    low = min(points, key=lambda p: p["value"])
+    latest = points[-1]
+    gap = r(peak["value"] - latest["value"])
+    well_below = (
+        latest is not peak
+        and gap >= NOTABLE_MULTIPLIER * typical
+        and cis_separate(peak["ci"], latest["ci"])
+    )
+    return {
+        "peak_period": peak["period"],
+        "peak_value": peak["value"],
+        "low_period": low["period"],
+        "low_value": low["value"],
+        "latest_period": latest["period"],
+        "latest_value": latest["value"],
+        "latest_below_peak_by": gap,
+        "latest_well_below_peak": bool(well_below),
+        "latest_is_peak": latest is peak,
+    }
+
+
 def build_story_data(
     clean: pd.DataFrame, source: SourceDef, config: DetectConfig, candidate: Candidate
 ) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
@@ -141,6 +169,7 @@ def build_story_data(
                 "typical_yearly_change": r(typical),
                 "points": points,
                 "notable_moves": notable_moves(points, typical),
+                "peak": peak_info(points, typical),
                 "moves_shared_by_most_geographies": common_moves(sub),
             }
         )
@@ -153,6 +182,7 @@ def build_story_data(
             "url": str(source.url),
             "licence": source.licence,
         },
+        "caveats": list(source.caveats),
         "geography": candidate.geography,
         "geo_level": candidate.geo_level,
         "good_news": candidate.good_news,
@@ -167,5 +197,6 @@ def build_story_data(
             for f in candidate.findings
         ],
         "series": series,
+        "chart_facts": facts_for(chart_data, candidate.geography),
     }
     return chart_data, chart_spec, numbers

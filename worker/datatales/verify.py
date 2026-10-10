@@ -41,6 +41,18 @@ TOKEN = re.compile(
 YEAR_PERIOD = re.compile(r"((?:19|20)\d{2})\s*[-–/]\s*(\d{2})(?!\d)")
 OUT_OF = re.compile(r"out of (\d+)")
 YEAR_KINDS = ("year", "financial_year")
+PLAIN_YEAR = re.compile(r"\b((?:19|20)\d{2})\b")
+
+# Rank / exclusivity words and the chart_data checks that can prove them (chartfacts.py).
+RANK_WORDS: dict[str, tuple[str, ...]] = {
+    "only": ("only_rise", "only_fall"),
+    "all": ("all_rise", "all_fall"),
+    "highest": ("highest",),
+    "lowest": ("lowest",),
+    "biggest": ("biggest_rise", "biggest_fall"),
+    "largest": ("biggest_rise", "biggest_fall"),
+}
+RANK_RE = re.compile(r"\b(" + "|".join(RANK_WORDS) + r")\b", re.I)
 
 
 @dataclass(frozen=True)
@@ -258,13 +270,25 @@ def _data_years(numbers: dict[str, Any], fallback: set[int]) -> tuple[int | None
     return (min(years), max(years)) if years else (None, None)
 
 
+def caveat_years(numbers: dict[str, Any]) -> set[int]:
+    """Years quoted in the source's caveats (e.g. when a release was paused) are allowed."""
+    years: set[int] = set()
+    for text in numbers.get("caveats") or []:
+        for a, b in YEAR_PERIOD.findall(str(text)):
+            years.update({int(a), int(a[:2] + b)})
+        years.update(int(y) for y in PLAIN_YEAR.findall(str(text)))
+    return years
+
+
 def verify_text(
     fields: dict[str, str | None],
     numbers: dict[str, Any],
     claims: list[dict[str, Any]] | None = None,
+    chart_data: list[dict[str, Any]] | None = None,
 ) -> Report:
     allowed, years = allowed_from_numbers(numbers)
     lo, hi = _data_years(numbers, years)
+    extra_years = caveat_years(numbers)
     report = Report(status="passed", checked=0, data_years=[lo, hi] if lo else [])
     report.allowed_values = len(allowed)
 
@@ -280,7 +304,10 @@ def verify_text(
                     m = YEAR_PERIOD.search(tok.text)
                     if m:
                         ys.append(int(m.group(1)[:2] + m.group(2)))
-                if lo is None or any(y < lo or y > hi for y in ys):
+                outside = [
+                    y for y in ys if y not in extra_years and (lo is None or not lo <= y <= hi)
+                ]
+                if outside:
                     report.years_out_of_range.append(
                         {"field": name, "text": tok.text, "allowed": [lo, hi]}
                     )
@@ -290,7 +317,7 @@ def verify_text(
                 )
 
     if claims is not None:
-        _check_claims(report, texts, tokens, numbers, claims)
+        _check_claims(report, texts, tokens, numbers, claims, chart_data or [])
 
     failed = report.unmatched or report.years_out_of_range or report.uncovered
     failed = failed or any(c["status"] != "ok" for c in report.claims)
@@ -304,7 +331,10 @@ def _check_claims(
     tokens: dict[str, list[Token]],
     numbers: dict[str, Any],
     claims: list[dict[str, Any]],
+    chart_data: list[dict[str, Any]],
 ) -> None:
+    from datatales.chartfacts import evaluate
+
     report.claims_checked = True
     key_table = flatten_numbers(numbers)
     covered: dict[str, list[tuple[int, int]]] = {name: [] for name in texts}
@@ -312,7 +342,14 @@ def _check_claims(
     for claim in claims:
         sentence = str(claim.get("sentence", ""))
         keys = [str(k) for k in claim.get("keys", [])]
-        result: dict[str, Any] = {"sentence": sentence, "keys": keys, "fields": [], "numbers": []}
+        checks = [dict(c) for c in claim.get("checks", [])]
+        result: dict[str, Any] = {
+            "sentence": sentence,
+            "keys": keys,
+            "fields": [],
+            "numbers": [],
+            "checks": [],
+        }
         unknown = [k for k in keys if k not in key_table]
         found_in: list[tuple[str, tuple[int, int]]] = []
         for name, text in texts.items():
@@ -335,12 +372,34 @@ def _check_claims(
                 hit = next((k for k in keys if matches(tok, [abs(key_table[k])])), None)
                 result["numbers"].append({"text": tok.text, "key": hit})
                 mismatched = mismatched or hit is None
+            kinds = {c.get("kind") for c in checks}
+            words = sorted({w.lower() for w in RANK_RE.findall(sentence)})
+            missing = [w for w in words if not kinds & set(RANK_WORDS[w])]
+            for c in checks:
+                ok, detail = evaluate(c, chart_data)
+                result["checks"].append({**_check_input(c), "ok": ok, "detail": detail})
             if mismatched:
                 result["status"] = "mismatch"
                 result["key_values"] = {k: str(key_table[k]) for k in keys}
+            elif missing:
+                result["status"] = "assertion_missing"
+                result["missing_checks"] = missing
+            elif not all(c["ok"] for c in result["checks"]):
+                result["status"] = "assertion_failed"
             else:
                 result["status"] = "ok"
         report.claims.append(result)
+
+    for name, text in texts.items():
+        for m in RANK_RE.finditer(text):
+            if not any(s <= m.start() < e for s, e in covered[name]):
+                report.uncovered.append(
+                    {
+                        "field": name,
+                        "text": m.group(0),
+                        "sentence": _sentence_around(text, m.start()),
+                    }
+                )
 
     for name, toks in tokens.items():
         for tok in toks:
@@ -354,3 +413,10 @@ def _check_claims(
                         "sentence": _sentence_around(texts[name], tok.start),
                     }
                 )
+
+
+CHECK_FIELDS = ("kind", "group", "period", "start", "end")
+
+
+def _check_input(check: dict[str, Any]) -> dict[str, Any]:
+    return {k: check[k] for k in CHECK_FIELDS if check.get(k) is not None}

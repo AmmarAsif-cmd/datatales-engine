@@ -47,7 +47,7 @@ uv run python -m datatales db-check  # Supabase connection, tables, RLS, buckets
 # M3: sources-sync | ingest <source> [--file] | datasets | profile <id> | recipe-prompt <id>
 # M4: detect <clean_table_id> [--dry-run|--replace] | findings <clean_table_id> [--numbers]
 # M7: publish <story_id> [--mark] | run-pipeline
-# M5: candidates <ct> | story-new <ct> --candidate N | story-prompt <id> | story-paste <id> <file> | story-verify <id> | stories
+# M5: candidates <ct> | story-new <ct> --candidate N | story-prompt <id> | story-paste <id> <file> | story-verify <id> | story-refresh <id> | stories
 #     recipe-test <file> <id> | recipe-import <file> | recipe-approve <src> <v> --by NAME | clean <id>
 uv run ruff check . && uv run ruff format --check . && uv run pytest
 ```
@@ -64,6 +64,7 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - Posts: `site/src/content/posts/<slug>.md` → `/<slug>` (migrated, frozen). Stories: `site/src/content/stories/<slug>.md` → `/stories/<slug>`.
 - **Story front matter is the publish contract** (schema in `site/src/content.config.ts`): `title, description, hook, date, updated?, source{name,publisher?,url,licence?}, fetchedAt, recipeVersion, datasetChecksum?, period?, keyNumbers[1-5]{label,value,note?}, chart_spec{type,x,y,series?,highlight?,annotation?,title?,yLabel?}, chart_data[], numbers{}`. `publish.py` (M7) must write exactly this.
 - `sample: true` = fake data, dev only. `scripts/check-dist.mjs` fails the build if sample content, a Supabase URL or a key reaches `dist/`.
+- Story page: byline, "Data covers X to Y" (from chart_data periods), chart, pivoted table (periods x groups, highlighted group first, plus its 95% CI), Download CSV (`/stories/<slug>.csv`, static endpoint), build-time OG image (`/stories/<slug>.png`, text-free SVG -> PNG via `sharp`, explicit dependency, no fonts needed), related links (stories with the same `source.url`, posts whose `sources:` list it), checksum and recipe under "Technical details". Display periods use en dashes (`enDash` in `lib/chart.ts`). `check-dist` fails if a story lacks its CSV or PNG.
 - Charts: `Chart.tsx` (Observable Plot, `client:visible`) inside `ChartFigure.astro` (caption, legend, data table). Palette = validated dataviz default via CSS vars `--series-1..8` (light/dark); highlighted series coloured, others grey; line y-axis not zero-based; ≥2 series ⇒ legend.
 - Deploy: Cloudflare Workers **static assets only** via `site/wrangler.jsonc` (no `main`, no bindings, pinned `wrangler` devDependency). Never add an Astro adapter or run `astro add cloudflare`; keep `output: 'static'`. `check-dist.mjs` fails on `_worker.js`/adapter output. `_redirects`: static rules above splat rules.
 - No analytics, no external fonts, no third-party scripts (migrated posts embed public Power BI iframes only).
@@ -102,11 +103,14 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 
 - `candidates.py`: findings grouped by (geography, geo_level, good_news) across measures; candidate score = best finding x (1 + 0.15 per extra measure); shortlist top 5, max 2 per geography. Detectors keep 20 findings per clean table (`detect.top_n`) so grouping has material.
 - `storydata.py`: chart_data = the full yearly series of every geography in the chart slice (the candidate finding with the most geographies, then years, then score); `numbers.series[]` = the candidate geography's yearly points per measure + `notable_moves` (CI-clear and >= 2x typical yearly change; fall-then-rise = dip) + `moves_shared_by_most_geographies`.
-- `narrate.py`: prompt (rules incl. polarity, percentage points, honest shape, mention notable dips) + strict reply schema (json.loads only, length limits, chart_spec columns/highlight checked against chart_data).
+- `storydata.py` also adds `series[].peak` (peak/low/latest; `latest_well_below_peak` = CIs apart and gap >= 2x typical yearly change), `numbers.caveats` (from `sources.yaml` `caveats:`, e.g. the ONS pause after 2022-23) and `numbers.chart_facts` (`chartfacts.facts_for`: which only/all/highest/lowest/biggest framings the chart data clearly supports).
+- `narrate.py`: prompt + strict reply schema (json.loads only). Rules: headline states the single strongest finding (never a topic label); prefer only/first/rank-change framing when `chart_facts` supports it; say when the latest value is well below the peak; body 500-700 words (validator accepts 450-750) with `## How it compares` and `## What the data can't tell us`; mention every caveat; en dashes in financial years; polarity, percentage points.
+- `chartfacts.py`: `evaluate(check, chart_data)` for kinds highest, lowest, only_rise/fall, all_rise/fall, biggest_rise/fall. highest/lowest need the group's CI clear of the runner-up; only/biggest need the group's own change CI-clear; all_* is direction only.
 - `verify.py`: every number in headline/hook/summary/body_md/video_script must equal a number anywhere in `stories.numbers` after rounding to the written decimals (sign ignored); years and financial years must be inside `data_period`. Word numbers two-twenty/twice are checked; "one"/"first"/"half" are not (too idiomatic). Limitation: it checks that a number exists in the data, not that it is attached to the right claim; human review covers that.
 - `stories.py`: `create_story` (draft, provisional slug) -> `story_prompt` -> `paste_narration` (parse, verify, slug from headline, unique) -> `reverify` (after edits). Approved/published stories are locked. DB constraint blocks approving a story whose verify_status is not `passed`.
-- Claims: the narration reply must include `claims: [{sentence, keys}]`; keys come from `verify.flatten_numbers` (f1.end_value, s1.points.2020-21.value, ...), listed in the prompt's KEYS table. The verifier checks each sentence exists, each key exists, each number matches one of ITS keys, and no number sits outside a claim. Results live in `verify_report.claims` / `.uncovered`.
-- CLI: `candidates <ct>`, `story-new <ct> --candidate N`, `story-prompt <id> [--out]`, `story-paste <id> <file>`, `story-verify <id>`, `stories`.
+- Claims: the narration reply must include `claims: [{sentence, keys, checks}]`; keys come from `verify.flatten_numbers` (f1.end_value, s1.points.2020-21.value, ...), listed in the prompt's KEYS table. The verifier checks each sentence exists, each key exists, each number matches one of ITS keys, and no number sits outside a claim. Rank words (only, all, highest, lowest, biggest, largest) must sit in a claim with a matching check (`assertion_missing` otherwise) and every check must hold against chart_data (`assertion_failed`); rank words outside claims are `uncovered`. Years quoted in `numbers.caveats` are allowed. Results live in `verify_report.claims` / `.uncovered`.
+- CLI: `candidates <ct>`, `story-new <ct> --candidate N`, `story-prompt <id> [--out]`, `story-paste <id> <file>`, `story-verify <id>`, `story-refresh <id>` (rebuild numbers/chart data from findings with current logic; back to draft, verify pending; keeps the slug), `stories`.
+- Slugs are set once from the first headline and never change afterwards, so a revised story republishes at the same URL. `publish.py` keeps the original `date` from the existing file and sets `updated`; it writes en dashes into displayed periods (data labels keep hyphens).
 
 ## Wording rules (M5)
 
@@ -122,7 +126,7 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - No Python on Workers. Pure text logic is ported to TypeScript in `dashboard/lib/logic/` (verify, narrate/prompt, shortlist, slug). **Change Python first**, regenerate `uv run python -m tests.golden_cases --write`, then mirror in TS until `npm test` passes. Never let them diverge.
 - Heavy/repo-writing work runs in GitHub Actions via **workflow_dispatch** (token: fine-grained, this repo, Actions read/write only): `story-new.yml`, `publish.yml` (write file, build site, commit, push, then `publish --mark`), `recipe-approve.yml`, `pipeline.yml`. Workflow inputs go through env vars and are validated; never interpolate `${{ inputs.* }}` into scripts.
 - `datatales/api.py` (JSON bridge) remains for local scripting; the deployed dashboard doesn't use it.
-- Story status transitions: draft -> approved (verify passed only) | rejected; rejected -> draft; approved -> draft; approved -> published only by `publish.yml`.
+- Story status transitions: draft -> approved (verify passed only) | rejected; rejected -> draft; approved -> draft; published -> draft ("Revise": clears published_at; the live page stays until republished); approved -> published only by `publish.yml`.
 
 ## Database
 

@@ -70,6 +70,58 @@ def create_story(repo: Repo, clean_table_id: str, index: int) -> dict[str, Any]:
     )
 
 
+def story_slug(repo: Repo, story: dict[str, Any], headline: str) -> str:
+    """Set once from the first headline, then fixed, so a published URL never changes when
+    a story is revised and republished."""
+    if not story["slug"].startswith("draft-"):
+        return story["slug"]
+    return unique_slug(repo, slugify(headline), story["id"])
+
+
+def refresh_story(repo: Repo, story_id: str) -> dict[str, Any]:
+    """Rebuild a story's numbers and chart data from its findings with the current logic
+    (e.g. after improving story data). Text is kept but must be re-verified: the story goes
+    back to draft with verification pending."""
+    from datatales.candidates import Candidate
+    from datatales.pipeline import read_parquet
+
+    story = repo.get_story(story_id)
+    if story["status"] == "approved":
+        raise StoryError("story is approved; move it back to draft first")
+    findings = repo.get_findings(story["finding_ids"])
+    if len(findings) != len(story["finding_ids"]):
+        raise StoryError("some of the story's findings no longer exist")
+    findings.sort(key=lambda f: (-float(f["score"]), f["detector"], f["id"]))
+    first = findings[0]["numbers"]
+    cand = Candidate(
+        str(first.get("group")), first.get("geo_level"), bool(first.get("good_news")), findings
+    )
+    ct = repo.get_clean_table(findings[0]["clean_table_id"])
+    source = get_source(repo.get_dataset(ct.dataset_id).source_slug)
+    if source.detect is None:
+        raise StoryError(f"source {source.slug} has no detect config")
+    clean = read_parquet(repo.get_object("clean", ct.parquet_path))
+    chart_data, chart_spec, numbers = build_story_data(clean, source, source.detect, cand)
+    fields: dict[str, Any] = {
+        "numbers": numbers,
+        "chart_data": chart_data,
+        "chart_spec": {
+            **chart_spec,
+            **{
+                k: v
+                for k, v in (story.get("chart_spec") or {}).items()
+                if k in ("title", "annotation")
+            },
+        },
+        "status": "draft",
+        "verify_status": "pending",
+        "verify_report": None,
+    }
+    if story["status"] == "published":
+        fields["published_at"] = None
+    return repo.update_story(story_id, fields)
+
+
 def story_prompt(repo: Repo, story_id: str) -> str:
     s = repo.get_story(story_id)
     return build_prompt(s["numbers"], s["chart_data"], s["chart_spec"])
@@ -92,13 +144,13 @@ def paste_narration(repo: Repo, story_id: str, reply: str) -> tuple[dict[str, An
         "video_script": narration.video_script,
     }
     claims = [c.model_dump() for c in narration.claims]
-    report = verify_text(fields, story["numbers"], claims)
+    report = verify_text(fields, story["numbers"], claims, story["chart_data"])
     spec = narration.chart_spec.model_dump(exclude_none=True)
     updated = repo.update_story(
         story_id,
         {
             **fields,
-            "slug": unique_slug(repo, slugify(narration.headline), story_id),
+            "slug": story_slug(repo, story, narration.headline),
             "chart_spec": spec,
             "verify_status": report.status,
             "verify_report": report.to_json(),
@@ -112,7 +164,17 @@ def stored_claims(story: dict[str, Any]) -> list[dict[str, Any]] | None:
     report = story.get("verify_report") or {}
     if not report.get("claims_checked"):
         return None
-    return [{"sentence": c["sentence"], "keys": c["keys"]} for c in report.get("claims", [])]
+    return [
+        {
+            "sentence": c["sentence"],
+            "keys": c["keys"],
+            "checks": [
+                {k: v for k, v in ch.items() if k not in ("ok", "detail")}
+                for ch in c.get("checks", [])
+            ],
+        }
+        for c in report.get("claims", [])
+    ]
 
 
 def reverify(
@@ -132,7 +194,7 @@ def reverify(
         claims = stored_claims(story)
     if claims is None:
         raise StoryError("story has no claims; paste a narration reply that includes claims")
-    report = verify_text(fields, story["numbers"], claims)
+    report = verify_text(fields, story["numbers"], claims, story["chart_data"])
     updated = repo.update_story(
         story_id, {**edits, "verify_status": report.status, "verify_report": report.to_json()}
     )
@@ -143,6 +205,7 @@ TRANSITIONS = {
     "draft": {"approved", "rejected"},
     "rejected": {"draft"},
     "approved": {"draft"},
+    "published": {"draft"},  # "Revise": the page stays live until it is republished
 }
 
 
@@ -154,4 +217,7 @@ def set_status(repo: Repo, story_id: str, status: str) -> dict[str, Any]:
         raise StoryError(f"cannot move a {story['status']} story to {status}")
     if status == "approved" and story["verify_status"] != "passed":
         raise StoryError("only stories that passed verification can be approved")
-    return repo.update_story(story_id, {"status": status})
+    fields: dict[str, Any] = {"status": status}
+    if story["status"] == "published":
+        fields["published_at"] = None  # DB rule: published_at only while published
+    return repo.update_story(story_id, fields)

@@ -10,6 +10,14 @@ sources:
     licence: Open Government Licence v3.0
     refresh_schedule: annual
     relatability: 5
+    # Known limits and gaps, quoted to the narrator for "What the data can't tell us".
+    # Facts only (from the ONS dataset page and QMI, checked 2026-10-10). Keep numbers out
+    # of these, other than years.
+    caveats:
+      - "ONS paused its annual personal well-being estimates after April 2022 to March 2023 because of falling response rates and weighting problems in the Annual Population Survey, so 2022-23 is the latest year available."
+      - "Since October 2024, ONS has classed these estimates as official statistics in development rather than accredited official statistics."
+      - "The figures are survey estimates. Each has a confidence interval, so small differences between years or places may not be real differences."
+      - "The survey reports how people rated their own well-being. It does not say why scores changed."
     fetch:
       type: ons_api
       dataset_id: wellbeing-local-authority

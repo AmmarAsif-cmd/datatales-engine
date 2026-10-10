@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
+import { evaluate, fmtG } from "../lib/logic/chartfacts.ts";
 import { decKey, decToString, parseDec } from "../lib/logic/decimal.ts";
 import { buildPrompt, NarrationError, parseNarration, wordCount } from "../lib/logic/narrate.ts";
 import { shortlist, slugify, type FindingRow } from "../lib/logic/stories.ts";
@@ -45,7 +46,7 @@ test("KEYS table (flatten_numbers)", () => {
 
 test("verification reports", () => {
   for (const c of golden.verify) {
-    const got = verifyText(c.fields, c.numbers, c.claims as Claim[] | null);
+    const got = verifyText(c.fields, c.numbers, c.claims as Claim[] | null, c.chart_data ?? null);
     const want = c.report;
     for (const field of [
       "status", "checked", "unmatched", "years_out_of_range", "data_years", "allowed_values",
@@ -105,4 +106,18 @@ test("prompt (numbers compared by value: 7.0 and 7 are the same)", () => {
   for (const c of golden.prompt) {
     assert.equal(norm(buildPrompt(c.numbers, c.chart_data, c.chart_spec)), norm(c.prompt));
   }
+});
+
+test("chart facts (rank and exclusivity checks)", () => {
+  for (const c of golden.chartfacts.evaluate) {
+    assert.deepEqual(evaluate(c.check, golden.chartfacts.chart_data), c.result, JSON.stringify(c.check));
+  }
+});
+
+test("Python %g formatting", () => {
+  const cases: [number, string][] = [
+    [40, "40"], [27.5, "27.5"], [-0.5, "-0.5"], [5.4213, "5.4213"], [1234567, "1.23457e+06"],
+    [0.00001, "1e-05"], [0.0001, "0.0001"], [123456, "123456"], [-2, "-2"], [0, "0"],
+  ]; // prettier-ignore
+  for (const [x, want] of cases) assert.equal(fmtG(x), want, String(x));
 });

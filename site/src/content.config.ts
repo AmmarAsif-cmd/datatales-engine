@@ -15,6 +15,8 @@ const posts = defineCollection({
     coverAlt: z.string().optional(),
     tags: z.array(z.string()).default([]),
     originalUrl: z.url().optional(),
+    /** Source dataset URLs this post uses; stories from the same source link to it. */
+    sources: z.array(z.url()).default([]),
   }),
 });
 

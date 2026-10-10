@@ -40,20 +40,20 @@ def test_write_story_file_matches_site_schema(
     assert fm["recipeVersion"] == "ons-wellbeing-local-authority.v1"
     assert fm["source"]["name"] == "Personal well-being estimates by local authority"
     assert fm["datasetChecksum"] == "c" * 64
-    assert fm["period"] == "2011-12 to 2014-15"
+    assert fm["period"] == "2011–12 to 2014–15"
     assert 1 <= len(fm["keyNumbers"]) <= 5
     assert {
-        "label": "Average life satisfaction score, 2014-15",
+        "label": "Average life satisfaction score, 2014–15",
         "value": "6.9",
-        "note": "From 6 in 2011-12 (average score out of 10)",
+        "note": "From 6 in 2011–12 (average score out of 10)",
     } in fm["keyNumbers"]
     assert {
-        "label": "Share with low life satisfaction, 2014-15",
+        "label": "Share with low life satisfaction, 2014–15",
         "value": "20%",
-        "note": "From 30% in 2011-12",
+        "note": "From 30% in 2011–12",
     } in fm["keyNumbers"]
     assert fm["chart_data"] == story["chart_data"] and fm["numbers"] == story["numbers"]
-    assert body.strip() == story["body_md"].strip()
+    assert body.strip() == publish.en_dash(story["body_md"].strip())
     # writing the file does not publish: that happens only after the push
     assert repo.get_story(story["id"])["status"] == "approved"
 

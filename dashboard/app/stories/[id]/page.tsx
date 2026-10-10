@@ -26,7 +26,17 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
 
   const prompt = buildPrompt(story.numbers ?? {}, story.chart_data ?? [], story.chart_spec ?? {});
   const locked = story.status === "approved" || story.status === "published";
-  const claims = (story.verify_report?.claims ?? []).map((c) => ({ sentence: c.sentence, keys: c.keys }));
+  const claims = (story.verify_report?.claims ?? []).map((c) => ({
+    sentence: c.sentence,
+    keys: c.keys,
+    checks: (c.checks ?? []).map((ch) => ({
+      kind: ch.kind,
+      ...(ch.group ? { group: ch.group } : {}),
+      ...(ch.period ? { period: ch.period } : {}),
+      ...(ch.start ? { start: ch.start } : {}),
+      ...(ch.end ? { end: ch.end } : {}),
+    })),
+  }));
   const passed = story.verify_status === "passed";
 
   return (

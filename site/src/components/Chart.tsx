@@ -1,7 +1,7 @@
 import * as Plot from '@observablehq/plot';
 import { useEffect, useRef, useState } from 'react';
 
-import { colouredSeries, highlightList, type ChartSpec, type Row } from '../lib/chart';
+import { colouredSeries, enDash, highlightList, type ChartSpec, type Row } from '../lib/chart';
 
 type Props = { spec: ChartSpec; data: Row[]; label: string };
 
@@ -71,7 +71,7 @@ function build(spec: ChartSpec, data: Row[], width: number): SVGSVGElement | HTM
       marginRight: rightRoom,
       x: years
         ? { tickFormat: 'd', label: null, ticks: Math.min(8, Math.floor(width / 70)) }
-        : { type: 'point', label: null },
+        : { type: 'point', label: null, tickFormat: (v: unknown) => enDash(String(v)) },
       // Lines need no zero baseline: fit the axis to the data. The unit is in the caption.
       y: { grid: true, label: null, nice: true, zero: false },
       color: { type: 'identity' },
@@ -130,7 +130,7 @@ function build(spec: ChartSpec, data: Row[], width: number): SVGSVGElement | HTM
             ...tipStyle,
             channels: sKey ? { [sKey]: sKey } : {},
             format: {
-              x: years ? (v: number) => String(v) : true,
+              x: (v: unknown) => enDash(String(v)),
               y: (v: number) => numFmt.format(v),
             },
           }),

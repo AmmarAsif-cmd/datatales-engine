@@ -74,13 +74,14 @@ const here = Astro.url.pathname.replace(/\.html$/, '');
           </span>
           {SITE.tagline}
         </p>
-        <p class="meta">
-          <a href="/rss.xml">RSS</a> · <a href="/archive">Archive</a> · <a href="/about">About</a> ·
+        <p class="meta links">
+          <a href="/rss.xml">RSS</a>
+          <a href="/archive">Archive</a>
+          <a href="/about">About</a>
           <a href="/contact">Contact</a>
         </p>
         <p class="meta">
-          © {year}
-          {SITE.author}. Source data remains under each publisher's licence.
+          {`© ${year} ${SITE.author}. Source data remains under each publisher's licence.`}
         </p>
       </div>
     </footer>
@@ -147,7 +148,12 @@ const here = Astro.url.pathname.replace(/\.html$/, '');
     font-size: 0.95rem;
   }
   .site-footer p {
-    margin: 0.35rem 0;
+    margin: 0.5rem 0;
+  }
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
   }
   @media (max-width: 30rem) {
     .bar {

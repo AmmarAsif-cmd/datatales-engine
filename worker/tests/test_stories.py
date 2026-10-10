@@ -15,6 +15,7 @@ from datatales.sources import get_source
 from datatales.storydata import common_moves, notable_moves
 from tests.memrepo import MemRepo
 from tests.test_detect import row, series
+from tests.textkit import padded_body
 
 SLUG = "ons-wellbeing-local-authority"
 
@@ -102,8 +103,10 @@ def reply(**over: object) -> str:
         "headline": "North wellbeing 2011–2013",
         "hook": "People in North reported higher wellbeing.",
         "summary": "Average scores rose from 7.0 to 7.4 between 2011-12 and 2012-13.",
-        "body_md": "Average scores in North rose from 7.0 to 7.4 between 2011-12 and 2012-13. "
-        "The data comes from the ONS.",
+        "body_md": padded_body(
+            "Average scores in North rose from 7.0 to 7.4 between 2011-12 and 2012-13. "
+            "The data comes from the ONS."
+        ),
         "video_script": "North felt better: up from 7.0 to 7.4.",
         "chart_spec": {"type": "line", "x": "period", "y": "value", "series": "geography",
                        "highlight": "North"},
@@ -124,9 +127,10 @@ def test_valid_reply_parses_even_inside_code_fences() -> None:
         ({"headline": "x" * 71}, "headline"),
         ({"hook": "One sentence. Two sentences."}, "one sentence"),
         ({"summary": "word " * 121}, "max 120"),
-        ({"body_md": "word " * 401}, "max 400"),
+        ({"body_md": "word " * 760}, "must be 450 to 750"),
+        ({"body_md": "word " * 520}, "needs '## ' sections"),
         ({"video_script": "word " * 91}, "max 90"),
-        ({"body_md": "Fine text <script>alert(1)</script> and more words."}, "plain Markdown"),
+        ({"body_md": padded_body("Fine text <script>alert(1)</script> more.")}, "plain Markdown"),
         ({"extra": 1}, "Extra inputs"),
         ({"claims": []}, "claims"),
         ({"claims": [{"sentence": "Up to 7.4.", "keys": []}]}, "claims"),
@@ -150,7 +154,8 @@ def test_prompt_contains_rules_numbers_and_chart() -> None:
     prompt = build_prompt({"x": 1.23}, CHART, {"type": "line"})
     assert "Use ONLY numbers that appear in NUMBERS" in prompt
     assert "very low anxiety" in prompt and "percentage points" in prompt
-    assert "2020-21" in prompt and '"x": 1.23' in prompt and "['North']" in prompt
+    assert "2020–21" in prompt and "How it compares" in prompt
+    assert "supported_checks" in prompt and '"x": 1.23' in prompt and "['North']" in prompt
 
 
 # ---- full story flow on MemRepo ----
@@ -204,8 +209,10 @@ def riser_reply(story: dict, **over: object) -> dict:
         "hook": "Life satisfaction in Riser rose from 6.0 to 6.9.",
         "summary": "Average life satisfaction in Riser rose from 6.0 in 2011-12 to 6.9 "
         "in 2014-15, after a dip to 6.2 in 2013-14.",
-        "body_md": "Riser rose from 6.0 to 6.9 between 2011-12 and 2014-15. "
-        "It dipped to 6.2 in 2013-14 before recovering. Source: ONS.",
+        "body_md": padded_body(
+            "Riser rose from 6.0 to 6.9 between 2011-12 and 2014-15. "
+            "It dipped to 6.2 in 2013-14 before recovering. Source: ONS."
+        ),
         "video_script": "Riser is up from 6.0 to 6.9.",
         "chart_spec": {"type": "line", "x": "period", "y": "value", "series": "geography",
                        "highlight": "Riser"},

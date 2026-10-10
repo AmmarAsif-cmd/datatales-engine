@@ -1,7 +1,7 @@
 import "server-only";
 
 import { db } from "./db";
-import { NarrationError, parseNarration } from "./logic/narrate.ts";
+import { NarrationError, parseChecks, parseNarration } from "./logic/narrate.ts";
 import { slugify } from "./logic/stories.ts";
 import { type Claim, type Report, TEXT_FIELDS, type TextField, verifyText } from "./logic/verify.ts";
 import type { Story } from "./types";
@@ -57,11 +57,12 @@ export async function pasteNarration(id: string, reply: string): Promise<{ story
     body_md: narration.body_md,
     video_script: narration.video_script,
   };
-  const report = verifyText(fields, story.numbers as never, narration.claims);
+  const report = verifyText(fields, story.numbers as never, narration.claims, story.chart_data ?? []);
   const spec = Object.fromEntries(Object.entries(narration.chart_spec).filter(([, v]) => v !== null && v !== undefined));
   const saved = await save(id, {
     ...fields,
-    slug: await uniqueSlug(slugify(narration.headline), id),
+    // set once from the first headline, then fixed: a published URL never changes
+    slug: story.slug.startsWith("draft-") ? await uniqueSlug(slugify(narration.headline), id) : story.slug,
     chart_spec: spec,
     verify_status: report.status,
     verify_report: report,
@@ -74,15 +75,21 @@ export function validateClaims(raw: unknown): Claim[] {
   if (!Array.isArray(raw)) throw new StoryOpError("claims must be a JSON list");
   return raw.map((c, i) => {
     if (!c || typeof c !== "object") throw new StoryOpError(`claim ${i + 1} must be an object`);
-    const { sentence, keys, ...extra } = c as Record<string, unknown>;
+    const { sentence, keys = [], checks = [], ...extra } = c as Record<string, unknown>;
     if (Object.keys(extra).length) throw new StoryOpError(`claim ${i + 1} has unknown fields`);
     if (typeof sentence !== "string" || sentence.trim().length < 5) {
       throw new StoryOpError(`claim ${i + 1} needs a sentence`);
     }
-    if (!Array.isArray(keys) || !keys.length || !keys.every((k) => typeof k === "string")) {
-      throw new StoryOpError(`claim ${i + 1} needs a list of keys`);
+    if (!Array.isArray(keys) || !keys.every((k) => typeof k === "string")) {
+      throw new StoryOpError(`claim ${i + 1}: keys must be a list of strings`);
     }
-    return { sentence: sentence.trim(), keys: keys.map((k) => (k as string).trim()) };
+    const problems: [string, string][] = [];
+    const parsed = parseChecks(checks, "checks", problems);
+    if (problems.length) {
+      throw new StoryOpError(`claim ${i + 1}: ${problems.map(([l, m]) => `${l}: ${m}`).join("; ")}`);
+    }
+    if (!keys.length && !parsed.length) throw new StoryOpError(`claim ${i + 1} needs keys or checks`);
+    return { sentence: sentence.trim(), keys: keys.map((k) => (k as string).trim()), checks: parsed };
   });
 }
 
@@ -95,7 +102,7 @@ export async function reverifyStory(
   if (LOCKED.has(story.status)) throw new StoryOpError(`story is ${story.status}; it can no longer be edited`);
   const clean = Object.fromEntries(TEXT_FIELDS.filter((f) => f in edits).map((f) => [f, edits[f]!.trim()]));
   const fields = Object.fromEntries(TEXT_FIELDS.map((f) => [f, (clean[f] ?? story[f] ?? "") as string]));
-  const report = verifyText(fields, story.numbers as never, claims);
+  const report = verifyText(fields, story.numbers as never, claims, story.chart_data ?? []);
   const saved = await save(id, { ...clean, verify_status: report.status, verify_report: report });
   return { story: saved, report };
 }
@@ -104,6 +111,7 @@ const TRANSITIONS: Record<string, string[]> = {
   draft: ["approved", "rejected"],
   rejected: ["draft"],
   approved: ["draft"],
+  published: ["draft"], // "Revise": the live page stays up until the story is republished
 };
 
 export async function setStoryStatus(id: string, status: string): Promise<Story> {
@@ -114,5 +122,6 @@ export async function setStoryStatus(id: string, status: string): Promise<Story>
   if (status === "approved" && story.verify_status !== "passed") {
     throw new StoryOpError("only stories that passed verification can be approved");
   }
-  return save(id, { status });
+  // DB rule stories_published_at_set: published_at only while published
+  return save(id, story.status === "published" ? { status, published_at: null } : { status });
 }

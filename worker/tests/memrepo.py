@@ -181,6 +181,9 @@ class MemRepo:
         # mirrors the DB constraint stories_verified_before_approval
         if merged["status"] in ("approved", "published") and merged["verify_status"] != "passed":
             raise ValueError("violates stories_verified_before_approval")
+        # mirrors stories_published_at_set
+        if (merged["status"] == "published") != (merged.get("published_at") is not None):
+            raise ValueError("violates stories_published_at_set")
         owner = self.story_id_for_slug(fields["slug"]) if "slug" in fields else None
         if owner not in (None, story_id):
             raise ValueError("duplicate slug")

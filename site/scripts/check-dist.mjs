@@ -67,7 +67,25 @@ must(
   'sample story page was built',
 );
 
-// 5. Pure static output: no Worker script or adapter artefacts.
+// 5. Every story page ships its data download and its social card image.
+const storyDir = join(DIST, 'stories');
+for (const page of existsSync(storyDir)
+  ? readdirSync(storyDir).filter((f) => f.endsWith('.html'))
+  : []) {
+  const slug = page.slice(0, -'.html'.length);
+  const csv = join(storyDir, `${slug}.csv`);
+  const png = join(storyDir, `${slug}.png`);
+  must(existsSync(csv) && statSync(csv).size > 20, `story ${slug} has no CSV download`);
+  must(
+    existsSync(png) && readFileSync(png).subarray(1, 4).toString() === 'PNG',
+    `story ${slug} has no OG image`,
+  );
+  const html = readFileSync(join(storyDir, page), 'utf8');
+  must(html.includes(`/stories/${slug}.png`), `story ${slug} does not use its OG image`);
+  must(html.includes(`/stories/${slug}.csv`), `story ${slug} does not link its CSV`);
+}
+
+// 6. Pure static output: no Worker script or adapter artefacts.
 for (const f of ['_worker.js', '_routes.json', 'server']) {
   must(!existsSync(join(DIST, f)), `unexpected server/adapter output: ${f}`);
 }

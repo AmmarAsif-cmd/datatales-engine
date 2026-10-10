@@ -13,6 +13,11 @@ export type ChartSpec = {
 
 export const MAX_COLOURED = 8;
 
+/** Financial years read 2011–12, not 2011-12 (display only; data keeps its labels). */
+export function enDash(text: string): string {
+  return text.replace(/(?<![\w.])((?:19|20)\d{2})-(\d{2})(?!\d)/g, '$1–$2');
+}
+
 export function highlightList(spec: ChartSpec): string[] {
   if (!spec.highlight) return [];
   return Array.isArray(spec.highlight) ? spec.highlight : [spec.highlight];

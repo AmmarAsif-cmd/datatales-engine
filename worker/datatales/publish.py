@@ -90,8 +90,31 @@ def provenance(repo: Repo, story: dict[str, Any]) -> tuple[SourceDef, dict[str, 
     }
 
 
+FIN_YEAR_HYPHEN = re.compile(r"(?<![\w.])((?:19|20)\d{2})-(\d{2})(?!\d)")
+
+
+def en_dash(text: str) -> str:
+    """Financial years read 2011–12, not 2011-12 (display only; data keeps its labels)."""
+    return FIN_YEAR_HYPHEN.sub("\\1\u2013\\2", text)
+
+
+def first_published(path: Path) -> str | None:
+    """`date` of an existing story file, so republishing keeps the original publish date."""
+    if not path.exists():
+        return None
+    parts = path.read_text(encoding="utf-8").split("---\n", 2)
+    if len(parts) < 3:
+        return None
+    head = yaml.safe_load(parts[1]) or {}
+    return str(head["date"]) if head.get("date") else None
+
+
 def front_matter(
-    story: dict[str, Any], source: SourceDef, prov: dict[str, Any], when: datetime
+    story: dict[str, Any],
+    source: SourceDef,
+    prov: dict[str, Any],
+    when: datetime,
+    first_date: str | None = None,
 ) -> dict[str, Any]:
     numbers = story["numbers"]
     if source.detect is None:
@@ -99,10 +122,10 @@ def front_matter(
     period = numbers.get("data_period") or {}
     src = numbers.get("source") or {}
     fm: dict[str, Any] = {
-        "title": story["headline"],
-        "description": first_sentence(story["summary"] or story["hook"]),
-        "hook": story["hook"],
-        "date": when.date().isoformat(),
+        "title": en_dash(story["headline"]),
+        "description": en_dash(first_sentence(story["summary"] or story["hook"])),
+        "hook": en_dash(story["hook"]),
+        "date": first_date or when.date().isoformat(),
         "updated": when.date().isoformat(),
         "source": {
             "name": src.get("name", source.name),
@@ -113,13 +136,18 @@ def front_matter(
         "fetchedAt": prov["fetchedAt"][:10],
         "recipeVersion": prov["recipeVersion"],
         "datasetChecksum": prov["datasetChecksum"],
-        "keyNumbers": key_numbers(numbers, source.detect),
-        "chart_spec": story["chart_spec"],
+        "keyNumbers": [
+            {k: en_dash(v) for k, v in card.items()} for card in key_numbers(numbers, source.detect)
+        ],
+        "chart_spec": {
+            k: en_dash(v) if k in ("title", "annotation") and isinstance(v, str) else v
+            for k, v in story["chart_spec"].items()
+        },
         "chart_data": story["chart_data"],
         "numbers": numbers,
     }
     if period.get("first") and period.get("last"):
-        fm["period"] = f"{period['first']} to {period['last']}"
+        fm["period"] = en_dash(f"{period['first']} to {period['last']}")
     return fm
 
 
@@ -128,7 +156,7 @@ def render(story: dict[str, Any], fm: dict[str, Any]) -> str:
     note = (
         "# Written by worker/datatales/publish.py from the approved, verified story. Do not edit.\n"
     )
-    return f"---\n{note}{head}---\n\n{story['body_md'].strip()}\n"
+    return f"---\n{note}{head}---\n\n{en_dash(story['body_md'].strip())}\n"
 
 
 def write_story_file(
@@ -148,8 +176,8 @@ def write_story_file(
             raise PublishError(f"story has no {field}")
     when = when or now_utc()
     source, prov = provenance(repo, story)
-    text = render(story, front_matter(story, source, prov, when))
     path = out_dir / f"{story['slug']}.md"
+    text = render(story, front_matter(story, source, prov, when, first_published(path)))
     out_dir.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8", newline="\n")
     return path

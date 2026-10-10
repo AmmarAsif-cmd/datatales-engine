@@ -8,15 +8,17 @@ import json
 import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from datatales.errors import UserError
 from datatales.verify import flatten_numbers
 
 HEADLINE_MAX_CHARS = 70
 SUMMARY_MAX_WORDS = 120
-BODY_MAX_WORDS = 400
+BODY_MIN_WORDS = 450  # the prompt asks for 500-700; a little slack either side
+BODY_MAX_WORDS = 750
 VIDEO_MAX_WORDS = 90
+REQUIRED_SECTIONS = ("How it compares", "What the data can't tell us")
 
 
 class NarrationError(UserError):
@@ -25,6 +27,12 @@ class NarrationError(UserError):
 
 def word_count(text: str) -> int:
     return len(re.findall(r"\b[\w'’-]+\b", text))
+
+
+def has_section(body: str, title: str) -> bool:
+    """A '## Title' (or ###) heading; straight or curly apostrophes both count."""
+    norm = title.lower().replace("'", "['’]")
+    return re.search(rf"^#{{2,3}}\s*{norm}\s*$", body, re.I | re.M) is not None
 
 
 class ChartSpecOut(BaseModel):
@@ -39,10 +47,41 @@ class ChartSpecOut(BaseModel):
     yLabel: str | None = Field(default=None, max_length=80)  # noqa: N815 - matches the site schema
 
 
+class Check(BaseModel):
+    """A rank/exclusivity claim checked against chart_data (see chartfacts.py)."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    kind: Literal[
+        "highest", "lowest", "only_rise", "only_fall",
+        "all_rise", "all_fall", "biggest_rise", "biggest_fall",
+    ]  # fmt: skip
+    group: str | None = None
+    period: str | None = None
+    start: str | None = None
+    end: str | None = None
+
+    @model_validator(mode="after")
+    def _fields_for_kind(self) -> "Check":
+        needs = ["period"] if self.kind in ("highest", "lowest") else ["start", "end"]
+        if self.kind != "all_rise" and self.kind != "all_fall":
+            needs.append("group")
+        missing = [f for f in needs if not getattr(self, f)]
+        if missing:
+            raise ValueError(f"{self.kind} needs {', '.join(missing)}")
+        return self
+
+
 class Claim(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     sentence: str = Field(min_length=5, max_length=600)
-    keys: list[str] = Field(min_length=1, max_length=12)
+    keys: list[str] = Field(default_factory=list, max_length=12)
+    checks: list[Check] = Field(default_factory=list, max_length=6)
+
+    @model_validator(mode="after")
+    def _keys_or_checks(self) -> "Claim":
+        if not self.keys and not self.checks:
+            raise ValueError("needs at least one key or check")
+        return self
 
 
 class Narration(BaseModel):
@@ -72,10 +111,14 @@ class Narration(BaseModel):
     @field_validator("body_md")
     @classmethod
     def _body_len(cls, v: str) -> str:
-        if word_count(v) > BODY_MAX_WORDS:
-            raise ValueError(f"is {word_count(v)} words; max {BODY_MAX_WORDS}")
+        n = word_count(v)
+        if n > BODY_MAX_WORDS or n < BODY_MIN_WORDS:
+            raise ValueError(f"is {n} words; must be {BODY_MIN_WORDS} to {BODY_MAX_WORDS}")
         if re.search(r"<\s*(script|iframe|style)|javascript:", v, re.I):
             raise ValueError("must be plain Markdown (no scripts, iframes or styles)")
+        missing = [s for s in REQUIRED_SECTIONS if not has_section(v, s)]
+        if missing:
+            raise ValueError(f"needs '## ' sections: {', '.join(missing)}")
         return v
 
     @field_validator("video_script")
@@ -128,11 +171,12 @@ def parse_narration(text: str, chart_data: list[dict[str, Any]]) -> Narration:
 
 
 OUTPUT_SCHEMA = {
-    "headline": f"string, at most {HEADLINE_MAX_CHARS} characters, search-friendly, e.g. "
-    '"UK wellbeing by region 2011–2023"',
+    "headline": f"string, at most {HEADLINE_MAX_CHARS} characters: the single strongest finding "
+    'as a statement, e.g. "Northern Ireland is the only UK nation where low anxiety rose"',
     "hook": "string, exactly one sentence",
     "summary": f"string, at most {SUMMARY_MAX_WORDS} words",
-    "body_md": f"string, Markdown, at most {BODY_MAX_WORDS} words, no headings above ##",
+    "body_md": "string, Markdown, 500 to 700 words, with the sections "
+    '"## How it compares" and "## What the data can\'t tell us"; no headings above ##',
     "video_script": f"string, at most {VIDEO_MAX_WORDS} words, to be read aloud",
     "chart_spec": {
         "type": "line | bar | dot",
@@ -147,8 +191,18 @@ OUTPUT_SCHEMA = {
     "claims": [
         {
             "sentence": "a sentence copied EXACTLY from headline/hook/summary/body_md/"
-            "video_script that contains a number (other than a year)",
+            "video_script that contains a number (other than a year) or a rank word",
             "keys": ["the KEYS (from the KEYS table) that each number in it comes from"],
+            "checks": [
+                {
+                    "kind": "only_rise | only_fall | all_rise | all_fall | highest | lowest "
+                    "| biggest_rise | biggest_fall",
+                    "group": "geography (not for all_rise/all_fall)",
+                    "start": "first period (rise/fall kinds)",
+                    "end": "last period (rise/fall kinds)",
+                    "period": "period (highest/lowest)",
+                }
+            ],
         }
     ],
 }
@@ -157,29 +211,47 @@ RULES = """\
 Rules (follow every one):
 1. Use ONLY numbers that appear in NUMBERS below. Do not calculate new numbers (no new
    differences, ratios, averages or percentages) and do not round to a different figure
-   than one you could get by rounding a number given. Years must be within the data period.
+   than one you could get by rounding a number given. Years must be within the data period
+   (years mentioned in `caveats` are also allowed).
 2. UK English. Plain, calm language for a general reader. No hype words ("shocking",
-   "soaring", "plummeting", "crisis").
-3. Every change or gap in NUMBERS is statistically clear (confidence intervals do not
+   "soaring", "plummeting", "crisis"). Write financial years with an en dash: 2011–12.
+3. HEADLINE: state the single strongest finding as a statement with its key fact, e.g.
+   "Northern Ireland is the only UK nation where low anxiety rose". Never a topic label
+   such as "Wellbeing in Northern Ireland 2011–2023".
+4. FRAMING: `chart_facts.supported_checks` lists what the chart data clearly supports
+   (only_rise, only_fall, all_rise, all_fall, highest, lowest, biggest_rise, biggest_fall).
+   When one is supported, prefer that framing ("the only nation where…", "the biggest rise
+   of the four…"), or rank-change framing from `rank_change`/`overtook` in the findings.
+5. Every change or gap in NUMBERS is statistically clear (confidence intervals do not
    overlap). Say "clearly higher/lower" if useful; never say "significant".
-4. Respect polarity: `higher_is_better` and `good_news` say whether a rise is good. For
+6. Respect polarity: `higher_is_better` and `good_news` say whether a rise is good. For
    anxiety, a LOWER score is better. Band labels for anxiety mean: Poor = high anxiety,
    Fair = medium, Good = low, Very good = very low anxiety. Never write "very good anxiety";
    write "very low anxiety".
-5. When `unit` starts with "%", a change in `change` is in percentage points: write
+7. When `unit` starts with "%", a change in `change` is in percentage points: write
    "5.4 percentage points", never "5.4%". `pct_change` is a relative change.
-6. Look at `series[].notable_moves` and `moves_shared_by_most_geographies`. If they show a
-   notable dip or rise (for example around 2020-21), mention it briefly with its numbers.
-   If they are empty, do not invent one.
-7. Describe the shape honestly. The findings compare the first and last year; `series[].points`
-   has every year. If the series peaked or bottomed out in between (for example rose, then
-   fell back), say so with those numbers instead of implying a steady trend.
-8. Say where the data comes from (source name) and the period covered.
-9. CLAIMS: for EVERY sentence in any field that contains a number other than a year, add
-   one claim {"sentence": <the sentence copied exactly>, "keys": [<KEYS it uses>]}. Each
-   number in the sentence must equal (after rounding) one of its keys. If the same sentence
-   is used in two fields, one claim covers both. Count words like "four" as numbers.
-10. Return ONLY a JSON object with exactly these keys, no Markdown fences, no comments.
+8. SHAPE: `series[].points` has every year and `series[].peak` the peak and low point. If
+   `latest_well_below_peak` is true, say plainly that the latest value is well below the
+   peak, with both numbers and years. Mention notable dips or rises from `notable_moves` and
+   `moves_shared_by_most_geographies` (for example 2020–21) briefly, with their numbers. If
+   they are empty, do not invent one.
+9. STRUCTURE of body_md (500 to 700 words): first the main finding and its shape; then
+   "## How it compares" (the other geographies and the other measures in NUMBERS); then
+   "## What the data can't tell us" (these are survey estimates with confidence intervals;
+   the data does not explain causes; and every point in `caveats`, such as the paused annual
+   release). Say where the data comes from (source name) and the period covered.
+10. RANK WORDS: use "only", "all", "highest", "lowest", "biggest" or "largest" only for the
+   charted measure, and only when a check proves it (rule 11). Otherwise avoid these words.
+11. CLAIMS: for EVERY sentence in any field that contains a number other than a year, or any
+   of the rank words above, add one claim:
+   {"sentence": <copied exactly>, "keys": [<KEYS used>], "checks": [<checks>]}.
+   Each number must equal (after rounding) one of its keys. Each rank word needs a check of
+   the matching kind: only -> only_rise/only_fall; all -> all_rise/all_fall; highest ->
+   highest; lowest -> lowest; biggest/largest -> biggest_rise/biggest_fall. Copy checks from
+   `chart_facts.supported_checks` (without "detail"), or write one with other periods; every
+   check is re-tested against chart_data. If the same sentence is used in two fields, one
+   claim covers both. Count words like "four" as numbers.
+12. Return ONLY a JSON object with exactly these keys, no Markdown fences, no comments.
 """
 
 

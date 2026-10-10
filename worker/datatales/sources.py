@@ -79,6 +79,7 @@ class SourceDef(BaseModel):
     licence: str | None = None
     refresh_schedule: str | None = None
     relatability: Annotated[int, Field(ge=1, le=5)] = 3
+    caveats: list[str] = Field(default_factory=list)
     fetch: Annotated[OnsApiFetch | UploadFetch, Field(discriminator="type")]
     detect: DetectConfig | None = None
 

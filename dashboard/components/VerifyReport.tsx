@@ -5,7 +5,14 @@ const CLAIM_LABEL: Record<string, string> = {
   mismatch: "number not from its keys",
   sentence_not_found: "sentence not in text",
   unknown_keys: "unknown key",
+  assertion_missing: "rank word not checked",
+  assertion_failed: "rank check failed",
 };
+
+function checkLabel(c: { kind?: string; group?: string; period?: string; start?: string; end?: string }) {
+  const where = c.period ?? [c.start, c.end].filter(Boolean).join(" to ");
+  return [c.kind, c.group, where].filter(Boolean).join(" · ");
+}
 
 export default function VerifyReport({ report }: { report: Report | null }) {
   if (!report) return <p className="muted">Not verified yet. Paste a narration reply.</p>;
@@ -54,11 +61,11 @@ export default function VerifyReport({ report }: { report: Report | null }) {
 
       {report.uncovered.length > 0 && (
         <>
-          <h3>Numbers outside any claim</h3>
+          <h3>Numbers or rank words outside any claim</h3>
           <table className="stack">
             <thead>
               <tr>
-                <th>Number</th>
+                <th>Text</th>
                 <th>Field</th>
                 <th>Sentence</th>
               </tr>
@@ -66,7 +73,7 @@ export default function VerifyReport({ report }: { report: Report | null }) {
             <tbody>
               {report.uncovered.map((u, i) => (
                 <tr key={i} className="claim-bad">
-                  <td data-label="Number">
+                  <td data-label="Text">
                     <code>{u.text}</code>
                   </td>
                   <td data-label="Field">{u.field}</td>
@@ -86,7 +93,7 @@ export default function VerifyReport({ report }: { report: Report | null }) {
               <tr>
                 <th style={{ width: "9rem" }}>Status</th>
                 <th>Sentence</th>
-                <th>Numbers → keys</th>
+                <th>Numbers → keys, checks</th>
               </tr>
             </thead>
             <tbody>
@@ -101,12 +108,25 @@ export default function VerifyReport({ report }: { report: Report | null }) {
                     )}
                   </td>
                   <td className="sentence" data-label="Sentence">{c.sentence}</td>
-                  <td data-label="Numbers → keys">
+                  <td data-label="Numbers → keys, checks">
                     {c.numbers.map((n, j) => (
                       <span key={j} className={`num-chip ${n.key ? "" : "missing"}`}>
                         {n.text} → {n.key ?? "no matching key"}
                       </span>
                     ))}
+                    {(c.checks ?? []).map((ch, j) => (
+                      <div key={`c${j}`} className="small">
+                        <span className={`num-chip ${ch.ok ? "" : "missing"}`}>
+                          {ch.ok ? "✓" : "✗"} {checkLabel(ch)}
+                        </span>{" "}
+                        <span className="muted">{ch.detail}</span>
+                      </div>
+                    ))}
+                    {c.missing_checks && (
+                      <div className="small">
+                        Needs a check for: <code>{c.missing_checks.join(", ")}</code>
+                      </div>
+                    )}
                     {c.unknown_keys && (
                       <div className="small">
                         Unknown: <code>{c.unknown_keys.join(", ")}</code>

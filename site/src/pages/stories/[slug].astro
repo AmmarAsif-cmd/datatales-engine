@@ -4,8 +4,10 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import ChartFigure from '../../components/ChartFigure.astro';
 import NumberCards from '../../components/NumberCards.astro';
 import SourceNote from '../../components/SourceNote.astro';
-import { formatDate, getStories, type Story } from '../../lib/content';
+import type { Row } from '../../lib/chart';
+import { formatDate, getPosts, getStories, type Story } from '../../lib/content';
 import { SITE } from '../../lib/site';
+import { enDash, periodRange } from '../../lib/story';
 
 export async function getStaticPaths() {
   const stories = await getStories();
@@ -16,6 +18,24 @@ const { story } = Astro.props as { story: Story };
 const { Content } = await render(story);
 const d = story.data;
 const url = `${SITE.url}/stories/${story.id}`;
+const ogImage = `/stories/${story.id}.png`;
+const range = periodRange(d.chart_data as Row[], d.chart_spec.x);
+const covers = range ? `${enDash(range[0])} to ${enDash(range[1])}` : d.period && enDash(d.period);
+
+// Related: other stories and posts built on the same source dataset.
+const related = [
+  ...(await getStories())
+    .filter((s) => s.id !== story.id && s.data.source.url === d.source.url)
+    .map((s) => ({
+      title: s.data.title,
+      url: `/stories/${s.id}`,
+      kind: 'Story',
+      date: s.data.date,
+    })),
+  ...(await getPosts())
+    .filter((p) => p.data.sources.includes(d.source.url))
+    .map((p) => ({ title: p.data.title, url: `/${p.id}`, kind: 'Article', date: p.data.date })),
+].sort((a, b) => b.date.valueOf() - a.date.valueOf());
 
 const article = {
   '@context': 'https://schema.org',
@@ -26,7 +46,7 @@ const article = {
   dateModified: (d.updated ?? d.date).toISOString(),
   url,
   mainEntityOfPage: url,
-  image: new URL(SITE.defaultOgImage, SITE.url).href,
+  image: new URL(ogImage, SITE.url).href,
   inLanguage: 'en-GB',
   author: { '@type': 'Person', name: SITE.author },
   publisher: {
@@ -44,7 +64,12 @@ const dataset = {
   description: `Source dataset for “${d.title}”.`,
   creator: d.source.publisher ? { '@type': 'Organization', name: d.source.publisher } : undefined,
   license: d.source.licence,
-  temporalCoverage: d.period,
+  temporalCoverage: covers,
+  distribution: {
+    '@type': 'DataDownload',
+    encodingFormat: 'text/csv',
+    contentUrl: `${url}.csv`,
+  },
 };
 ---
 
@@ -52,6 +77,8 @@ const dataset = {
   title={d.title}
   description={d.description}
   type="article"
+  image={ogImage}
+  imageAlt={`Chart: ${enDash(d.chart_spec.title ?? d.title)}`}
   published={d.date}
   modified={d.updated}
   noindex={d.sample}
@@ -67,9 +94,12 @@ const dataset = {
       )}
       <header class="head">
         <p class="kicker">Data story</p>
-        <h1>{d.title}</h1>
-        <p class="hook">{d.hook}</p>
+        <h1>{enDash(d.title)}</h1>
+        {covers && <p class="covers">Data covers {covers}</p>}
+        <p class="hook">{enDash(d.hook)}</p>
         <p class="meta">
+          By {SITE.author}
+          {' · '}
           <time datetime={d.date.toISOString()}>{formatDate(d.date)}</time>
           {d.updated && formatDate(d.updated) !== formatDate(d.date) && (
             <>
@@ -86,11 +116,23 @@ const dataset = {
     </div>
 
     <div class="wide-chart">
-      <ChartFigure spec={d.chart_spec} data={d.chart_data} fallbackTitle={d.title} />
+      <ChartFigure
+        spec={d.chart_spec}
+        data={d.chart_data as Row[]}
+        fallbackTitle={d.title}
+        csvHref={`/stories/${story.id}.csv`}
+        csvName={`datatales-${story.id}.csv`}
+      />
     </div>
 
     <div class="measure">
-      <NumberCards items={d.keyNumbers} />
+      <NumberCards
+        items={d.keyNumbers.map((k) => ({
+          ...k,
+          label: enDash(k.label),
+          note: k.note && enDash(k.note),
+        }))}
+      />
       <div class="prose">
         <Content />
       </div>
@@ -99,9 +141,22 @@ const dataset = {
         fetchedAt={d.fetchedAt}
         recipeVersion={d.recipeVersion}
         datasetChecksum={d.datasetChecksum}
-        period={d.period}
+        period={covers}
         updated={d.updated ?? d.date}
       />
+      {related.length > 0 && (
+        <nav class="related" aria-labelledby="related-heading">
+          <h2 id="related-heading">More from this data</h2>
+          <ul>
+            {related.map((r) => (
+              <li>
+                <span class="kind">{r.kind}</span>
+                <a href={r.url}>{enDash(r.title)}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
     </div>
   </article>
 </BaseLayout>
@@ -112,7 +167,13 @@ const dataset = {
   }
   h1 {
     font-size: clamp(1.9rem, 5vw, 2.7rem);
-    margin: 0 0 0.75rem;
+    margin: 0 0 0.5rem;
+  }
+  .covers {
+    margin: 0 0 1rem;
+    color: var(--muted);
+    font-size: 0.95rem;
+    font-weight: 500;
   }
   .hook {
     font-size: 1.25rem;
@@ -123,5 +184,35 @@ const dataset = {
   .wide-chart {
     max-width: 52rem;
     margin-inline: auto;
+  }
+  .related {
+    margin: 2.5rem 0 0;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+  }
+  .related h2 {
+    font-size: 1.1rem;
+    margin: 0 0 0.75rem;
+  }
+  .related ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.6rem;
+  }
+  .related li {
+    display: flex;
+    gap: 0.75rem;
+    align-items: baseline;
+  }
+  .kind {
+    flex: none;
+    min-width: 4.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
   }
 </style>
