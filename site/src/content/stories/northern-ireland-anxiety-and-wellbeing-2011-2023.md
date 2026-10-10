@@ -19,15 +19,16 @@ keyNumbers:
 - label: Share with very low anxiety, 2022–23
   value: 39.53%
   note: From 34.11% in 2011–12
+- label: Rank among 4 UK nations (1st = highest)
+  value: 4th → 1st
+  note: Share with very low anxiety, 2011–12 to 2022–23
+  kind: rank
 - label: Average anxiety score, 2022–23
   value: '2.91'
   note: From 3.15 in 2011–12 (average score out of 10)
 - label: Average worthwhile score, 2022–23
   value: '7.93'
   note: From 7.76 in 2011–12 (average score out of 10)
-- label: Average happiness score, 2022–23
-  value: '7.57'
-  note: From 7.39 in 2011–12 (average score out of 10)
 chart_spec:
   x: period
   y: value
@@ -329,11 +330,20 @@ chart_data:
   geography: Wales
 numbers:
   cover:
+    rank:
+      noun: UK nations
+      groups: 4
+      end_rank: 1
+      end_period: 2022-23
+      start_rank: 4
+      first_means: highest
+      start_period: 2011-12
     badge: 4th → 1st of 4 UK nations
     group: Northern Ireland
     label: Share with very low anxiety, 2022-23
     value: 39.53%
     change: Up from 34.11% in 2011-12
+    measure_label: Share with very low anxiety
   series:
   - peak:
       low_value: 34.11
