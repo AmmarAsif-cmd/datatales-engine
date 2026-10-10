@@ -35,11 +35,13 @@ jobs:
       # On failure, surface npm's error as an annotation (readable from the run summary).
       - name: Install
         run: |
-          npm ci 2>&1 | tee "$RUNNER_TEMP/npm-ci.log"
-          status=${PIPESTATUS[0]}
+          set +e
+          npm ci > "$RUNNER_TEMP/npm-ci.log" 2>&1
+          status=$?
+          cat "$RUNNER_TEMP/npm-ci.log"
           if [ "$status" -ne 0 ]; then
-            echo "::error title=npm ci failed::$(grep -E 'npm error' "$RUNNER_TEMP/npm-ci.log" | head -20 | tr '
-' ' ' | cut -c1-3000)"
+            msg=$(grep -E 'npm error' "$RUNNER_TEMP/npm-ci.log" | head -20 | tr '\n' ' ' | cut -c1-3000)
+            echo "::error title=npm ci failed::$msg"
             exit "$status"
           fi
 
