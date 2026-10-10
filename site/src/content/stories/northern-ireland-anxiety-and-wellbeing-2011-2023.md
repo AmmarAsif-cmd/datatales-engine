@@ -1,9 +1,10 @@
 ---
 # Written by worker/datatales/publish.py from the approved, verified story. Do not edit.
-title: Northern Ireland anxiety and wellbeing 2011–2023
-description: In Northern Ireland, 39.53% of people reported very low anxiety in 2022-23, up from 34.11%
-  in 2011-12.
-hook: Northern Ireland saw the biggest rise of the four UK nations in people reporting very low anxiety.
+title: Northern Ireland is the only UK nation where very low anxiety rose
+description: Northern Ireland moved from 4th of the four UK nations in 2011–12 to the highest share of
+  people reporting very low anxiety in 2022–23.
+hook: Between 2011–12 and 2022–23, the share of people in Northern Ireland reporting very low anxiety
+  rose from 34.11% to 39.53%, while it fell in the other three UK nations.
 date: '2026-10-10'
 updated: '2026-10-10'
 source:
@@ -15,27 +16,28 @@ fetchedAt: '2026-10-10'
 recipeVersion: ons-wellbeing-local-authority.v1
 datasetChecksum: 13d2dfcd5c0a5f7c17f5e9f61308eb28c130d858d1599aa8834b24ce102899c1
 keyNumbers:
-- label: Share with very low anxiety, 2022-23
+- label: Share with very low anxiety, 2022–23
   value: 39.53%
-  note: From 34.11% in 2011-12
-- label: Average anxiety score, 2022-23
+  note: From 34.11% in 2011–12
+- label: Average anxiety score, 2022–23
   value: '2.91'
-  note: From 3.15 in 2011-12 (average score out of 10)
-- label: Average worthwhile score, 2022-23
+  note: From 3.15 in 2011–12 (average score out of 10)
+- label: Average worthwhile score, 2022–23
   value: '7.93'
-  note: From 7.76 in 2011-12 (average score out of 10)
-- label: Average happiness score, 2022-23
+  note: From 7.76 in 2011–12 (average score out of 10)
+- label: Average happiness score, 2022–23
   value: '7.57'
-  note: From 7.39 in 2011-12 (average score out of 10)
+  note: From 7.39 in 2011–12 (average score out of 10)
 chart_spec:
   x: period
   y: value
   type: line
-  title: Share reporting very low anxiety, UK nations, 2011-12 to 2022-23
+  title: Share reporting very low anxiety, UK nations, 2011–12 to 2022–23
   series: geography
   yLabel: '% of people'
   highlight: Northern Ireland
-  annotation: Very low anxiety means a score of 0 to 1 out of 10. All four nations dipped in 2020-21.
+  annotation: Very low anxiety means a rating of 0 or 1 out of 10 for how anxious people felt the day
+    before.
 chart_data:
 - lower: 36.15
   upper: 36.85
@@ -279,7 +281,17 @@ chart_data:
   geography: Wales
 numbers:
   series:
-  - unit: '% of people'
+  - peak:
+      low_value: 34.11
+      low_period: 2011-12
+      peak_value: 46.95
+      peak_period: 2017-18
+      latest_value: 39.53
+      latest_period: 2022-23
+      latest_is_peak: false
+      latest_below_peak_by: 7.42
+      latest_well_below_peak: true
+    unit: '% of people'
     points:
     - ci:
       - 31.96
@@ -384,7 +396,17 @@ numbers:
       groups: 3
       period: 2021-22
       direction: rise
-  - unit: average score out of 10
+  - peak:
+      low_value: 2.53
+      low_period: 2017-18
+      peak_value: 3.15
+      peak_period: 2011-12
+      latest_value: 2.91
+      latest_period: 2022-23
+      latest_is_peak: false
+      latest_below_peak_by: 0.24
+      latest_well_below_peak: false
+    unit: average score out of 10
     points:
     - ci:
       - 3.03
@@ -483,7 +505,17 @@ numbers:
       groups: 4
       period: 2021-22
       direction: fall
-  - unit: average score out of 10
+  - peak:
+      low_value: 7.76
+      low_period: 2011-12
+      peak_value: 8.1
+      peak_period: 2014-15
+      latest_value: 7.93
+      latest_period: 2022-23
+      latest_is_peak: false
+      latest_below_peak_by: 0.17
+      latest_well_below_peak: true
+    unit: average score out of 10
     points:
     - ci:
       - 7.68
@@ -568,7 +600,17 @@ numbers:
       groups: 4
       period: 2020-21
       direction: fall
-  - unit: average score out of 10
+  - peak:
+      low_value: 7.39
+      low_period: 2011-12
+      peak_value: 7.8
+      peak_period: 2017-18
+      latest_value: 7.57
+      latest_period: 2022-23
+      latest_is_peak: false
+      latest_below_peak_by: 0.23
+      latest_well_below_peak: true
+    unit: average score out of 10
     points:
     - ci:
       - 7.29
@@ -668,6 +710,15 @@ numbers:
     name: Personal well-being estimates by local authority
     licence: Open Government Licence v3.0
     publisher: Office for National Statistics
+  caveats:
+  - ONS paused its annual personal well-being estimates after April 2022 to March 2023 because of falling
+    response rates and weighting problems in the Annual Population Survey, so 2022-23 is the latest year
+    available.
+  - Since October 2024, ONS has classed these estimates as official statistics in development rather than
+    accredited official statistics.
+  - The figures are survey estimates. Each has a confidence interval, so small differences between years
+    or places may not be real differences.
+  - The survey reports how people rated their own well-being. It does not say why scores changed.
   findings:
   - id: bab61877-a4a4-4bee-b72c-1de2ec617f9c
     unit: '% of people'
@@ -865,20 +916,56 @@ numbers:
   geo_level: country
   geography: Northern Ireland
   good_news: true
+  chart_facts:
+    end: 2022-23
+    group: Northern Ireland
+    start: 2011-12
+    groups_rising: 1
+    groups_falling: 3
+    groups_compared: 4
+    supported_checks:
+    - kind: highest
+      group: Northern Ireland
+      detail: Northern Ireland 39.53 vs next Scotland 35.81 in 2022-23, clear
+      period: 2022-23
+    - end: 2022-23
+      kind: only_rise
+      group: Northern Ireland
+      start: 2011-12
+      detail: Northern Ireland 5.42; all 3 others did not
+    - end: 2022-23
+      kind: biggest_rise
+      group: Northern Ireland
+      start: 2011-12
+      detail: Northern Ireland 5.42, next -2.24
   data_period:
     last: 2022-23
     first: 2011-12
-period: 2011-12 to 2022-23
+period: 2011–12 to 2022–23
 ---
 
-Fewer people in Northern Ireland report feeling anxious than a decade ago, according to the Office for National Statistics' annual personal well-being estimates.
+Northern Ireland is the only UK nation where the share of people reporting very low anxiety rose between 2011–12 and 2022–23. It went from 34.11% to 39.53%, a rise of 5.42 percentage points, according to the Office for National Statistics' annual personal well-being estimates. Very low anxiety means that people rated how anxious they felt the day before at the very bottom of the scale.
 
-In Northern Ireland, 39.53% of people reported very low anxiety in 2022-23, up from 34.11% in 2011-12. That rise of 5.42 percentage points is the largest of the four UK nations, and the change is clear of the survey's margin of error.
+Northern Ireland started 4th of the four nations on this measure and ended 1st. In 2022–23 it had the highest share of the four, at 39.53%, clearly above Scotland's 35.81%. That is a striking turnaround for a nation that began the period behind the rest of the UK.
 
-## Not a straight line
+## A rise, then a fall
 
-The rise was not steady: the share peaked at 46.95% in 2017-18 and dipped to 35.94% in 2020-21 before recovering. The 2020-21 fall was not unique to Northern Ireland: the share with very low anxiety fell clearly in all 4 nations that year. By 2021-22 it was back to 39.71%.
+The rise was not steady. The share climbed year after year to a peak of 46.95% in 2017–18. It then fell by 5.85 percentage points in a single year, to 41.1% in 2018–19. In 2020–21 it dipped again, from 40.54% to 35.94%, a fall of 4.6 percentage points. That dip was shared across the UK: all four nations saw the share fall in 2020–21.
 
-## Other measures
+By 2021–22 the share in Northern Ireland had recovered to 39.71%, and in 2022–23 it was 39.53%. That latest figure is still 7.42 percentage points below the 2017–18 peak of 46.95%, so the gains made up to 2017–18 have not fully returned. The overall rise is real, but the recent picture is flatter than the early years suggested.
 
-Average anxiety fell from 3.15 to 2.91 out of 10, where a lower score is better. Average happiness rose from 7.39 to 7.57, and the feeling that the things you do are worthwhile rose from 7.76 to 7.93.
+## How it compares
+
+Elsewhere in the UK, the picture went the other way. In Scotland, the share reporting very low anxiety fell from 38.41% in 2011–12 to 35.81% in 2022–23. In Wales it fell from 38.5% to 35.01%. England also ended the period lower than it started. Across the four nations, the median change was a fall of 2.42 percentage points, against a rise of 5.42 in Northern Ireland. Northern Ireland's rise was the biggest of the four nations.
+
+The other well-being measures for Northern Ireland moved in the same, better direction. Average anxiety fell from 3.15 to 2.91 out of 10, where a lower score is better. Average anxiety reached its low point of 2.53 in 2017–18, the same year that very low anxiety peaked. Average happiness rose from 7.39 to 7.57 out of 10. The average score for feeling that the things you do in life are worthwhile rose from 7.76 to 7.93. Each of these changes is clear of the survey's margin of error. They are smaller than the shift in very low anxiety, but they point the same way.
+
+## What the data can't tell us
+
+These are survey estimates, not counts of every person. Each figure has a confidence interval: for Northern Ireland in 2022–23, the share with very low anxiety is estimated at between 37.74% and 41.32%. In 2011–12 the range was 31.96% to 36.27%. The ranges for the start and end years do not overlap, which is why the rise can be called clear, but small moves from one year to the next may not be real changes.
+
+The survey records how people rated their own feelings. It does not say why more people in Northern Ireland reported very low anxiety, or why fewer did elsewhere, so the data cannot link the change to any policy, event or to the pandemic.
+
+ONS paused its annual personal well-being estimates after April 2022 to March 2023 because of falling response rates and weighting problems in the Annual Population Survey, so 2022–23 is the latest year available. Since October 2024, ONS has classed these estimates as official statistics in development rather than accredited official statistics. The figures should be read with some caution, and this story will be updated if ONS publishes newer annual data.
+
+The numbers come from the Office for National Statistics dataset Personal well-being estimates by local authority, covering 2011–12 to 2022–23.
