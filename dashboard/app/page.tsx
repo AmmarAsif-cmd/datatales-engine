@@ -3,7 +3,7 @@ import Link from "next/link";
 import { RunPipelineButton } from "@/components/Buttons";
 import { db, must } from "@/lib/db";
 import { when } from "@/lib/format";
-import { Denied, pageUser } from "@/lib/gate";
+import { pageGate } from "@/lib/gate";
 import { recentRuns, type WorkflowRun } from "@/lib/github";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +22,8 @@ function runBadge(r: WorkflowRun): string {
 }
 
 export default async function Home() {
-  if (!(await pageUser())) return <Denied />;
+  const gate = await pageGate();
+  if (gate) return gate;
   const [datasets, findings, drafts, approved, published, failedJobs] = await Promise.all([
     count("datasets"),
     count("findings"),

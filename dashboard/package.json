@@ -10,13 +10,14 @@
     "test": "node --experimental-strip-types --no-warnings --test tests/*.test.ts",
     "build:cf": "node scripts/guard-env-files.mjs && opennextjs-cloudflare build && node scripts/check-bundle.mjs",
     "deploy": "npm run build:cf && opennextjs-cloudflare deploy",
-    "preview": "npm run build:cf && opennextjs-cloudflare preview"
+    "preview": "npm run build:cf && opennextjs-cloudflare preview",
+    "smoke:cf": "node scripts/smoke-preview.mjs"
   },
   "dependencies": {
     "@observablehq/plot": "^0.6.17",
     "@opennextjs/cloudflare": "^1.20.10",
     "@supabase/supabase-js": "^2.117.3",
-    "next": "16.4.0",
+    "next": "16.3.8",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "^0.0.1"
@@ -27,7 +28,7 @@
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.4.0",
+    "eslint-config-next": "16.3.8",
     "typescript": "^5",
     "wrangler": "4.149.0"
   }

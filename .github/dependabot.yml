@@ -29,3 +29,11 @@ updates:
     groups:
       next:
         patterns: ["next", "eslint-config-next", "react", "react-dom"]
+    ignore:
+      # @opennextjs/cloudflare 1.20.10 crashes at runtime with Next 16.4 (preview-props.json is
+      # not inlined -> error 1101). Stay on 16.3.x until an adapter release supports 16.4; the
+      # dashboard CI smoke test proves it before unpinning.
+      - dependency-name: "next"
+        versions: [">=16.4.0"]
+      - dependency-name: "eslint-config-next"
+        versions: [">=16.4.0"]

@@ -108,6 +108,18 @@ npm run dev                       # http://127.0.0.1:4317 (shows LOCAL DEV, no A
 Locally, sign-in is skipped only in `next dev` with a localhost Host header. Production builds
 always require a valid Access token.
 
+## Troubleshooting
+
+- **Error 1101 / `Unexpected loadManifest(/.next/server/preview-props.json)`**: Next 16.4 reads a
+  new manifest at server start that `@opennextjs/cloudflare` 1.20.10 does not bundle. Next is
+  pinned to **16.3.8** (the newest version that works with the adapter); Dependabot ignores
+  16.4+. Before upgrading Next or the adapter, run `npm run build:cf && npm run smoke:cf`.
+- **"Configuration problem" page**: lists the missing or malformed setting names (never values).
+  Fix them under Worker → Settings → Variables and Secrets, then redeploy.
+- **"Not signed in"** on admin.datatales.co.uk: the Access token did not verify. The page shows
+  the reason (for example "token is for a different application" means `CF_ACCESS_AUD` is
+  not this app's AUD tag).
+
 ## Checks
 
 ```sh
@@ -115,4 +127,5 @@ npm run lint
 npm run typecheck
 npm test          # golden vectors (TS == Python) + Access JWT tests
 npm run build:cf  # Cloudflare build with the env-file guard and bundle secret scan
+npm run smoke:cf  # run the built Worker in workerd and request real pages (also in CI)
 ```

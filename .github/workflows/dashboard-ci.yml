@@ -49,3 +49,9 @@ jobs:
       # Same build Cloudflare runs; fails if any secret name or value is bundled.
       - name: Cloudflare build (guarded)
         run: npm run build:cf
+
+      # Run the built Worker in workerd (opennextjs-cloudflare preview) and request real pages.
+      # Fails on any 5xx or Worker exception, e.g. the Next 16.4 "Unexpected loadManifest"
+      # crash (Cloudflare error 1101) that `next start` and `next build` do not show.
+      - name: Runtime smoke test (workerd)
+        run: npm run smoke:cf

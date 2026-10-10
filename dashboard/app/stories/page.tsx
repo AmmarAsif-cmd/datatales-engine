@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { db, must } from "@/lib/db";
-import { Denied, pageUser } from "@/lib/gate";
+import { pageGate } from "@/lib/gate";
 import { when } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,8 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export default async function StoriesPage() {
-  if (!(await pageUser())) return <Denied />;
+  const gate = await pageGate();
+  if (gate) return gate;
   const stories = await must<Row[]>(
     db()
       .from("stories")

@@ -8,7 +8,7 @@ import VerifyReport from "@/components/VerifyReport";
 import { db } from "@/lib/db";
 import { when } from "@/lib/format";
 import type { Story } from "@/lib/types";
-import { Denied, pageUser } from "@/lib/gate";
+import { pageGate } from "@/lib/gate";
 import { buildPrompt } from "@/lib/logic/narrate.ts";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,8 @@ export const dynamic = "force-dynamic";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function StoryPage({ params }: { params: Promise<{ id: string }> }) {
-  if (!(await pageUser())) return <Denied />;
+  const gate = await pageGate();
+  if (gate) return gate;
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const { data: story, error } = await db().from("stories").select("*").eq("id", id).maybeSingle<Story>();

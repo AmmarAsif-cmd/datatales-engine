@@ -1,5 +1,5 @@
 import { db, must } from "@/lib/db";
-import { Denied, pageUser } from "@/lib/gate";
+import { pageGate } from "@/lib/gate";
 import { short, when } from "@/lib/format";
 import type { Json } from "@/lib/types";
 
@@ -35,7 +35,8 @@ type Job = {
 };
 
 export default async function DatasetsPage() {
-  if (!(await pageUser())) return <Denied />;
+  const gate = await pageGate();
+  if (gate) return gate;
   const [datasets, tables, jobs] = await Promise.all([
     must<Dataset[]>(
       db()

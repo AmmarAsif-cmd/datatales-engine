@@ -4,7 +4,7 @@ import { CreateStoryButton } from "@/components/Buttons";
 import MiniChart from "@/components/MiniChart";
 import { db, must } from "@/lib/db";
 import { short, when } from "@/lib/format";
-import { Denied, pageUser } from "@/lib/gate";
+import { pageGate } from "@/lib/gate";
 import { type FindingRow, shortlist } from "@/lib/logic/stories.ts";
 import type { Finding } from "@/lib/types";
 
@@ -24,7 +24,8 @@ export default async function FindingsPage({
 }: {
   searchParams: Promise<{ ct?: string }>;
 }) {
-  if (!(await pageUser())) return <Denied />;
+  const gate = await pageGate();
+  if (gate) return gate;
   const { ct } = await searchParams;
   const tables = await must<CleanTable[]>(
     db()
