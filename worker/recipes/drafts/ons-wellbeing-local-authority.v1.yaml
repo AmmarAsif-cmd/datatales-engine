@@ -1,0 +1,67 @@
+source: ons-wellbeing-local-authority
+version: 1
+description: >-
+  ONS personal well-being by local authority (API dataset wellbeing-local-authority).
+  Long format already: one row per period x geography x measure x estimate. Renames the
+  ONS column names, keeps labels (drops slug duplicates), turns suppression markers
+  ([c], [u], [w], [x]) into nulls, adds the financial-year start and geography level.
+steps:
+  - op: rename_columns
+    mapping:
+      v4_3: value
+      Data marking: marking
+      Lower limit: lower_ci
+      Upper limit: upper_ci
+      Time: period
+      administrative-geography: geo_code
+      Geography: geography
+      MeasureOfWellbeing: measure
+      Estimate: estimate
+  - op: select_columns
+    columns: [period, geo_code, geography, measure, estimate, value, lower_ci, upper_ci, marking]
+  - op: parse_number
+    columns: [value, lower_ci, upper_ci]
+  - op: parse_date
+    column: period
+    format: financial_year_start
+    into: year_start
+  - op: classify_prefix
+    column: geo_code
+    into: geo_level
+    mapping:
+      K02: uk
+      E92: country
+      W92: country
+      S92: country
+      N92: country
+      E12: region
+      E13: london_inner_outer
+      E10: county
+      E11: metropolitan_county
+      E06: local_authority
+      E07: local_authority
+      E08: local_authority
+      E09: local_authority
+      W06: local_authority
+      S12: local_authority
+      N09: local_authority
+    default: other
+  - op: sort
+    by: [year_start, geo_code, measure, estimate]
+checks:
+  expected_columns:
+    [period, geo_code, geography, measure, estimate, value, lower_ci, upper_ci, marking, year_start, geo_level]
+  row_count: {min: 90000, max: 120000}
+  not_null: [period, geo_code, geography, measure, estimate, year_start, geo_level]
+  unique: [period, geo_code, measure, estimate]
+  ranges:
+    value: {min: 0, max: 100}
+    year_start: {min: 2011, max: 2030}
+  sums:
+    - name: bands_sum_to_100
+      value: value
+      group_by: [period, geo_code, measure]
+      where_column: estimate
+      where_in: [Poor, Fair, Good, Very good]
+      target: 100
+      tolerance: 0.5

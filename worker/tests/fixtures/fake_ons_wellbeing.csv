@@ -1,0 +1,21 @@
+v4_3,Data marking,Lower limit,Upper limit,yyyy-yy,Time,administrative-geography,Geography,measure-of-wellbeing,MeasureOfWellbeing,wellbeing-estimate,Estimate
+7.10,,7.00,7.20,2011-12,2011-12,E12000001,North East,life-satisfaction,Life satisfaction,average-mean,Average (mean)
+5.00,,4.00,6.00,2011-12,2011-12,E12000001,North East,life-satisfaction,Life satisfaction,poor,Poor
+20.00,,18.00,22.00,2011-12,2011-12,E12000001,North East,life-satisfaction,Life satisfaction,fair,Fair
+45.00,,43.00,47.00,2011-12,2011-12,E12000001,North East,life-satisfaction,Life satisfaction,good,Good
+30.00,,28.00,32.00,2011-12,2011-12,E12000001,North East,life-satisfaction,Life satisfaction,very-good,Very good
+7.40,,7.30,7.50,2012-13,2012-13,E12000001,North East,life-satisfaction,Life satisfaction,average-mean,Average (mean)
+4.00,,3.00,5.00,2012-13,2012-13,E12000001,North East,life-satisfaction,Life satisfaction,poor,Poor
+16.00,,14.00,18.00,2012-13,2012-13,E12000001,North East,life-satisfaction,Life satisfaction,fair,Fair
+48.00,,46.00,50.00,2012-13,2012-13,E12000001,North East,life-satisfaction,Life satisfaction,good,Good
+32.00,,30.00,34.00,2012-13,2012-13,E12000001,North East,life-satisfaction,Life satisfaction,very-good,Very good
+7.60,,7.50,7.70,2011-12,2011-12,E06000001,Fakeshire,life-satisfaction,Life satisfaction,average-mean,Average (mean)
+,[c],[c],[c],2011-12,2011-12,E06000001,Fakeshire,life-satisfaction,Life satisfaction,poor,Poor
+10.00,,8.00,12.00,2011-12,2011-12,E06000001,Fakeshire,life-satisfaction,Life satisfaction,fair,Fair
+50.00,,48.00,52.00,2011-12,2011-12,E06000001,Fakeshire,life-satisfaction,Life satisfaction,good,Good
+,[c],[c],[c],2011-12,2011-12,E06000001,Fakeshire,life-satisfaction,Life satisfaction,very-good,Very good
+,[x],[x],[x],2012-13,2012-13,E06000001,Fakeshire,life-satisfaction,Life satisfaction,average-mean,Average (mean)
+,[x],[x],[x],2012-13,2012-13,E06000001,Fakeshire,life-satisfaction,Life satisfaction,poor,Poor
+,[x],[x],[x],2012-13,2012-13,E06000001,Fakeshire,life-satisfaction,Life satisfaction,fair,Fair
+,[x],[x],[x],2012-13,2012-13,E06000001,Fakeshire,life-satisfaction,Life satisfaction,good,Good
+,[x],[x],[x],2012-13,2012-13,E06000001,Fakeshire,life-satisfaction,Life satisfaction,very-good,Very good

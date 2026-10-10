@@ -100,7 +100,7 @@ Only `.env.example` files (placeholder names, no values) are committed.
 - [x] M0 Scaffold
 - [x] M1 Database (migrations, RLS, buckets, `db-check`)
 - [x] M2 Public site + Hashnode migration
-- [ ] M3 Ingest, profile, clean
+- [x] M3 Ingest, profile, clean
 - [ ] M4 Detect
 - [ ] M5 Narrate + verify
 - [ ] M6 Review dashboard

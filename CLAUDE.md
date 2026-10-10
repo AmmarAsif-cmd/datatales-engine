@@ -44,6 +44,8 @@ Worker (run from `worker/`):
 uv sync                              # install
 uv run python -m datatales --help    # CLI
 uv run python -m datatales db-check  # Supabase connection, tables, RLS, buckets
+# M3: sources-sync | ingest <source> [--file] | datasets | profile <id> | recipe-prompt <id>
+#     recipe-test <file> <id> | recipe-import <file> | recipe-approve <src> <v> --by NAME | clean <id>
 uv run ruff check . && uv run ruff format --check . && uv run pytest
 ```
 
@@ -62,6 +64,16 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - Charts: `Chart.tsx` (Observable Plot, `client:visible`) inside `ChartFigure.astro` (caption, legend, data table). Palette = validated dataviz default via CSS vars `--series-1..8` (light/dark); highlighted series coloured, others grey; line y-axis not zero-based; ≥2 series ⇒ legend.
 - Deploy: Cloudflare Workers **static assets only** via `site/wrangler.jsonc` (no `main`, no bindings, pinned `wrangler` devDependency). Never add an Astro adapter or run `astro add cloudflare`; keep `output: 'static'`. `check-dist.mjs` fails on `_worker.js`/adapter output. `_redirects`: static rules above splat rules.
 - No analytics, no external fonts, no third-party scripts (migrated posts embed public Power BI iframes only).
+
+## Worker pipeline (M3)
+
+- Layout: `ingest/` (common, ons, upload) → `rawio.py` (any file → grid of strings, nothing inferred) → `profile.py` → `clean/` (schema, runner, checks) → `pipeline.py` (orchestration, jobs) → `cli.py`.
+- All persistence goes through the `Repo` protocol (`repo.py`); tests use `tests/memrepo.py`. Never call Supabase directly from pipeline code.
+- Sources live in `worker/sources.yaml`. Raw files: `raw/<slug>/<UTC timestamp>-<sha12>/<file>` + `fetch.json` (source URL, ONS version, release date). Clean: `clean/<slug>/<dataset_id>/recipe-v<N>.parquet`.
+- Recipes: declarative only, `extra="forbid"` everywhere, `yaml.safe_load`. New step types must be added to `clean/schema.py` (model) and `clean/runner.py` (`apply_step`), with tests. Only approved recipes run; versions are immutable.
+- ONS fetches: HTTPS + ONS hosts only (checked on every redirect), 50 MB cap.
+- pandas 3: `astype(str)` keeps NaN; use the runner's `_text()` helper for string comparisons.
+- Added deps (approved by user 2026-10-10): `pyyaml`, `openpyxl`.
 
 ## Database
 
@@ -83,5 +95,6 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 
 - M0 Scaffold: done
 - M1 Database: done (migration 0001 + `db-check`)
-- M2 Public site + Hashnode migration: done
-- Next: M3 Ingest, profile, clean
+- M2 Public site + Hashnode migration: done (deployed as Cloudflare Workers static assets)
+- M3 Ingest, profile, clean: done (ONS wellbeing v4 ingested; recipe v1 imported, awaiting user approval)
+- Next: M4 Detect

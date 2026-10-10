@@ -1,0 +1,7 @@
+FAKE TEST DATA - Table 1: Made-up sales by region,,,,,,
+Region,Code,2019,2020,2021,Share,Updated
+North,R1,"£1,200",£900,..,12.5%,2021-03-01
+South,R2,£800,"£1,050",[x],7%,01/04/2021
+Region,Code,2019,2020,2021,Share,Updated
+East,R3,£650,£700,£720,9.25%,2021-05-01
+Note 1: All figures are invented for testing.,,,,,,

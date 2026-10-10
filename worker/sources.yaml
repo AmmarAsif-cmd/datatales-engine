@@ -1,0 +1,16 @@
+# Data sources. `python -m datatales sources-sync` upserts these into the `sources` table.
+# fetch.type:
+#   ons_api - latest version of an ONS API dataset (CSV download)
+#   upload  - a file you place in worker/data/inbox/ and ingest with --file
+sources:
+  - slug: ons-wellbeing-local-authority
+    name: Personal well-being estimates by local authority
+    publisher: Office for National Statistics
+    url: https://www.ons.gov.uk/datasets/wellbeing-local-authority
+    licence: Open Government Licence v3.0
+    refresh_schedule: annual
+    relatability: 5
+    fetch:
+      type: ons_api
+      dataset_id: wellbeing-local-authority
+      edition: time-series
