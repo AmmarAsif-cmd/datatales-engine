@@ -32,8 +32,16 @@ jobs:
           cache: npm
           cache-dependency-path: site/package-lock.json
 
+      # On failure, surface npm's error as an annotation (readable from the run summary).
       - name: Install
-        run: npm ci
+        run: |
+          npm ci 2>&1 | tee "$RUNNER_TEMP/npm-ci.log"
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            echo "::error title=npm ci failed::$(grep -E 'npm error' "$RUNNER_TEMP/npm-ci.log" | head -20 | tr '
+' ' ' | cut -c1-3000)"
+            exit "$status"
+          fi
 
       - name: Lint and format
         run: |
