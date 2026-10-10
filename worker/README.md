@@ -25,6 +25,12 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest
 | `clean <dataset_id> [--version N]` | Run the latest approved recipe, run checks, write Parquet to `clean` only if all checks pass |
 | `detect <clean_table_id> [--dry-run] [--replace]` | Run all registered detectors (biggest change, rank shift, outlier), score, store the top 5 findings |
 | `findings <clean_table_id> [--numbers]` | List stored findings (and their exact numbers) |
+| `candidates <clean_table_id>` | Story shortlist: findings grouped by place, level and good/bad news; max 2 per place, top 5 |
+| `story-new <clean_table_id> --candidate N` | Draft a story: numbers, full yearly chart data, notable moves (e.g. a 2020–21 dip) |
+| `story-prompt <story_id> [--out F]` | Narration prompt to paste into Claude chat |
+| `story-paste <story_id> <reply.json>` | Validate the JSON reply, verify every number, save (fails loudly on any number not in the data) |
+| `story-verify <story_id>` | Re-run verification |
+| `stories` | List stories |
 
 Every `ingest`, `profile`, `clean` and `detect` run writes a row to the `jobs` table.
 

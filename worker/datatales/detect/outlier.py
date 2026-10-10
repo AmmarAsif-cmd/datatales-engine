@@ -65,6 +65,7 @@ def outlier(df: pd.DataFrame, meta: DetectMeta) -> list[Finding]:
                         "median": r(median),
                         "robust_z": r(row.z, 2),
                         "direction": direction,
+                        "good_news": (row.z > 0) == info.higher_is_better,
                         "groups_compared": n,
                         "nearest_group": nearest.group,
                         "nearest_value": r(nearest.value),

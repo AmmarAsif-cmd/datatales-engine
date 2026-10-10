@@ -86,6 +86,7 @@ def biggest_change(df: pd.DataFrame, meta: DetectMeta) -> list[Finding]:
                 "unit": info.unit,
                 "higher_is_better": info.higher_is_better,
                 "improved": (change > 0) == info.higher_is_better,
+                "good_news": (change > 0) == info.higher_is_better,
             }
             findings.append(
                 Finding(

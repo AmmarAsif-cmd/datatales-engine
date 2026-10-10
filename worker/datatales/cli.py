@@ -173,6 +173,69 @@ def cmd_findings(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_candidates(args: argparse.Namespace) -> int:
+    from datatales.stories import candidates_for
+
+    for i, c in enumerate(candidates_for(_repo(), args.clean_table_id), start=1):
+        print(f"{i}. [{c.score:.4f}] {c.title}")
+        for f in c.findings:
+            print(f"     {f['score']:.4f}  {f['detector']:<15} {f['title_hint']}")
+    return 0
+
+
+def cmd_story_new(args: argparse.Namespace) -> int:
+    from datatales.stories import create_story
+
+    story = create_story(_repo(), args.clean_table_id, args.candidate)
+    rows, n = len(story["chart_data"]), len(story["finding_ids"])
+    print(f"Draft story {story['id']}: {n} finding(s), {rows} chart rows.")
+    print(f"Next: story-prompt {story['id']} --out prompt.txt")
+    return 0
+
+
+def cmd_story_prompt(args: argparse.Namespace) -> int:
+    from datatales.stories import story_prompt
+
+    prompt = story_prompt(_repo(), args.story_id)
+    if args.out:
+        Path(args.out).write_text(prompt, encoding="utf-8")
+        print(f"Prompt written to {args.out} ({len(prompt):,} characters)")
+    else:
+        print(prompt)
+    return 0
+
+
+def _print_report(report) -> None:  # noqa: ANN001
+    print(f"Verification: {report.status.upper()} ({report.checked} number(s) checked)")
+    for u in report.unmatched:
+        print(f"  NOT IN DATA  {u['field']}: {u['text']!r}")
+    for y in report.years_out_of_range:
+        print(f"  BAD YEAR     {y['field']}: {y['text']!r} (data covers {y['allowed']})")
+
+
+def cmd_story_paste(args: argparse.Namespace) -> int:
+    from datatales.stories import paste_narration
+
+    story, report = paste_narration(_repo(), args.story_id, _read_text(args.file))
+    print(f"Saved: {story['headline']}  (slug: {story['slug']})")
+    _print_report(report)
+    return 0 if report.passed else 1
+
+
+def cmd_story_verify(args: argparse.Namespace) -> int:
+    from datatales.stories import reverify
+
+    _, report = reverify(_repo(), args.story_id)
+    _print_report(report)
+    return 0 if report.passed else 1
+
+
+def cmd_stories(_args: argparse.Namespace) -> int:
+    for s in _repo().list_stories():
+        print(f"{s['id']}  {s['status']:<9} verify:{s['verify_status']:<8} {s['headline']}")
+    return 0
+
+
 # ---- parser ----
 
 
@@ -239,6 +302,26 @@ def build_parser() -> argparse.ArgumentParser:
     p = add("findings", cmd_findings, "List stored findings for a clean table.")
     p.add_argument("clean_table_id")
     p.add_argument("--numbers", action="store_true", help="also print each finding's numbers")
+
+    p = add("candidates", cmd_candidates, "Story shortlist: findings grouped by place and news.")
+    p.add_argument("clean_table_id")
+
+    p = add("story-new", cmd_story_new, "Create a draft story from a shortlist candidate.")
+    p.add_argument("clean_table_id")
+    p.add_argument("--candidate", type=int, required=True, help="number from `candidates`")
+
+    p = add("story-prompt", cmd_story_prompt, "Print the narration prompt for Claude chat.")
+    p.add_argument("story_id")
+    p.add_argument("--out", help="write the prompt to this file instead of printing")
+
+    p = add("story-paste", cmd_story_paste, "Validate a pasted JSON reply, verify numbers, save.")
+    p.add_argument("story_id")
+    p.add_argument("file", help="file containing the JSON reply from Claude")
+
+    p = add("story-verify", cmd_story_verify, "Re-run number verification on a story.")
+    p.add_argument("story_id")
+
+    add("stories", cmd_stories, "List stories.")
     return parser
 
 

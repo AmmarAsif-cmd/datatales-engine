@@ -102,6 +102,6 @@ Only `.env.example` files (placeholder names, no values) are committed.
 - [x] M2 Public site + Hashnode migration
 - [x] M3 Ingest, profile, clean
 - [x] M4 Detect
-- [ ] M5 Narrate + verify
+- [x] M5 Narrate + verify
 - [ ] M6 Review dashboard
 - [ ] M7 Publish + weekly pipeline

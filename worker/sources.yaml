@@ -38,6 +38,7 @@ sources:
           unit: "% of people"
       # Default: higher is better. For anxiety the mean and the Poor band (= high anxiety)
       # are worse when higher; Poor is worse when higher for every measure.
+      top_n: 20  # findings kept per clean table; the story shortlist keeps the top 5 candidates
       polarity:
         - when: {measure: [Anxiety], estimate: [Average (mean)]}
           higher_is_better: false

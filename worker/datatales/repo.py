@@ -79,6 +79,11 @@ class Repo(Protocol):
     def insert_findings(self, clean_table_id: str, records: list[dict[str, Any]]) -> list[str]: ...
     def delete_findings(self, clean_table_id: str) -> int: ...
     def count_stories_using(self, finding_ids: list[str]) -> int: ...
+    def insert_story(self, row: dict[str, Any]) -> dict[str, Any]: ...
+    def get_story(self, story_id: str) -> dict[str, Any]: ...
+    def update_story(self, story_id: str, fields: dict[str, Any]) -> dict[str, Any]: ...
+    def story_id_for_slug(self, slug: str) -> str | None: ...
+    def list_stories(self, limit: int = 50) -> list[dict[str, Any]]: ...
     def put_object(
         self, bucket: Bucket, path: str, data: bytes, content_type: str, upsert: bool = False
     ) -> None: ...
@@ -285,6 +290,35 @@ class SupabaseRepo:
             .execute()
         )
         return res.count or 0
+
+    def insert_story(self, row: dict[str, Any]) -> dict[str, Any]:
+        return self.db.table("stories").insert(row).execute().data[0]
+
+    def get_story(self, story_id: str) -> dict[str, Any]:
+        res = self.db.table("stories").select("*").eq("id", story_id).limit(1).execute()
+        if not res.data:
+            raise KeyError(f"story {story_id} not found")
+        return res.data[0]
+
+    def update_story(self, story_id: str, fields: dict[str, Any]) -> dict[str, Any]:
+        res = self.db.table("stories").update(fields).eq("id", story_id).execute()
+        if not res.data:
+            raise KeyError(f"story {story_id} not found")
+        return res.data[0]
+
+    def story_id_for_slug(self, slug: str) -> str | None:
+        res = self.db.table("stories").select("id").eq("slug", slug).limit(1).execute()
+        return res.data[0]["id"] if res.data else None
+
+    def list_stories(self, limit: int = 50) -> list[dict[str, Any]]:
+        res = (
+            self.db.table("stories")
+            .select("id, slug, headline, status, verify_status, updated_at")
+            .order("updated_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return res.data
 
     def put_object(
         self, bucket: Bucket, path: str, data: bytes, content_type: str, upsert: bool = False

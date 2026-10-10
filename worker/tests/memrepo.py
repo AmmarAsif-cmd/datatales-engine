@@ -147,6 +147,45 @@ class MemRepo:
             del self.findings[k]
         return len(doomed)
 
+    def insert_story(self, row: dict[str, Any]) -> dict[str, Any]:
+        if self.story_id_for_slug(row["slug"]):
+            raise ValueError("duplicate slug")
+        sid = str(uuid.uuid4())
+        self.stories[sid] = {
+            "id": sid,
+            "hook": None,
+            "summary": None,
+            "body_md": None,
+            "video_script": None,
+            "verify_report": None,
+            "published_at": None,
+            **row,
+        }
+        return dict(self.stories[sid])
+
+    def get_story(self, story_id: str) -> dict[str, Any]:
+        if story_id not in self.stories:
+            raise KeyError(f"story {story_id} not found")
+        return dict(self.stories[story_id])
+
+    def update_story(self, story_id: str, fields: dict[str, Any]) -> dict[str, Any]:
+        story = self.get_story(story_id)
+        merged = {**story, **fields}
+        # mirrors the DB constraint stories_verified_before_approval
+        if merged["status"] in ("approved", "published") and merged["verify_status"] != "passed":
+            raise ValueError("violates stories_verified_before_approval")
+        owner = self.story_id_for_slug(fields["slug"]) if "slug" in fields else None
+        if owner not in (None, story_id):
+            raise ValueError("duplicate slug")
+        self.stories[story_id] = merged
+        return dict(merged)
+
+    def story_id_for_slug(self, slug: str) -> str | None:
+        return next((k for k, s in self.stories.items() if s.get("slug") == slug), None)
+
+    def list_stories(self, limit: int = 50) -> list[dict[str, Any]]:
+        return list(self.stories.values())[:limit]
+
     def count_stories_using(self, finding_ids: list[str]) -> int:
         wanted = set(finding_ids)
         return sum(1 for s in self.stories.values() if wanted & set(s["finding_ids"]))

@@ -46,6 +46,7 @@ uv run python -m datatales --help    # CLI
 uv run python -m datatales db-check  # Supabase connection, tables, RLS, buckets
 # M3: sources-sync | ingest <source> [--file] | datasets | profile <id> | recipe-prompt <id>
 # M4: detect <clean_table_id> [--dry-run|--replace] | findings <clean_table_id> [--numbers]
+# M5: candidates <ct> | story-new <ct> --candidate N | story-prompt <id> | story-paste <id> <file> | story-verify <id> | stories
 #     recipe-test <file> <id> | recipe-import <file> | recipe-approve <src> <v> --by NAME | clean <id>
 uv run ruff check . && uv run ruff format --check . && uv run pytest
 ```
@@ -83,6 +84,7 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - Only report a change (between periods) or a gap (between geographies) when the **confidence intervals do not overlap** (`lower_ci`/`upper_ci`). Store both intervals in the finding's `numbers`.
 - Only compare geographies present (with reliable, non-null values) in **both** periods being compared.
 - Compare like with like: same `measure`, same `estimate`, same `geo_level`.
+- Data: ONS paused the annual (local authority) series after 2022-23 (APS quality; now 'official statistics in development'). Quarterly UK/country/region tables continue but have quality grades ([cv1]) instead of CIs, one decimal, and countries/regions for the latest quarter only. Not ingested (user to decide).
 - Scope: detectors run on **UK, country and region** only (`detect.filters.geo_level` in `sources.yaml`). Add `local_authority` only after the user has reviewed the first batch.
 
 ## Detectors (M4)
@@ -94,6 +96,15 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - Score = effect_norm(effect / normal variation) × surprise × relatability/5 × freshness (release date, −0.2/year, floor 0.2). Top `detect.top_n` (5) per clean table; findings for the same slice+group merge, extras under `numbers.related`.
 - Findings store every number a story may use: values, CIs, periods, ranks, `unit`, `change_unit` ("percentage points" for % values), `higher_is_better`, `improved`, `score_parts`.
 - `detect --replace` refuses if any story uses the existing findings.
+
+## Stories (M5)
+
+- `candidates.py`: findings grouped by (geography, geo_level, good_news) across measures; candidate score = best finding x (1 + 0.15 per extra measure); shortlist top 5, max 2 per geography. Detectors keep 20 findings per clean table (`detect.top_n`) so grouping has material.
+- `storydata.py`: chart_data = the full yearly series of every geography in the chart slice (the candidate finding with the most geographies, then years, then score); `numbers.series[]` = the candidate geography's yearly points per measure + `notable_moves` (CI-clear and >= 2x typical yearly change; fall-then-rise = dip) + `moves_shared_by_most_geographies`.
+- `narrate.py`: prompt (rules incl. polarity, percentage points, honest shape, mention notable dips) + strict reply schema (json.loads only, length limits, chart_spec columns/highlight checked against chart_data).
+- `verify.py`: every number in headline/hook/summary/body_md/video_script must equal a number anywhere in `stories.numbers` after rounding to the written decimals (sign ignored); years and financial years must be inside `data_period`. Word numbers two-twenty/twice are checked; "one"/"first"/"half" are not (too idiomatic). Limitation: it checks that a number exists in the data, not that it is attached to the right claim; human review covers that.
+- `stories.py`: `create_story` (draft, provisional slug) -> `story_prompt` -> `paste_narration` (parse, verify, slug from headline, unique) -> `reverify` (after edits). Approved/published stories are locked. DB constraint blocks approving a story whose verify_status is not `passed`.
+- CLI: `candidates <ct>`, `story-new <ct> --candidate N`, `story-prompt <id> [--out]`, `story-paste <id> <file>`, `story-verify <id>`, `stories`.
 
 ## Wording rules (M5)
 
@@ -122,4 +133,5 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - M2 Public site + Hashnode migration: done (deployed as Cloudflare Workers static assets)
 - M3 Ingest, profile, clean: done (ONS wellbeing v4 ingested; recipe v1 imported, awaiting user approval)
 - M4 Detect: done (3 detectors; awaiting recipe approval + clean to store real findings)
-- Next: M5 Narrate + verify
+- M5 Narrate + verify: done (candidates, full-series chart data, notable moves, prompt, parser, number checker)
+- Next: M6 Dashboard

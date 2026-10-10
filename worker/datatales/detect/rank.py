@@ -86,6 +86,8 @@ def rank_shift(df: pd.DataFrame, meta: DetectMeta) -> list[Finding]:
             "direction": "up" if shift > 0 else "down",
             "groups_ranked": n,
             "rank_1_means": "highest value",
+            # moving up the ranking means a relatively higher value
+            "good_news": (shift > 0) == info.higher_is_better,
             "overtook": [_brief(h) for h in passed],
             "overtaken_by": [_brief(h) for h in passed_by],
             "unit": info.unit,
