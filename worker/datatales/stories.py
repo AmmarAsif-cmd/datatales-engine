@@ -137,3 +137,21 @@ def reverify(
         story_id, {**edits, "verify_status": report.status, "verify_report": report.to_json()}
     )
     return updated, report
+
+
+TRANSITIONS = {
+    "draft": {"approved", "rejected"},
+    "rejected": {"draft"},
+    "approved": {"draft"},
+}
+
+
+def set_status(repo: Repo, story_id: str, status: str) -> dict[str, Any]:
+    """Review decisions. Approval needs a passed verification (the DB enforces this too)."""
+    story = repo.get_story(story_id)
+    allowed = TRANSITIONS.get(story["status"], set())
+    if status not in allowed:
+        raise StoryError(f"cannot move a {story['status']} story to {status}")
+    if status == "approved" and story["verify_status"] != "passed":
+        raise StoryError("only stories that passed verification can be approved")
+    return repo.update_story(story_id, {"status": status})

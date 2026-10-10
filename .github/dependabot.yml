@@ -22,4 +22,10 @@ updates:
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
 
-  # npm entry for /dashboard is added in M6 once its package.json exists.
+  - package-ecosystem: "npm"
+    directory: "/dashboard"
+    schedule:
+      interval: "weekly"
+    groups:
+      next:
+        patterns: ["next", "eslint-config-next", "react", "react-dom"]

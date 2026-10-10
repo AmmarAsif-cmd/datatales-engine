@@ -81,7 +81,15 @@ See [site/README.md](site/README.md) for the deploy settings, content folders an
 
 ## Review dashboard
 
-Arrives in Milestone 6.
+```sh
+cd dashboard
+cp .env.example .env.local   # server-side Supabase settings
+npm install
+npm run dev                  # http://127.0.0.1:4317
+```
+
+See [dashboard/README.md](dashboard/README.md). It calls the Python worker for every action, so
+run `uv sync` in `worker/` first.
 
 > ⚠️ **Never deploy the dashboard.** It holds the Supabase service-role key, has no login,
 > and is meant to run only on `127.0.0.1`.
@@ -103,5 +111,5 @@ Only `.env.example` files (placeholder names, no values) are committed.
 - [x] M3 Ingest, profile, clean
 - [x] M4 Detect
 - [x] M5 Narrate + verify
-- [ ] M6 Review dashboard
+- [x] M6 Review dashboard
 - [ ] M7 Publish + weekly pipeline

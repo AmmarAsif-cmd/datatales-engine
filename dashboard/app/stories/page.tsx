@@ -1,0 +1,79 @@
+import Link from "next/link";
+
+import { db, must } from "@/lib/db";
+import { when } from "@/lib/format";
+
+export const dynamic = "force-dynamic";
+
+type Row = {
+  id: string;
+  slug: string;
+  headline: string | null;
+  status: string;
+  verify_status: string;
+  updated_at: string;
+  finding_ids: string[];
+};
+
+const STATUS_BADGE: Record<string, string> = {
+  draft: "plain",
+  approved: "ok",
+  rejected: "bad",
+  published: "ok",
+};
+
+export default async function StoriesPage() {
+  const stories = await must<Row[]>(
+    db()
+      .from("stories")
+      .select("id, slug, headline, status, verify_status, updated_at, finding_ids")
+      .order("updated_at", { ascending: false }),
+  );
+  return (
+    <>
+      <h1>Stories</h1>
+      {!stories.length && (
+        <p className="muted">
+          No stories yet. Create one from the <Link href="/findings">findings shortlist</Link>.
+        </p>
+      )}
+      {stories.length > 0 && (
+        <div className="panel">
+          <table>
+            <thead>
+              <tr>
+                <th>Headline</th>
+                <th>Status</th>
+                <th>Verification</th>
+                <th className="num">Findings</th>
+                <th>Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stories.map((s) => (
+                <tr key={s.id}>
+                  <td>
+                    <Link href={`/stories/${s.id}`}>{s.headline ?? "(untitled)"}</Link>
+                    <div className="small muted">{s.slug}</div>
+                  </td>
+                  <td>
+                    <span className={`badge ${STATUS_BADGE[s.status] ?? "plain"}`}>{s.status}</span>
+                  </td>
+                  <td>
+                    <span
+                      className={`badge ${s.verify_status === "passed" ? "ok" : s.verify_status === "failed" ? "bad" : "warn"}`}
+                    >
+                      {s.verify_status}
+                    </span>
+                  </td>
+                  <td className="num">{s.finding_ids.length}</td>
+                  <td className="small">{when(s.updated_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}

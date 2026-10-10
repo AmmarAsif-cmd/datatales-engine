@@ -236,6 +236,12 @@ def cmd_stories(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_api(args: argparse.Namespace) -> int:
+    from datatales.api import main as api_main
+
+    return api_main(args.action, _repo)
+
+
 # ---- parser ----
 
 
@@ -322,6 +328,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("story_id")
 
     add("stories", cmd_stories, "List stories.")
+
+    p = add("api", cmd_api, "JSON bridge for the local dashboard (stdin -> stdout).")
+    p.add_argument("action")
     return parser
 
 

@@ -104,11 +104,19 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - `narrate.py`: prompt (rules incl. polarity, percentage points, honest shape, mention notable dips) + strict reply schema (json.loads only, length limits, chart_spec columns/highlight checked against chart_data).
 - `verify.py`: every number in headline/hook/summary/body_md/video_script must equal a number anywhere in `stories.numbers` after rounding to the written decimals (sign ignored); years and financial years must be inside `data_period`. Word numbers two-twenty/twice are checked; "one"/"first"/"half" are not (too idiomatic). Limitation: it checks that a number exists in the data, not that it is attached to the right claim; human review covers that.
 - `stories.py`: `create_story` (draft, provisional slug) -> `story_prompt` -> `paste_narration` (parse, verify, slug from headline, unique) -> `reverify` (after edits). Approved/published stories are locked. DB constraint blocks approving a story whose verify_status is not `passed`.
+- Claims: the narration reply must include `claims: [{sentence, keys}]`; keys come from `verify.flatten_numbers` (f1.end_value, s1.points.2020-21.value, ...), listed in the prompt's KEYS table. The verifier checks each sentence exists, each key exists, each number matches one of ITS keys, and no number sits outside a claim. Results live in `verify_report.claims` / `.uncovered`.
 - CLI: `candidates <ct>`, `story-new <ct> --candidate N`, `story-prompt <id> [--out]`, `story-paste <id> <file>`, `story-verify <id>`, `stories`.
 
 ## Wording rules (M5)
 
 - ONS wellbeing bands use the same labels for every measure. For **anxiety**: Poor = high anxiety, Fair = medium, Good = low, Very good = **very low** anxiety (ONS metadata). A rise in anxiety's mean is bad news. Never write "very good anxiety".
+
+## Dashboard (M6)
+
+- `dashboard/`: Next.js 16 App Router, local only (`127.0.0.1:4317`; `proxy.ts` rejects other Host headers; never deploy). In Next 16 `middleware` is called `proxy`; read `dashboard/node_modules/next/dist/docs/` before changing Next code (see dashboard/AGENTS.md).
+- Reads: server components query Supabase with the service key (`lib/db.ts`, `server-only`). Writes/logic: server actions (`app/actions.ts`) call `lib/worker.ts` -> `python -m datatales api <action>` (JSON stdin/stdout, no shell). Never reimplement verification or prompts in TypeScript.
+- `datatales/api.py` actions: candidates, story-new, story-prompt, story-paste, story-reverify, story-status, recipe-approve. It always answers JSON (`{ok, data|error}`).
+- Story status transitions: draft -> approved (verify passed only) | rejected; rejected -> draft; approved -> draft. `published` is set by M7 publish only.
 
 ## Database
 
@@ -134,4 +142,6 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - M3 Ingest, profile, clean: done (ONS wellbeing v4 ingested; recipe v1 imported, awaiting user approval)
 - M4 Detect: done (3 detectors; awaiting recipe approval + clean to store real findings)
 - M5 Narrate + verify: done (candidates, full-series chart data, notable moves, prompt, parser, number checker)
-- Next: M6 Dashboard
+- M6 Dashboard: done (local Next.js; real NI story drafted, verified with claims, awaiting approval)
+- Next: M7 Publish + weekly pipeline
+- Next source after M7 (user, 2026-10-10): DfT vehicle licensing statistics (VEH tables), via upload ingest
