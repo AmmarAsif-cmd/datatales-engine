@@ -80,7 +80,22 @@ for (const page of existsSync(storyDir)
     existsSync(png) && readFileSync(png).subarray(1, 4).toString() === 'PNG',
     `story ${slug} has no OG image`,
   );
+  const portrait = join(storyDir, `${slug}-portrait.png`);
+  const thumb = join(storyDir, `${slug}-thumb.webp`);
+  must(
+    existsSync(portrait) && readFileSync(portrait).subarray(1, 4).toString() === 'PNG',
+    `story ${slug} has no portrait image`,
+  );
+  must(
+    existsSync(thumb) && readFileSync(thumb).subarray(8, 12).toString() === 'WEBP',
+    `story ${slug} has no thumbnail`,
+  );
   const html = readFileSync(join(storyDir, page), 'utf8');
+  must(
+    /<img[^>]+class="hero"[^>]+alt="[^"]{40,}"/.test(html),
+    `story ${slug} hero image lacks alt text`,
+  );
+  must(!/<img(?![^>]*\salt=)[^>]*>/.test(html), `story ${slug} has an image without alt`);
   must(html.includes(`/stories/${slug}.png`), `story ${slug} does not use its OG image`);
   must(html.includes(`/stories/${slug}.csv`), `story ${slug} does not link its CSV`);
 }

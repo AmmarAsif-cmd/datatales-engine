@@ -110,7 +110,7 @@ def refresh_story(repo: Repo, story_id: str) -> dict[str, Any]:
             **{
                 k: v
                 for k, v in (story.get("chart_spec") or {}).items()
-                if k in ("title", "annotation")
+                if k in ("title", "annotation", "more_charts")
             },
         },
         "status": "draft",
@@ -146,6 +146,8 @@ def paste_narration(repo: Repo, story_id: str, reply: str) -> tuple[dict[str, An
     claims = [c.model_dump() for c in narration.claims]
     report = verify_text(fields, story["numbers"], claims, story["chart_data"])
     spec = narration.chart_spec.model_dump(exclude_none=True)
+    if narration.more_charts:
+        spec["more_charts"] = [m.model_dump(exclude_none=True) for m in narration.more_charts]
     updated = repo.update_story(
         story_id,
         {

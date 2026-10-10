@@ -5,12 +5,16 @@ on:
     paths:
       - "dashboard/**"
       - "worker/tests/golden/**"
+      - "site/src/lib/graphics/**"
+      - "site/src/data/fonts/**"
       - ".github/workflows/dashboard-ci.yml"
   push:
     branches: [main]
     paths:
       - "dashboard/**"
       - "worker/tests/golden/**"
+      - "site/src/lib/graphics/**"
+      - "site/src/data/fonts/**"
       - ".github/workflows/dashboard-ci.yml"
 
 permissions:

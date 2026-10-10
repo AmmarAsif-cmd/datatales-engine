@@ -14,6 +14,7 @@ import yaml
 
 from datatales.config import WORKER_DIR
 from datatales.errors import UserError
+from datatales.geo import mappable
 from datatales.repo import Repo, now_utc
 from datatales.sources import DetectConfig, SourceDef, get_source
 
@@ -98,6 +99,15 @@ def en_dash(text: str) -> str:
     return FIN_YEAR_HYPHEN.sub("\\1\u2013\\2", text)
 
 
+def display_spec(spec: dict[str, Any]) -> dict[str, Any]:
+    """A chart spec for the site: en dashes in its text, extra charts listed separately."""
+    return {
+        k: en_dash(v) if k in ("title", "annotation") and isinstance(v, str) else v
+        for k, v in spec.items()
+        if k != "more_charts"
+    }
+
+
 def first_published(path: Path) -> str | None:
     """`date` of an existing story file, so republishing keeps the original publish date."""
     if not path.exists():
@@ -139,13 +149,17 @@ def front_matter(
         "keyNumbers": [
             {k: en_dash(v) for k, v in card.items()} for card in key_numbers(numbers, source.detect)
         ],
-        "chart_spec": {
-            k: en_dash(v) if k in ("title", "annotation") and isinstance(v, str) else v
-            for k, v in story["chart_spec"].items()
-        },
+        "chart_spec": display_spec(story["chart_spec"]),
         "chart_data": story["chart_data"],
         "numbers": numbers,
     }
+    more = story["chart_spec"].get("more_charts") or []
+    if any(c.get("type") == "map" for c in [story["chart_spec"], *more]):
+        codes = {str(r.get("code")) for r in story["chart_data"]}
+        if not mappable(codes):
+            raise PublishError("a map chart needs geography codes that the site has boundaries for")
+    if more:
+        fm["more_charts"] = [display_spec(m) for m in more]
     if period.get("first") and period.get("last"):
         fm["period"] = en_dash(f"{period['first']} to {period['last']}")
     return fm

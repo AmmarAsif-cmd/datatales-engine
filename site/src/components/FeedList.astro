@@ -10,7 +10,19 @@ const { items, headingLevel: H = 'h2' } = Astro.props;
 
 <ul class="feed">
   {items.map((item) => (
-    <li>
+    <li class={item.image ? 'has-image' : undefined}>
+      {item.image && (
+        <a class="thumb" href={item.url} tabindex="-1">
+          <img
+            src={item.image.src}
+            alt={item.image.alt}
+            width="600"
+            height="315"
+            loading="lazy"
+            decoding="async"
+          />
+        </a>
+      )}
       <p class="kind">
         {item.kind === 'story' ? 'Data story' : 'Article'}
         {item.sample && <span class="sample-tag">Sample · fake data</span>}
@@ -75,5 +87,45 @@ const { items, headingLevel: H = 'h2' } = Astro.props;
   }
   .meta {
     margin: 0;
+  }
+  .has-image {
+    display: grid;
+    grid-template-columns: 1fr 15rem;
+    grid-template-areas: 'kind thumb' 'title thumb' 'desc thumb' 'meta thumb';
+    grid-template-rows: auto auto auto 1fr;
+    column-gap: 1.5rem;
+  }
+  .has-image .kind {
+    grid-area: kind;
+  }
+  .has-image .title {
+    grid-area: title;
+  }
+  .has-image .desc {
+    grid-area: desc;
+  }
+  .has-image .meta {
+    grid-area: meta;
+  }
+  .thumb {
+    grid-area: thumb;
+    align-self: start;
+  }
+  .thumb img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+  }
+  @media (max-width: 40rem) {
+    .has-image {
+      grid-template-columns: 1fr;
+      grid-template-areas: 'thumb' 'kind' 'title' 'desc' 'meta';
+      grid-template-rows: auto;
+    }
+    .thumb {
+      margin-bottom: 0.75rem;
+    }
   }
 </style>

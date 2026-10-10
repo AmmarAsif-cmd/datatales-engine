@@ -1,5 +1,7 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
 
+import { coverPaths, storyCoverAlt } from './storygraphics';
+
 export type Post = CollectionEntry<'posts'>;
 export type Story = CollectionEntry<'stories'>;
 
@@ -29,6 +31,8 @@ export type FeedItem = {
   date: Date;
   url: string;
   sample?: boolean;
+  /** Story cover thumbnail (600×315). */
+  image?: { src: string; alt: string };
 };
 
 export async function getFeed(): Promise<FeedItem[]> {
@@ -41,6 +45,7 @@ export async function getFeed(): Promise<FeedItem[]> {
       date: s.data.date,
       url: `/stories/${s.id}`,
       sample: s.data.sample,
+      image: { src: coverPaths(s.id).thumb, alt: storyCoverAlt(s) },
     })),
     ...posts.map((p) => ({
       kind: 'post' as const,

@@ -1,30 +1,32 @@
 ---
 import Chart from './Chart';
 import { colouredSeries, type ChartSpec, type Row } from '../lib/chart';
-import { enDash, pivot } from '../lib/story';
+import { chartAlt, type ChartFacts, type Spec } from '../lib/graphics/alt.ts';
+import { renderStaticChart } from '../lib/charts/static.ts';
+import { enDash } from '../lib/story';
 
 interface Props {
   spec: ChartSpec;
   data: Row[];
   /** Used as the chart's accessible name when the spec has no title. */
   fallbackTitle: string;
-  /** Static CSV of `data` (the same rows), offered as a download. */
-  csvHref?: string;
-  csvName?: string;
+  /** Verified chart facts (numbers.chart_facts), used in the alt text. */
+  facts?: ChartFacts;
+  /** Unique per page. */
+  index?: number;
 }
 
-const { spec, data, fallbackTitle, csvHref, csvName } = Astro.props;
+const { spec, data, fallbackTitle, facts, index = 0 } = Astro.props;
 const title = enDash(spec.title ?? fallbackTitle);
-const coloured = colouredSeries(spec, data);
+const alt = chartAlt(spec as Spec, data, title, facts);
+const id = `chart-${index + 1}`;
+const staticSvg = renderStaticChart(spec as Spec, data, { title, describedBy: `${id}-desc` });
+const coloured =
+  spec.type === 'line' || spec.type === 'bar' || spec.type === 'dot'
+    ? colouredSeries(spec, data)
+    : [];
 const hasOthers =
   !!spec.series && new Set(data.map((r) => String(r[spec.series!]))).size > coloured.length;
-const table = pivot(spec, data);
-const fmt = new Intl.NumberFormat('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const num = (v: number | null) => (v === null ? '–' : fmt.format(v));
-const id = `chart-${title
-  .toLowerCase()
-  .replace(/[^a-z0-9]+/g, '-')
-  .replace(/^-|-$/g, '')}`;
 ---
 
 <figure class="chart" aria-labelledby={`${id}-title`}>
@@ -52,74 +54,17 @@ const id = `chart-${title
   </figcaption>
 
   <div class="chart-frame">
-    <Chart client:visible spec={spec} data={data} label={title} />
+    {staticSvg ? (
+      <div class="static-frame" set:html={staticSvg} />
+    ) : (
+      <Chart client:visible spec={spec} data={data} label={title} describedBy={`${id}-desc`} />
+    )}
   </div>
 
   {spec.annotation && <p class="chart-note">{enDash(spec.annotation)}</p>}
-
-  <section class="chart-table" aria-labelledby={`${id}-data`}>
-    <div class="table-head">
-      <h2 class="table-title" id={`${id}-data`}>
-        The data
-      </h2>
-      {csvHref && (
-        <a class="download" href={csvHref} download={csvName}>
-          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19h14"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            ></path>
-          </svg>
-          Download CSV
-        </a>
-      )}
-    </div>
-    <div class="table-scroll">
-      <table class="data-table">
-        <caption class="visually-hidden">
-          {title}:{spec.yLabel ?? spec.y}
-        </caption>
-        <thead>
-          <tr>
-            <th scope="col">Period</th>
-            {table.columns.map((c) => (
-              <th scope="col" class="num">
-                {c}
-              </th>
-            ))}
-            {table.ciFor && (
-              <th scope="col" class="num">
-                {table.ciFor} 95% CI
-              </th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {table.rows.map((r) => (
-            <tr>
-              <th scope="row">{enDash(r.label)}</th>
-              {r.values.map((v) => (
-                <td class="num">{num(v)}</td>
-              ))}
-              {table.ciFor && (
-                <td class="num ci">{r.ci ? `${num(r.ci[0])} to ${num(r.ci[1])}` : '–'}</td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-    {table.ciFor && (
-      <p class="table-note">
-        95% CI: the range the true value is likely to fall in (95% confidence interval). Values are{' '}
-        {spec.yLabel ?? spec.y}.
-      </p>
-    )}
-  </section>
+  <p class="visually-hidden" id={`${id}-desc`}>
+    {alt}
+  </p>
 </figure>
 
 <style>
@@ -172,57 +117,17 @@ const id = `chart-${title
     font-size: 0.9rem;
     color: var(--ink-2);
   }
-  .chart-table {
-    margin-top: 1.25rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--rule);
-    font-size: 0.9rem;
-  }
-  .table-head {
+  .static-frame {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem 1rem;
-    margin-bottom: 0.5rem;
+    justify-content: center;
   }
-  .table-title {
-    margin: 0;
-    font-size: 1rem;
+  .static-frame :global(svg) {
+    width: 100%;
+    height: auto;
+    max-width: 34rem;
+    max-height: 42rem;
   }
-  .download {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.4rem 0.8rem;
-    border: 1px solid var(--rule-strong);
-    border-radius: var(--radius);
-    color: var(--ink);
-    font-weight: 600;
-    text-decoration: none;
-    background: var(--surface);
-  }
-  .download:hover {
-    border-color: var(--link);
-    color: var(--link);
-  }
-  .chart-table .table-scroll {
-    max-height: 40rem;
-    overflow: auto;
-  }
-  .chart-table th[scope='row'] {
-    font-weight: 600;
-    border-bottom-width: 1px;
-    border-bottom-color: var(--rule);
-    white-space: nowrap;
-  }
-  .ci {
-    color: var(--ink-2);
-    white-space: nowrap;
-  }
-  .table-note {
-    margin: 0.5rem 0 0;
-    color: var(--muted);
-    font-size: 0.85rem;
+  .static-frame :global(svg title) {
+    pointer-events: none;
   }
 </style>

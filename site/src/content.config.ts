@@ -21,7 +21,7 @@ const posts = defineCollection({
 });
 
 const chartSpec = z.object({
-  type: z.enum(['line', 'bar', 'dot']),
+  type: z.enum(['line', 'bar', 'dot', 'slope', 'map']),
   x: z.string(),
   y: z.string(),
   series: z.string().optional(),
@@ -29,6 +29,11 @@ const chartSpec = z.object({
   annotation: z.string().optional(),
   title: z.string().optional(),
   yLabel: z.string().optional(),
+  /** slope: periods compared (default first and last) */
+  start: z.string().optional(),
+  end: z.string().optional(),
+  /** map: period shown (default last) */
+  period: z.string().optional(),
 });
 
 const keyNumber = z.object({
@@ -61,6 +66,8 @@ const stories = defineCollection({
     period: z.string().optional(),
     keyNumbers: z.array(keyNumber).min(1).max(5),
     chart_spec: chartSpec,
+    /** Up to two more charts of the same chart_data (e.g. a slope chart and a map). */
+    more_charts: z.array(chartSpec).max(2).default([]),
     chart_data: z.array(z.record(z.string(), z.union([z.string(), z.number(), z.null()]))),
     numbers: z.record(z.string(), z.unknown()).default({}),
     /** Demo content with fake data. Never built in production. */

@@ -19,22 +19,35 @@ export class NarrationError extends Error {}
 
 type Row = Record<string, string | number | null>;
 
+export const MAX_CHARTS = 3; // the main chart plus up to two more
+export const CHART_TYPES = ["line", "bar", "dot", "slope", "map"] as const;
+export type ChartType = (typeof CHART_TYPES)[number];
+const SPEC_FIELDS = [
+  "type", "x", "y", "series", "highlight", "annotation", "title", "yLabel", "start", "end", "period",
+]; // prettier-ignore
+
+export type ChartSpec = {
+  type: ChartType;
+  x: string;
+  y: string;
+  series?: string | null;
+  highlight?: string | string[] | null;
+  annotation?: string | null;
+  title?: string | null;
+  yLabel?: string | null;
+  start?: string | null;
+  end?: string | null;
+  period?: string | null;
+};
+
 export type Narration = {
   headline: string;
   hook: string;
   summary: string;
   body_md: string;
   video_script: string;
-  chart_spec: {
-    type: "line" | "bar" | "dot";
-    x: string;
-    y: string;
-    series?: string | null;
-    highlight?: string | string[] | null;
-    annotation?: string | null;
-    title?: string | null;
-    yLabel?: string | null;
-  };
+  chart_spec: ChartSpec;
+  more_charts: ChartSpec[];
   claims: { sentence: string; keys: string[]; checks: Check[] }[];
 };
 
@@ -107,7 +120,7 @@ export function parseNarration(text: string, chartData: Row[]): Narration {
   }
   const obj = data as Record<string, unknown>;
   const p: Problem[] = [];
-  checkExtra(obj, ["headline", "hook", "summary", "body_md", "video_script", "chart_spec", "claims"], "", p);
+  checkExtra(obj, ["headline", "hook", "summary", "body_md", "video_script", "chart_spec", "more_charts", "claims"], "", p);
 
   const headline = strField(obj, "headline", "headline", p, { strip: true, min: 10, max: HEADLINE_MAX_CHARS });
   let hook = strField(obj, "hook", "hook", p, { strip: true, min: 10, max: 300 });
@@ -136,39 +149,17 @@ export function parseNarration(text: string, chartData: Row[]): Narration {
     p.push(["video_script", `Value error, is ${wordCount(video)} words; max ${VIDEO_MAX_WORDS}`]);
   }
 
-  let spec: Narration["chart_spec"] | undefined;
-  const rawSpec = obj.chart_spec;
-  if (rawSpec === undefined) p.push(["chart_spec", "Field required"]);
-  else if (!rawSpec || typeof rawSpec !== "object" || Array.isArray(rawSpec)) {
-    p.push(["chart_spec", "Input should be a valid dictionary"]);
+  const spec = obj.chart_spec === undefined ? (p.push(["chart_spec", "Field required"]), undefined) : parseSpec(obj.chart_spec, "chart_spec", p);
+  const more: ChartSpec[] = [];
+  const rawMore = obj.more_charts ?? [];
+  if (!Array.isArray(rawMore)) p.push(["more_charts", "Input should be a valid list"]);
+  else if (rawMore.length > MAX_CHARTS - 1) {
+    p.push(["more_charts", `List should have at most ${MAX_CHARTS - 1} items after validation, not ${rawMore.length}`]);
   } else {
-    const s = rawSpec as Record<string, unknown>;
-    const before = p.length;
-    checkExtra(s, ["type", "x", "y", "series", "highlight", "annotation", "title", "yLabel"], "chart_spec.", p);
-    if (!["line", "bar", "dot"].includes(s.type as string)) {
-      p.push(["chart_spec.type", "Input should be 'line', 'bar' or 'dot'"]);
-    }
-    const x = strField(s, "x", "chart_spec.x", p);
-    const y = strField(s, "y", "chart_spec.y", p);
-    const series = strField(s, "series", "chart_spec.series", p, { optional: true });
-    const annotation = strField(s, "annotation", "chart_spec.annotation", p, { optional: true, max: 200 });
-    const title = strField(s, "title", "chart_spec.title", p, { optional: true, max: 120 });
-    const yLabel = strField(s, "yLabel", "chart_spec.yLabel", p, { optional: true, max: 80 });
-    const h = s.highlight;
-    const hOk = h === undefined || h === null || typeof h === "string" || (Array.isArray(h) && h.every((x) => typeof x === "string"));
-    if (!hOk) p.push(["chart_spec.highlight", "Input should be a valid string or list of strings"]);
-    if (p.length === before) {
-      spec = {
-        type: s.type as "line" | "bar" | "dot",
-        x: x as string,
-        y: y as string,
-        ...(series !== undefined ? { series } : {}),
-        ...(h !== undefined && h !== null ? { highlight: h as string | string[] } : {}),
-        ...(annotation !== undefined ? { annotation } : {}),
-        ...(title !== undefined ? { title } : {}),
-        ...(yLabel !== undefined ? { yLabel } : {}),
-      };
-    }
+    rawMore.forEach((m, i) => {
+      const parsed = parseSpec(m, `more_charts.${i}`, p);
+      if (parsed) more.push(parsed);
+    });
   }
 
   const claims: Narration["claims"] = [];
@@ -212,10 +203,11 @@ export function parseNarration(text: string, chartData: Row[]): Narration {
     summary: summary as string,
     body_md: body as string,
     video_script: video as string,
-    chart_spec: spec as Narration["chart_spec"],
+    chart_spec: spec as ChartSpec,
+    more_charts: more,
     claims,
   };
-  checkChart(narration.chart_spec, chartData);
+  [narration.chart_spec, ...more].forEach((c, i) => checkChart(c, chartData, i === 0 ? "chart_spec" : `more_charts.${i - 1}`));
   return narration;
 }
 
@@ -261,14 +253,43 @@ export function parseChecks(raw: unknown, loc: string, p: [string, string][]): C
   return out;
 }
 
-function checkChart(spec: Narration["chart_spec"], chartData: Row[]): void {
+function parseSpec(raw: unknown, loc: string, p: Problem[]): ChartSpec | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    p.push([loc, "Input should be a valid dictionary"]);
+    return undefined;
+  }
+  const s = raw as Record<string, unknown>;
+  const before = p.length;
+  checkExtra(s, SPEC_FIELDS, `${loc}.`, p);
+  if (!CHART_TYPES.includes(s.type as ChartType)) {
+    p.push([`${loc}.type`, `Input should be ${CHART_TYPES.slice(0, -1).map((t) => `'${t}'`).join(", ")} or '${CHART_TYPES.at(-1)}'`]);
+  }
+  const x = strField(s, "x", `${loc}.x`, p);
+  const y = strField(s, "y", `${loc}.y`, p);
+  const opt: Record<string, string | undefined> = {};
+  const limits: Record<string, number | undefined> = { annotation: 200, title: 120, yLabel: 80 };
+  for (const f of ["series", "annotation", "title", "yLabel", "start", "end", "period"]) {
+    opt[f] = strField(s, f, `${loc}.${f}`, p, { optional: true, max: limits[f] });
+  }
+  const h = s.highlight;
+  const hOk = h === undefined || h === null || typeof h === "string" || (Array.isArray(h) && h.every((v) => typeof v === "string"));
+  if (!hOk) p.push([`${loc}.highlight`, "Input should be a valid string or list of strings"]);
+  if (p.length !== before) return undefined;
+  const spec: ChartSpec = { type: s.type as ChartType, x: x as string, y: y as string };
+  if (opt.series !== undefined) spec.series = opt.series;
+  if (h !== undefined && h !== null) spec.highlight = h as string | string[];
+  for (const f of ["annotation", "title", "yLabel", "start", "end", "period"] as const) {
+    if (opt[f] !== undefined) spec[f] = opt[f];
+  }
+  return spec;
+}
+
+function checkChart(spec: ChartSpec, chartData: Row[], name: string): void {
   const columns = new Set(chartData.flatMap((r) => Object.keys(r)));
   for (const field of ["x", "y", "series"] as const) {
     const col = spec[field];
     if (col !== undefined && col !== null && !columns.has(col)) {
-      throw new NarrationError(
-        `chart_spec.${field} '${col}' is not a chart_data column ${pyList([...columns].sort())}`,
-      );
+      throw new NarrationError(`${name}.${field} '${col}' is not a chart_data column ${pyList([...columns].sort())}`);
     }
   }
   if (spec.highlight !== undefined && spec.highlight !== null) {
@@ -277,8 +298,24 @@ function checkChart(spec: Narration["chart_spec"], chartData: Row[]): void {
     const present = new Set(chartData.map((r) => pyStr(r[key])));
     const missing = wanted.filter((h) => !present.has(h));
     if (missing.length) {
-      throw new NarrationError(`chart_spec.highlight ${pyList(missing)} not found in chart_data['${key}']`);
+      throw new NarrationError(`${name}.highlight ${pyList(missing)} not found in chart_data['${key}']`);
     }
+  }
+  if ((spec.type === "slope" || spec.type === "map") && !spec.series) {
+    throw new NarrationError(`${name}: a ${spec.type} chart needs \`series\` (the geography column)`);
+  }
+  if (spec.type === "map" && !columns.has("code")) {
+    throw new NarrationError(`${name}: a map needs geography codes (chart_data has no 'code')`);
+  }
+  const periods = new Set(chartData.map((r) => pyStr(r[spec.x])));
+  for (const field of ["start", "end", "period"] as const) {
+    const value = spec[field];
+    if (value !== undefined && value !== null && !periods.has(value)) {
+      throw new NarrationError(`${name}.${field} '${value}' is not a value of '${spec.x}'`);
+    }
+  }
+  if (spec.start && spec.end && !(spec.start < spec.end)) {
+    throw new NarrationError(`${name}: start must come before end`);
   }
 }
 
@@ -314,6 +351,7 @@ export function pyDumps(obj: unknown, indent?: number, level = 0): string {
 // ---- prompt (keep in sync with narrate.py) ----
 
 /** Generated from narrate.py OUTPUT_SCHEMA (golden-tested). */
+/** Generated from narrate.py OUTPUT_SCHEMA (golden-tested). */
 export const OUTPUT_SCHEMA = {
   "headline": "string, at most 70 characters: the single strongest finding as a statement, e.g. \"Northern Ireland is the only UK nation where low anxiety rose\"",
   "hook": "string, exactly one sentence",
@@ -321,15 +359,21 @@ export const OUTPUT_SCHEMA = {
   "body_md": "string, Markdown, 500 to 700 words, with the sections \"## How it compares\" and \"## What the data can't tell us\"; no headings above ##",
   "video_script": "string, at most 90 words, to be read aloud",
   "chart_spec": {
-    "type": "line | bar | dot",
+    "type": "line | bar | dot | slope | map",
     "x": "column name in chart_data",
     "y": "column name in chart_data",
     "series": "column name in chart_data (optional)",
     "highlight": "a value (or list of values) of the series column to highlight",
     "annotation": "short note under the chart, at most 200 characters (optional)",
     "title": "chart title, at most 120 characters (optional)",
-    "yLabel": "label for the values, e.g. the unit (optional)"
+    "yLabel": "label for the values, e.g. the unit (optional)",
+    "start": "slope only: first period to compare (optional, default first)",
+    "end": "slope only: last period to compare (optional, default last)",
+    "period": "map only: the period to map (optional, default last)"
   },
+  "more_charts": [
+    "up to 2 more chart_spec objects (optional), e.g. a slope and a map"
+  ],
   "claims": [
     {
       "sentence": "a sentence copied EXACTLY from headline/hook/summary/body_md/video_script that contains a number (other than a year) or a rank word",
@@ -392,7 +436,12 @@ export const RULES = `Rules (follow every one):
    \`chart_facts.supported_checks\` (without "detail"), or write one with other periods; every
    check is re-tested against chart_data. If the same sentence is used in two fields, one
    claim covers both. Count words like "four" as numbers.
-12. Return ONLY a JSON object with exactly these keys, no Markdown fences, no comments.
+12. CHARTS: chart_spec is the main chart (a line chart of every year suits most stories).
+   \`more_charts\` may add up to 2 more from the same chart_data: "slope" (first vs last period,
+   good for showing who rose and who fell) and "map" (one period by area; only for nations,
+   regions or local authorities, and only when chart_data has a \`code\` column). Give each a
+   short title. Do not repeat the same chart twice.
+13. Return ONLY a JSON object with exactly these keys, no Markdown fences, no comments.
 `;
 
 export function buildPrompt(
@@ -416,7 +465,10 @@ export function buildPrompt(
     `chart_data columns: ${pyList(columns)}`,
     `geography values: ${pyList(seriesValues)}`,
     "Suggested chart_spec (adjust only if a different chart is clearer):",
-    pyDumps(chartSpec),
+    pyDumps(Object.fromEntries(Object.entries(chartSpec).filter(([k]) => k !== "more_charts"))),
+    ...(Array.isArray(chartSpec.more_charts) && chartSpec.more_charts.length
+      ? ["Suggested more_charts (optional):", pyDumps(chartSpec.more_charts)]
+      : []),
     "",
     "## NUMBERS (context and meaning)",
     pyDumps(numbers, 1),

@@ -43,6 +43,10 @@ jobs:
       - name: Type check
         run: npm run check
 
+      # Map/slope charts and boundary files (node's test runner).
+      - name: Test
+        run: npm test
+
       # Builds the static site and runs scripts/check-dist.mjs (legacy URLs, no samples, no keys).
       - name: Build
         run: npm run build

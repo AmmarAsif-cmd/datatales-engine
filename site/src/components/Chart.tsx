@@ -1,12 +1,22 @@
 import * as Plot from '@observablehq/plot';
 import { useEffect, useRef, useState } from 'react';
 
-import { colouredSeries, enDash, highlightList, type ChartSpec, type Row } from '../lib/chart';
+import {
+  colouredSeries,
+  dodge,
+  enDash,
+  highlightList,
+  seriesOrder,
+  type ChartSpec,
+  type Row,
+} from '../lib/chart';
 
-type Props = { spec: ChartSpec; data: Row[]; label: string };
+type Props = { spec: ChartSpec; data: Row[]; label: string; describedBy?: string };
 
 const SERIES_VARS = Array.from({ length: 8 }, (_, i) => `--series-${i + 1}`);
-const MAX_LABELLED = 4;
+/** Up to this many series, every line gets an end label (others only the coloured ones). */
+const MAX_LABELLED = 8;
+const LABEL_GAP = 15;
 
 function cssVar(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -56,24 +66,51 @@ function build(spec: ChartSpec, data: Row[], width: number): SVGSVGElement | HTM
   if (spec.type === 'line') {
     const xValues = data.map((r) => r[spec.x]);
     const years = isYearLike(xValues);
-    const lastByS = sKey
-      ? coloured.slice(0, MAX_LABELLED).map((s) => {
-          const rows = data.filter((r) => String(r[sKey]) === s && r[spec.y] != null);
-          return rows[rows.length - 1];
-        })
-      : [data.filter((r) => r[spec.y] != null).at(-1)];
-    const labelled = lastByS.filter(Boolean) as Row[];
-    const rightRoom = sKey && coloured.length <= MAX_LABELLED ? 120 : 16;
+    const allSeries = sKey ? seriesOrder(data, sKey) : [];
+    const labelSeries = sKey ? (allSeries.length <= MAX_LABELLED ? allSeries : coloured) : [];
+    const lastRow = (s: string) =>
+      data.filter((r) => String(r[sKey!]) === s && r[spec.y] != null).at(-1);
+    const ends = labelSeries.map(lastRow).filter(Boolean) as Row[];
+    const labelText = (r: Row) => `${r[sKey!]} ${numFmt.format(Number(r[spec.y]))}`;
+    const longest = Math.max(0, ...ends.map((r) => labelText(r).length));
+    const rightRoom = ends.length ? Math.min(190, longest * 7 + 16) : 16;
+    const height = Math.max(260, Math.min(420, width * 0.6));
+    const xOpt = years
+      ? { tickFormat: 'd', label: null, ticks: Math.min(8, Math.floor(width / 70)) }
+      : { type: 'point' as const, label: null, tickFormat: (v: unknown) => enDash(String(v)) };
+    const yOpt = { grid: true, label: null, nice: true, zero: false };
+
+    // Pass 1 finds the y scale; labels are then spread so they never overlap.
+    const probe = Plot.plot({
+      ...common,
+      height,
+      marginRight: rightRoom,
+      x: xOpt,
+      y: yOpt,
+      marks: [Plot.lineY(data, { x: spec.x, y: spec.y, z: sKey })],
+    });
+    const yScale = probe.scale('y')!;
+    const [r0, r1] = (yScale.range as number[]).slice().sort((a, b) => a - b);
+    const placed = dodge(
+      ends.map((r) => yScale.apply(r[spec.y]) as number),
+      LABEL_GAP,
+      r0,
+      r1,
+    );
+    const labels = ends.map((r, i) => ({
+      ...r,
+      __y: yScale.invert!(placed[i]) as number,
+      __strong: colourOf.has(String(r[sKey!])),
+    }));
+    const dotted = ends.filter((r) => colourOf.has(String(r[sKey!])));
 
     return Plot.plot({
       ...common,
-      height: Math.max(260, Math.min(420, width * 0.6)),
+      height,
       marginRight: rightRoom,
-      x: years
-        ? { tickFormat: 'd', label: null, ticks: Math.min(8, Math.floor(width / 70)) }
-        : { type: 'point', label: null, tickFormat: (v: unknown) => enDash(String(v)) },
+      x: xOpt,
       // Lines need no zero baseline: fit the axis to the data. The unit is in the caption.
-      y: { grid: true, label: null, nice: true, zero: false },
+      y: { ...yOpt, domain: yScale.domain },
       color: { type: 'identity' },
       marks: [
         // muted context lines first, coloured lines on top
@@ -100,7 +137,7 @@ function build(spec: ChartSpec, data: Row[], width: number): SVGSVGElement | HTM
           strokeLinejoin: 'round',
           strokeLinecap: 'round',
         }),
-        Plot.dot(labelled, {
+        Plot.dot(sKey ? dotted : (data.filter((r) => r[spec.y] != null).slice(-1) as Row[]), {
           x: spec.x,
           y: spec.y,
           r: 4,
@@ -108,19 +145,20 @@ function build(spec: ChartSpec, data: Row[], width: number): SVGSVGElement | HTM
           stroke: t.surface,
           strokeWidth: 2,
         }),
-        ...(sKey && coloured.length <= MAX_LABELLED
-          ? [
-              Plot.text(labelled, {
-                x: spec.x,
-                y: spec.y,
-                text: (r: Row) => `${r[sKey]} ${numFmt.format(Number(r[spec.y]))}`,
-                dx: 8,
-                textAnchor: 'start',
-                fill: t.ink2,
-                fontWeight: 600,
-              }),
-            ]
-          : []),
+        ...[true, false].map((strong) =>
+          Plot.text(
+            labels.filter((r) => r.__strong === strong),
+            {
+              x: spec.x,
+              y: '__y',
+              text: labelText,
+              dx: 8,
+              textAnchor: 'start',
+              fill: strong ? t.ink : t.ink2,
+              fontWeight: strong ? 700 : 400,
+            },
+          ),
+        ),
         Plot.ruleX(data, Plot.pointerX({ x: spec.x, stroke: t.muted, strokeOpacity: 0.6 })),
         Plot.tip(
           data,
@@ -210,7 +248,7 @@ function build(spec: ChartSpec, data: Row[], width: number): SVGSVGElement | HTM
   });
 }
 
-export default function Chart({ spec, data, label }: Props) {
+export default function Chart({ spec, data, label, describedBy }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [tick, setTick] = useState(0);
   const [width, setWidth] = useState(0);
@@ -236,8 +274,9 @@ export default function Chart({ spec, data, label }: Props) {
     const svg = build(spec, data, Math.max(280, width));
     svg.setAttribute('role', 'img');
     svg.setAttribute('aria-label', label);
+    if (describedBy) svg.setAttribute('aria-describedby', describedBy);
     el.replaceChildren(svg);
-  }, [spec, data, label, tick, width]);
+  }, [spec, data, label, describedBy, tick, width]);
 
   return <div ref={ref} className="chart-canvas" />;
 }

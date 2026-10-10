@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - "worker/**"
+      - "site/src/data/geo/**"
       - ".github/workflows/worker-ci.yml"
   push:
     branches: [main]
     paths:
       - "worker/**"
+      - "site/src/data/geo/**"
       - ".github/workflows/worker-ci.yml"
 
 permissions:

@@ -2,11 +2,14 @@
 import { render } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ChartFigure from '../../components/ChartFigure.astro';
+import DataTable from '../../components/DataTable.astro';
 import NumberCards from '../../components/NumberCards.astro';
 import SourceNote from '../../components/SourceNote.astro';
 import type { Row } from '../../lib/chart';
 import { formatDate, getPosts, getStories, type Story } from '../../lib/content';
+import type { ChartFacts } from '../../lib/graphics/alt.ts';
 import { SITE } from '../../lib/site';
+import { coverPaths, storyCoverAlt } from '../../lib/storygraphics';
 import { enDash, periodRange } from '../../lib/story';
 
 export async function getStaticPaths() {
@@ -18,7 +21,11 @@ const { story } = Astro.props as { story: Story };
 const { Content } = await render(story);
 const d = story.data;
 const url = `${SITE.url}/stories/${story.id}`;
-const ogImage = `/stories/${story.id}.png`;
+const images = coverPaths(story.id);
+const ogImage = images.landscape;
+const coverAltText = storyCoverAlt(story);
+const facts = (d.numbers as { chart_facts?: ChartFacts }).chart_facts;
+const charts = [d.chart_spec, ...d.more_charts];
 const range = periodRange(d.chart_data as Row[], d.chart_spec.x);
 const covers = range ? `${enDash(range[0])} to ${enDash(range[1])}` : d.period && enDash(d.period);
 
@@ -78,7 +85,8 @@ const dataset = {
   description={d.description}
   type="article"
   image={ogImage}
-  imageAlt={`Chart: ${enDash(d.chart_spec.title ?? d.title)}`}
+  imageAlt={coverAltText}
+  imageSize={[1200, 630]}
   published={d.date}
   modified={d.updated}
   noindex={d.sample}
@@ -92,6 +100,15 @@ const dataset = {
           live site.
         </p>
       )}
+      <img
+        class="hero"
+        src={images.landscape}
+        alt={coverAltText}
+        width="1200"
+        height="630"
+        fetchpriority="high"
+        decoding="async"
+      />
       <header class="head">
         <p class="kicker">Data story</p>
         <h1>{enDash(d.title)}</h1>
@@ -117,9 +134,28 @@ const dataset = {
 
     <div class="wide-chart">
       <ChartFigure
-        spec={d.chart_spec}
+        spec={charts[0]}
         data={d.chart_data as Row[]}
         fallbackTitle={d.title}
+        facts={facts}
+      />
+      {charts.length > 1 && (
+        <div class={`more-charts n${charts.length - 1}`}>
+          {charts.slice(1).map((spec, i) => (
+            <ChartFigure
+              spec={spec}
+              data={d.chart_data as Row[]}
+              fallbackTitle={d.title}
+              facts={facts}
+              index={i + 1}
+            />
+          ))}
+        </div>
+      )}
+      <DataTable
+        spec={charts[0]}
+        data={d.chart_data as Row[]}
+        title={enDash(charts[0].title ?? d.title)}
         csvHref={`/stories/${story.id}.csv`}
         csvName={`datatales-${story.id}.csv`}
       />
@@ -180,6 +216,26 @@ const dataset = {
     line-height: 1.5;
     color: var(--ink-2);
     margin: 0 0 0.75rem;
+  }
+  .hero {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin-top: 2rem;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+  }
+  .more-charts {
+    display: grid;
+    gap: 0 1.5rem;
+  }
+  @media (min-width: 48rem) {
+    .more-charts.n2 {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .more-charts :global(.chart) {
+    margin-top: 0;
   }
   .wide-chart {
     max-width: 52rem;

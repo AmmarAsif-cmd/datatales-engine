@@ -401,3 +401,30 @@ label.inline {
     background: transparent;
   }
 }
+
+/* story graphics */
+.cover-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+.cover-item {
+  margin: 0;
+}
+.cover-item img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--rule, #ddd);
+  border-radius: 6px;
+}
+.cover-item figcaption {
+  margin-top: 0.5rem;
+  justify-content: space-between;
+}
+@media (max-width: 40rem) {
+  .cover-grid {
+    grid-template-columns: 1fr;
+  }
+}

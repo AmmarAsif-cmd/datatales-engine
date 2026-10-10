@@ -1,7 +1,7 @@
 export type Row = Record<string, string | number | null>;
 
 export type ChartSpec = {
-  type: 'line' | 'bar' | 'dot';
+  type: 'line' | 'bar' | 'dot' | 'slope' | 'map';
   x: string;
   y: string;
   series?: string;
@@ -9,6 +9,9 @@ export type ChartSpec = {
   annotation?: string;
   title?: string;
   yLabel?: string;
+  start?: string;
+  end?: string;
+  period?: string;
 };
 
 export const MAX_COLOURED = 8;
@@ -38,4 +41,19 @@ export function colouredSeries(spec: ChartSpec, data: Row[]): string[] {
   if (!spec.series) return [];
   const hl = highlightList(spec);
   return (hl.length ? hl : seriesOrder(data, spec.series)).slice(0, MAX_COLOURED);
+}
+
+/** Spread label positions so none are closer than `gap`, keeping them inside [lo, hi]. */
+export function dodge(ys: number[], gap: number, lo: number, hi: number): number[] {
+  const order = ys.map((y, i) => [y, i] as const).sort((a, b) => a[0] - b[0]);
+  const out = order.map(([y]) => y);
+  for (let i = 1; i < out.length; i++) out[i] = Math.max(out[i], out[i - 1] + gap);
+  const over = out.at(-1)! - hi;
+  if (over > 0)
+    for (let i = out.length - 1; i >= 0; i--)
+      out[i] = Math.min(out[i], i === out.length - 1 ? hi : out[i + 1] - gap);
+  for (let i = 0; i < out.length; i++) out[i] = Math.max(out[i], lo);
+  const result: number[] = new Array(ys.length);
+  order.forEach(([, idx], k) => (result[idx] = out[k]));
+  return result;
 }

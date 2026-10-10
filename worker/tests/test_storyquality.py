@@ -195,3 +195,89 @@ def test_first_published_reads_existing_date(tmp_path: Path) -> None:
     assert publish.first_published(path) is None
     path.write_text("---\ntitle: x\ndate: 2025-01-02\n---\n\nBody\n", encoding="utf-8")
     assert publish.first_published(path) == "2025-01-02"
+
+
+# ---- graphics data: cover facts, codes, extra charts ----
+
+
+def test_ordinal() -> None:
+    from datatales.storydata import ordinal
+
+    assert [ordinal(n) for n in (1, 2, 3, 4, 11, 12, 13, 21, 22, 101)] == [
+        "1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "101st",
+    ]  # fmt: skip
+
+
+def test_cover_facts_prefers_rank_change_then_verified_framing() -> None:
+    from datatales.storydata import cover_facts
+
+    facts = facts_for(CHART, "A")
+    rank = {"start_rank": 3, "end_rank": 1, "groups_ranked": 3}
+    c = cover_facts(CHART, "A", "country", "Share", "%", rank, facts)
+    assert c == {
+        "group": "A",
+        "value": "8%",
+        "label": "Share, 2014-15",
+        "change": "Up from 5% in 2011-12",
+        "badge": "3rd → 1st of 3 UK nations",
+    }
+    c = cover_facts(CHART, "A", "region", "Share", "%", None, facts)
+    assert c["badge"] == "The only one of the 3 English regions to rise"
+    c = cover_facts(CHART, "B", "region", "Score", "score out of 10", None, facts_for(CHART, "B"))
+    assert c["value"] == "6.2" and c["change"].startswith("Down from 7")
+    assert "badge" not in c
+    assert cover_facts(CHART, "Nowhere", None, "x", "", None, {}) == {}
+
+
+def test_rank_shift_only_for_the_charted_slice() -> None:
+    from datatales.storydata import rank_shift_for
+
+    key = {"measure": "Anxiety", "estimate": "Very good"}
+
+    def finding(slice_: dict, start: int, end: int) -> dict:
+        shift = {"detector": "rank_shift", "numbers": {"start_rank": start, "end_rank": end}}
+        return {"detector": "biggest_change", "numbers": {**slice_, "related": [shift]}}
+
+    other = finding({"measure": "Happiness", "estimate": "Mean"}, 4, 1)
+    same = finding(key, 3, 2)
+    assert rank_shift_for([other], key) is None
+    assert rank_shift_for([other, same], key) == {"start_rank": 3, "end_rank": 2}
+
+
+def test_story_data_has_codes_cover_and_suggested_charts(
+    repo_ct: tuple[MemRepo, str],  # noqa: F811
+) -> None:
+    repo, ct = repo_ct
+    story = stories.create_story(repo, ct, 1)
+    assert all(r["code"].startswith("FAKE-") for r in story["chart_data"])
+    assert story["numbers"]["cover"]["group"] == "Riser"
+    assert [m["type"] for m in story["chart_spec"]["more_charts"]] == ["slope"]  # regions: no map
+    prompt = stories.story_prompt(repo, story["id"])
+    assert "Suggested more_charts (optional):" in prompt
+
+
+def test_more_charts_are_stored_and_published(
+    repo_ct: tuple[MemRepo, str],  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    repo, ct = repo_ct
+    story = stories.create_story(repo, ct, 1)
+    slope = {"type": "slope", "x": "period", "y": "value", "series": "geography",
+             "highlight": "Riser", "title": "Riser 2011-12 and 2014-15"}  # fmt: skip
+    reply = riser_reply(story, more_charts=[slope])
+    saved, report = stories.paste_narration(repo, story["id"], json.dumps(reply))
+    assert report.passed and saved["chart_spec"]["more_charts"] == [slope]
+    stories.set_status(repo, story["id"], "approved")
+    fm, _ = read_front_matter(publish.write_story_file(repo, story["id"], tmp_path, WHEN))
+    assert "more_charts" not in fm["chart_spec"]
+    assert fm["more_charts"] == [{**slope, "title": "Riser 2011–12 and 2014–15"}]
+
+
+def test_mappable_uses_the_site_boundaries() -> None:
+    from datatales.geo import mappable
+
+    assert mappable({"E92000001", "N92000002", "S92000003", "W92000004"})
+    assert mappable({"E12000007", "E12000001"})
+    assert mappable({"N09000003", "E06000001"})
+    assert not mappable({"E92000001", "E06000001"})  # nation + LA: no single map
+    assert not mappable({"FAKE-Riser"}) and not mappable(set())

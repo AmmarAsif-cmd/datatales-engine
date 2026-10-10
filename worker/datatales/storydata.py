@@ -12,6 +12,7 @@ from datatales.candidates import Candidate
 from datatales.chartfacts import facts_for
 from datatales.detect.base import ci_of, cis_separate, r, robust_sd, yoy_diffs
 from datatales.detect.prepare import prepare
+from datatales.geo import mappable
 from datatales.sources import DetectConfig, SourceDef
 
 NOTABLE_MULTIPLIER = 2.0  # a year-on-year move is notable at >= 2x the typical yearly change
@@ -114,6 +115,82 @@ def peak_info(points: list[dict[str, Any]], typical: float) -> dict[str, Any]:
     }
 
 
+GROUP_NOUNS = {
+    "country": "UK nations",
+    "region": "English regions",
+    "local_authority": "local authorities",
+}
+
+
+def ordinal(n: int) -> str:
+    suffix = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
+def rank_shift_for(findings: list[dict[str, Any]], key: dict[str, Any]) -> dict[str, Any] | None:
+    """A rank_shift result (a finding, or merged under `related`) for the charted slice."""
+    for f in findings:
+        if any(f["numbers"].get(k) != v for k, v in key.items()):
+            continue  # another measure: its ranks say nothing about the charted one
+        # Related results were merged from findings for the same place and slice.
+        entries = [{"detector": f["detector"], "numbers": f["numbers"]}]
+        entries += f["numbers"].get("related") or []
+        for e in entries:
+            n = e.get("numbers") or {}
+            if e.get("detector") == "rank_shift" and "start_rank" in n and "end_rank" in n:
+                return n
+    return None
+
+
+def cover_facts(
+    chart_data: list[dict[str, Any]],
+    group: str,
+    geo_level: str | None,
+    label: str,
+    unit: str,
+    rank: dict[str, Any] | None,
+    facts: dict[str, Any],
+) -> dict[str, Any]:
+    """The headline number and badge for a story's cover image, from code-computed values.
+    Text only: every number here also appears in chart_data or the findings."""
+    from datatales.publish import format_value
+
+    points = sorted(
+        (str(r["period"]), r["value"])
+        for r in chart_data
+        if r.get("geography") == group and r.get("value") is not None
+    )
+    if not points:
+        return {}
+    (p0, v0), (p1, v1) = points[0], points[-1]
+    noun = GROUP_NOUNS.get(geo_level or "", "areas")
+    cover: dict[str, Any] = {
+        "group": group,
+        "value": format_value(v1, unit),
+        "label": f"{label}, {p1}",
+    }
+    if len(points) > 1 and v1 != v0:
+        word = "Up" if v1 > v0 else "Down"
+        cover["change"] = f"{word} from {format_value(v0, unit)} in {p0}"
+    n = facts.get("groups_compared")
+    kinds = {c["kind"]: c for c in facts.get("supported_checks", [])}
+    if rank and rank.get("start_rank") != rank.get("end_rank"):
+        total = rank.get("groups_ranked") or n
+        cover["badge"] = (
+            f"{ordinal(rank['start_rank'])} → {ordinal(rank['end_rank'])} of {total} {noun}"
+        )
+    elif "only_rise" in kinds or "only_fall" in kinds:
+        verb = "rise" if "only_rise" in kinds else "fall"
+        cover["badge"] = f"The only one of the {n} {noun} to {verb}"
+    elif "highest" in kinds or "lowest" in kinds:
+        cover["badge"] = f"{'Highest' if 'highest' in kinds else 'Lowest'} of the {n} {noun}"
+    elif "biggest_rise" in kinds or "biggest_fall" in kinds:
+        cover["badge"] = (
+            f"Biggest {'rise' if 'biggest_rise' in kinds else 'fall'} of the {n} {noun}"
+        )
+    return cover
+
+
 def build_story_data(
     clean: pd.DataFrame, source: SourceDef, config: DetectConfig, candidate: Candidate
 ) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
@@ -134,6 +211,7 @@ def build_story_data(
         {
             "period": row.period_label,
             "geography": row.group,
+            **({"code": row.group_code} if config.group_code else {}),
             "value": r(row.value),
             "lower": None if pd.isna(row.lower) else r(row.lower),
             "upper": None if pd.isna(row.upper) else r(row.upper),
@@ -149,6 +227,13 @@ def build_story_data(
         "highlight": candidate.geography,
         "yLabel": info.unit,
     }
+    more: list[dict[str, Any]] = []
+    if lead_slice.period.nunique() >= 3 and lead_slice.group.nunique() >= 2:
+        more.append({**chart_spec, "type": "slope"})
+    if config.group_code and mappable({str(r["code"]) for r in chart_data}):
+        more.append({**chart_spec, "type": "map"})
+    if more:
+        chart_spec["more_charts"] = more
 
     series: list[dict[str, Any]] = []
     seen: set[tuple[Any, ...]] = set()
@@ -199,4 +284,15 @@ def build_story_data(
         "series": series,
         "chart_facts": facts_for(chart_data, candidate.geography),
     }
+    from datatales.publish import label_for
+
+    numbers["cover"] = cover_facts(
+        chart_data,
+        candidate.geography,
+        candidate.geo_level,
+        label_for(config, lead_key),
+        info.unit,
+        rank_shift_for(candidate.findings, lead_key),
+        numbers["chart_facts"],
+    )
     return chart_data, chart_spec, numbers

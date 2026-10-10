@@ -58,7 +58,9 @@ export async function pasteNarration(id: string, reply: string): Promise<{ story
     video_script: narration.video_script,
   };
   const report = verifyText(fields, story.numbers as never, narration.claims, story.chart_data ?? []);
-  const spec = Object.fromEntries(Object.entries(narration.chart_spec).filter(([, v]) => v !== null && v !== undefined));
+  const clean = (c: object) => Object.fromEntries(Object.entries(c).filter(([, v]) => v !== null && v !== undefined));
+  const spec: Record<string, unknown> = clean(narration.chart_spec);
+  if (narration.more_charts.length) spec.more_charts = narration.more_charts.map(clean);
   const saved = await save(id, {
     ...fields,
     // set once from the first headline, then fixed: a published URL never changes

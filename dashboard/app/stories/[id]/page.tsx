@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 
 import ChartPreview from "@/components/ChartPreview";
 import CopyButton from "@/components/CopyButton";
+import CoverGraphics from "@/components/CoverGraphics";
+import type { ChartFacts, Cover, Row, Spec } from "@/lib/graphics/alt.ts";
 import { EditForm, PasteForm, StatusButtons } from "@/components/StoryForms";
 import VerifyReport from "@/components/VerifyReport";
 import { db } from "@/lib/db";
@@ -12,6 +14,18 @@ import { pageGate } from "@/lib/gate";
 import { buildPrompt } from "@/lib/logic/narrate.ts";
 
 export const dynamic = "force-dynamic";
+
+const NOUNS: Record<string, string> = {
+  country: "UK nations",
+  region: "regions",
+  local_authority: "local authorities",
+};
+
+/** The main chart plus any `more_charts` stored with it. */
+function specsOf(spec: Record<string, unknown>): Spec[] {
+  const { more_charts: more, ...main } = spec as Spec & { more_charts?: Spec[] };
+  return [main, ...(more ?? [])];
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -84,6 +98,22 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
         <h2 style={{ marginTop: 0 }}>Verification report</h2>
         <VerifyReport report={story.verify_report} />
       </div>
+
+      {story.chart_data && story.chart_spec && story.headline && (
+        <div className="panel">
+          <h2 style={{ marginTop: 0 }}>Graphics</h2>
+          <CoverGraphics
+            slug={story.slug}
+            headline={story.headline}
+            cover={((story.numbers ?? {}) as { cover?: Cover }).cover ?? {}}
+            specs={specsOf(story.chart_spec)}
+            data={story.chart_data as Row[]}
+            source={((story.numbers ?? {}) as { source?: { publisher?: string } }).source?.publisher}
+            groupNoun={NOUNS[String((story.numbers ?? {}).geo_level ?? "")]}
+            facts={((story.numbers ?? {}) as { chart_facts?: ChartFacts }).chart_facts}
+          />
+        </div>
+      )}
 
       <div className="panel">
         <h2 style={{ marginTop: 0 }}>Chart preview</h2>

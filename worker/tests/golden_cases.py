@@ -301,6 +301,15 @@ def _reply(**over: Any) -> str:
     return json.dumps(base, ensure_ascii=False)
 
 
+CODED = [
+    {"period": p, "geography": g, "code": c, "value": v}
+    for p, vals in {"2011-12": (7.0, 6.0), "2012-13": (7.4, 6.1), "2013-14": (7.2, 5.9)}.items()
+    for (g, c), v in zip((("North", "E12000001"), ("South", "E12000008")), vals, strict=True)
+]
+_LINE = {"type": "line", "x": "period", "y": "value", "series": "geography", "highlight": "North"}
+SLOPE = {**_LINE, "type": "slope", "title": "First vs last", "start": "2011-12", "end": "2013-14"}
+MAP = {**_LINE, "type": "map", "title": "By region", "period": "2013-14"}
+
 NARRATION_CASES: list[dict[str, Any]] = [
     {"name": "valid", "reply": _reply(), "error": None},
     {"name": "fenced", "reply": "```json\n" + _reply() + "\n```", "error": None},
@@ -427,6 +436,55 @@ NARRATION_CASES: list[dict[str, Any]] = [
         ),
         "error": None,
     },  # noqa: E501
+    {
+        "name": "three_charts",
+        "reply": _reply(more_charts=[SLOPE, MAP]),
+        "chart_data": CODED,
+        "error": None,
+    },
+    {
+        "name": "four_charts",
+        "reply": _reply(more_charts=[SLOPE, MAP, SLOPE]),
+        "chart_data": CODED,
+        "error": "more_charts",
+    },
+    {"name": "map_without_codes", "reply": _reply(more_charts=[MAP]), "error": "geography codes"},
+    {
+        "name": "map_as_main",
+        "reply": _reply(chart_spec=MAP),
+        "chart_data": CODED,
+        "error": None,
+    },
+    {
+        "name": "slope_no_series",
+        "reply": _reply(more_charts=[{**SLOPE, "series": None, "highlight": None}]),
+        "chart_data": CODED,
+        "error": "needs `series`",
+    },
+    {
+        "name": "slope_bad_period",
+        "reply": _reply(more_charts=[{**SLOPE, "start": "2009-10"}]),
+        "chart_data": CODED,
+        "error": "more_charts.0.start",
+    },
+    {
+        "name": "slope_backwards",
+        "reply": _reply(more_charts=[{**SLOPE, "start": "2013-14", "end": "2011-12"}]),
+        "chart_data": CODED,
+        "error": "start must come before end",
+    },
+    {
+        "name": "more_chart_bad_column",
+        "reply": _reply(more_charts=[{**SLOPE, "y": "score"}]),
+        "chart_data": CODED,
+        "error": "more_charts.0.y",
+    },
+    {
+        "name": "more_chart_bad_type",
+        "reply": _reply(more_charts=[{**SLOPE, "type": "pie"}]),
+        "chart_data": CODED,
+        "error": "more_charts.0.type",
+    },
 ]
 
 WORD_TEXTS = [
@@ -513,13 +571,13 @@ def build() -> dict[str, Any]:
     narration = []
     for c in NARRATION_CASES:
         try:
-            parse_narration(c["reply"], CHART)
+            parse_narration(c["reply"], c.get("chart_data", CHART))
             outcome = None
         except NarrationError as exc:
             outcome = str(exc)
         if (outcome is None) != (c["error"] is None) or (outcome and c["error"] not in outcome):
             raise AssertionError(f"narration case {c['name']}: got {outcome!r}")
-        narration.append({**c, "chart_data": CHART})
+        narration.append({**c, "chart_data": c.get("chart_data", CHART)})
 
     picks = shortlist(CANDIDATE_FINDINGS)
     return _jsonable(

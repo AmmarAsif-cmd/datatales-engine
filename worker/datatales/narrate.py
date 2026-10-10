@@ -35,9 +35,13 @@ def has_section(body: str, title: str) -> bool:
     return re.search(rf"^#{{2,3}}\s*{norm}\s*$", body, re.I | re.M) is not None
 
 
+MAX_CHARTS = 3  # the main chart plus up to two more
+CHART_TYPES = ("line", "bar", "dot", "slope", "map")
+
+
 class ChartSpecOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    type: Literal["line", "bar", "dot"]
+    type: Literal["line", "bar", "dot", "slope", "map"]
     x: str
     y: str
     series: str | None = None
@@ -45,6 +49,9 @@ class ChartSpecOut(BaseModel):
     annotation: str | None = Field(default=None, max_length=200)
     title: str | None = Field(default=None, max_length=120)
     yLabel: str | None = Field(default=None, max_length=80)  # noqa: N815 - matches the site schema
+    start: str | None = None  # slope: first period (default: the first in chart_data)
+    end: str | None = None  # slope: last period (default: the last)
+    period: str | None = None  # map: the period shown (default: the last)
 
 
 class Check(BaseModel):
@@ -92,6 +99,7 @@ class Narration(BaseModel):
     body_md: str = Field(min_length=50)
     video_script: str = Field(min_length=10)
     chart_spec: ChartSpecOut
+    more_charts: list[ChartSpecOut] = Field(default_factory=list, max_length=MAX_CHARTS - 1)
     claims: list[Claim] = Field(min_length=1, max_length=80)
 
     @field_validator("hook")
@@ -152,13 +160,20 @@ def parse_narration(text: str, chart_data: list[dict[str, Any]]) -> Narration:
         )
         raise NarrationError(f"reply does not match the schema: {problems}") from None
 
-    spec = narration.chart_spec
     columns = set().union(*(row.keys() for row in chart_data)) if chart_data else set()
+    for i, spec in enumerate([narration.chart_spec, *narration.more_charts]):
+        check_chart(spec, chart_data, columns, "chart_spec" if i == 0 else f"more_charts.{i - 1}")
+    return narration
+
+
+def check_chart(
+    spec: ChartSpecOut, chart_data: list[dict[str, Any]], columns: set[str], name: str
+) -> None:
     for field_name in ("x", "y", "series"):
         col = getattr(spec, field_name)
         if col is not None and col not in columns:
             raise NarrationError(
-                f"chart_spec.{field_name} '{col}' is not a chart_data column {sorted(columns)}"
+                f"{name}.{field_name} '{col}' is not a chart_data column {sorted(columns)}"
             )
     if spec.highlight is not None:
         wanted = spec.highlight if isinstance(spec.highlight, list) else [spec.highlight]
@@ -166,8 +181,18 @@ def parse_narration(text: str, chart_data: list[dict[str, Any]]) -> Narration:
         present = {str(row.get(key)) for row in chart_data}
         missing = [h for h in wanted if h not in present]
         if missing:
-            raise NarrationError(f"chart_spec.highlight {missing} not found in chart_data['{key}']")
-    return narration
+            raise NarrationError(f"{name}.highlight {missing} not found in chart_data['{key}']")
+    if spec.type in ("slope", "map") and not spec.series:
+        raise NarrationError(f"{name}: a {spec.type} chart needs `series` (the geography column)")
+    if spec.type == "map" and "code" not in columns:
+        raise NarrationError(f"{name}: a map needs geography codes (chart_data has no 'code')")
+    periods = {str(row.get(spec.x)) for row in chart_data}
+    for field_name in ("start", "end", "period"):
+        value = getattr(spec, field_name)
+        if value is not None and value not in periods:
+            raise NarrationError(f"{name}.{field_name} '{value}' is not a value of '{spec.x}'")
+    if spec.start is not None and spec.end is not None and not spec.start < spec.end:
+        raise NarrationError(f"{name}: start must come before end")
 
 
 OUTPUT_SCHEMA = {
@@ -179,7 +204,7 @@ OUTPUT_SCHEMA = {
     '"## How it compares" and "## What the data can\'t tell us"; no headings above ##',
     "video_script": f"string, at most {VIDEO_MAX_WORDS} words, to be read aloud",
     "chart_spec": {
-        "type": "line | bar | dot",
+        "type": "line | bar | dot | slope | map",
         "x": "column name in chart_data",
         "y": "column name in chart_data",
         "series": "column name in chart_data (optional)",
@@ -187,7 +212,11 @@ OUTPUT_SCHEMA = {
         "annotation": "short note under the chart, at most 200 characters (optional)",
         "title": "chart title, at most 120 characters (optional)",
         "yLabel": "label for the values, e.g. the unit (optional)",
+        "start": "slope only: first period to compare (optional, default first)",
+        "end": "slope only: last period to compare (optional, default last)",
+        "period": "map only: the period to map (optional, default last)",
     },
+    "more_charts": ["up to 2 more chart_spec objects (optional), e.g. a slope and a map"],
     "claims": [
         {
             "sentence": "a sentence copied EXACTLY from headline/hook/summary/body_md/"
@@ -251,7 +280,12 @@ Rules (follow every one):
    `chart_facts.supported_checks` (without "detail"), or write one with other periods; every
    check is re-tested against chart_data. If the same sentence is used in two fields, one
    claim covers both. Count words like "four" as numbers.
-12. Return ONLY a JSON object with exactly these keys, no Markdown fences, no comments.
+12. CHARTS: chart_spec is the main chart (a line chart of every year suits most stories).
+   `more_charts` may add up to 2 more from the same chart_data: "slope" (first vs last period,
+   good for showing who rose and who fell) and "map" (one period by area; only for nations,
+   regions or local authorities, and only when chart_data has a `code` column). Give each a
+   short title. Do not repeat the same chart twice.
+13. Return ONLY a JSON object with exactly these keys, no Markdown fences, no comments.
 """
 
 
@@ -259,6 +293,8 @@ def build_prompt(
     numbers: dict[str, Any], chart_data: list[dict[str, Any]], chart_spec: dict[str, Any]
 ) -> str:
     columns = sorted(set().union(*(row.keys() for row in chart_data))) if chart_data else []
+    main = {k: v for k, v in chart_spec.items() if k != "more_charts"}
+    more = chart_spec.get("more_charts") or []
     series_values = sorted({str(row.get("geography")) for row in chart_data})
     return "\n".join(
         [
@@ -274,7 +310,12 @@ def build_prompt(
             f"chart_data columns: {columns}",
             f"geography values: {series_values}",
             "Suggested chart_spec (adjust only if a different chart is clearer):",
-            json.dumps(chart_spec, ensure_ascii=False),
+            json.dumps(main, ensure_ascii=False),
+            *(
+                ["Suggested more_charts (optional):", json.dumps(more, ensure_ascii=False)]
+                if more
+                else []
+            ),
             "",
             "## NUMBERS (context and meaning)",
             json.dumps(numbers, indent=1, ensure_ascii=False),

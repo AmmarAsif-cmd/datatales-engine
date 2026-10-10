@@ -1,0 +1,141 @@
+---
+import type { ChartSpec, Row } from '../lib/chart';
+import { enDash, pivot } from '../lib/story';
+
+interface Props {
+  spec: ChartSpec;
+  data: Row[];
+  title: string;
+  /** Static CSV of `data` (the same rows), offered as a download. */
+  csvHref?: string;
+  csvName?: string;
+}
+
+const { spec, data, title, csvHref, csvName } = Astro.props;
+const table = pivot(spec, data);
+const fmt = new Intl.NumberFormat('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const num = (v: number | null) => (v === null ? '–' : fmt.format(v));
+const id = 'story-data';
+---
+
+<section class="chart-table" aria-labelledby={`${id}-data`}>
+  <div class="table-head">
+    <h2 class="table-title" id={`${id}-data`}>
+      The data
+    </h2>
+    {csvHref && (
+      <a class="download" href={csvHref} download={csvName}>
+        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19h14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          ></path>
+        </svg>
+        Download CSV
+      </a>
+    )}
+  </div>
+  <div class="table-scroll">
+    <table class="data-table">
+      <caption class="visually-hidden">
+        {title}:{spec.yLabel ?? spec.y}
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Period</th>
+          {table.columns.map((c) => (
+            <th scope="col" class="num">
+              {c}
+            </th>
+          ))}
+          {table.ciFor && (
+            <th scope="col" class="num">
+              {table.ciFor} 95% CI
+            </th>
+          )}
+        </tr>
+      </thead>
+      <tbody>
+        {table.rows.map((r) => (
+          <tr>
+            <th scope="row">{enDash(r.label)}</th>
+            {r.values.map((v) => (
+              <td class="num">{num(v)}</td>
+            ))}
+            {table.ciFor && (
+              <td class="num ci">{r.ci ? `${num(r.ci[0])} to ${num(r.ci[1])}` : '–'}</td>
+            )}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+  {table.ciFor && (
+    <p class="table-note">
+      95% CI: the range the true value is likely to fall in (95% confidence interval). Values are{' '}
+      {spec.yLabel ?? spec.y}.
+    </p>
+  )}
+</section>
+
+<style>
+  .chart-table {
+    margin: 0 0 2rem;
+    padding: 1rem;
+    background: var(--chart-surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+  }
+  .table-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    margin-bottom: 0.5rem;
+  }
+  .table-title {
+    margin: 0;
+    font-size: 1rem;
+  }
+  .download {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    color: var(--ink);
+    font-weight: 600;
+    text-decoration: none;
+    background: var(--surface);
+  }
+  .download:hover {
+    border-color: var(--link);
+    color: var(--link);
+  }
+  .chart-table .table-scroll {
+    max-height: 40rem;
+    overflow: auto;
+  }
+  .chart-table th[scope='row'] {
+    font-weight: 600;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--rule);
+    white-space: nowrap;
+  }
+  .ci {
+    color: var(--ink-2);
+    white-space: nowrap;
+  }
+  .table-note {
+    margin: 0.5rem 0 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+</style>
