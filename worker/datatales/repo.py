@@ -54,6 +54,7 @@ class Repo(Protocol):
     def list_recipes(self, source_id: str) -> list[Recipe]: ...
     def insert_recipe(self, source_id: str, version: int, spec: dict[str, Any]) -> Recipe: ...
     def approve_recipe(self, recipe_id: str, approved_by: str) -> Recipe: ...
+    def replace_unapproved_spec(self, recipe_id: str, spec: dict[str, Any]) -> Recipe: ...
     def upsert_clean_table(
         self,
         dataset_id: str,
@@ -181,6 +182,18 @@ class SupabaseRepo:
     def insert_recipe(self, source_id: str, version: int, spec: dict[str, Any]) -> Recipe:
         row = {"source_id": source_id, "version": version, "spec": spec}
         return _recipe(self.db.table("recipes").insert(row).execute().data[0])
+
+    def replace_unapproved_spec(self, recipe_id: str, spec: dict[str, Any]) -> Recipe:
+        res = (
+            self.db.table("recipes")
+            .update({"spec": spec})
+            .eq("id", recipe_id)
+            .is_("approved_at", "null")  # never touch an approved recipe
+            .execute()
+        )
+        if not res.data:
+            raise ValueError(f"recipe {recipe_id} is approved or missing; it cannot be replaced")
+        return _recipe(res.data[0])
 
     def approve_recipe(self, recipe_id: str, approved_by: str) -> Recipe:
         res = (

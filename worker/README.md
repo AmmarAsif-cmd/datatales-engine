@@ -20,7 +20,7 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest
 | `profile <dataset_id> [--json]` | Re-profile a dataset |
 | `recipe-prompt <dataset_id> [--out F]` | Prompt to paste into Claude chat; the reply is a recipe |
 | `recipe-test <file> <dataset_id>` | Dry-run a recipe file: shows the result and checks, writes nothing |
-| `recipe-import <file>` | Validate a recipe and store it, **unapproved** |
+| `recipe-import <file> [--replace]` | Validate a recipe and store it, **unapproved**. `--replace` overwrites an existing unapproved version |
 | `recipe-approve <source> <version> --by NAME` | Approve it and write `recipes/<source>.v<N>.yaml` (commit this) |
 | `clean <dataset_id> [--version N]` | Run the latest approved recipe, run checks, write Parquet to `clean` only if all checks pass |
 
@@ -40,7 +40,8 @@ Every `ingest`, `profile` and `clean` run writes a row to the `jobs` table.
 Recipes are **declarative YAML**: a list of whitelisted steps (`select_sheet`, `skip_rows`,
 `use_header_row`, `rename_columns`, `drop_columns`, `select_columns`, `drop_rows_where`, `filter`,
 `strip_footnotes`, `parse_number`, `parse_date`, `melt`, `cast`, `dedupe`, `sort`,
-`classify_prefix`) plus `checks`. The schema is in `datatales/clean/schema.py`. They're loaded with
+`classify_prefix`, `derive_flag`) plus `checks` (expected columns, row count, not-null, unique,
+`ranges`, `ranges_where` for per-category ranges, and `sums` with a multi-column `where` filter). The schema is in `datatales/clean/schema.py`. They're loaded with
 `yaml.safe_load` and never executed as code.
 
 - `recipes/drafts/` holds drafts (not approved, not used by the pipeline).

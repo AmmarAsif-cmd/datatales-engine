@@ -74,6 +74,18 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - ONS fetches: HTTPS + ONS hosts only (checked on every redirect), 50 MB cap.
 - pandas 3: `astype(str)` keeps NaN; use the runner's `_text()` helper for string comparisons.
 - Added deps (approved by user 2026-10-10): `pyyaml`, `openpyxl`.
+- Unapproved recipe versions may be overwritten with `recipe-import --replace` (they never ran); approved ones never.
+
+## Detector rules (M4, set by the user 2026-10-10)
+
+- Ignore unreliable values: rows with `is_reliable = false` (ONS `[u]`) and null values (suppressed `[c]`/`[x]`/`[w]`).
+- Only report a change (between periods) or a gap (between geographies) when the **confidence intervals do not overlap** (`lower_ci`/`upper_ci`). Store both intervals in the finding's `numbers`.
+- Only compare geographies present (with reliable, non-null values) in **both** periods being compared.
+- Compare like with like: same `measure`, same `estimate`, same `geo_level`.
+
+## Wording rules (M5)
+
+- ONS wellbeing bands use the same labels for every measure. For **anxiety**: Poor = high anxiety, Fair = medium, Good = low, Very good = **very low** anxiety (ONS metadata). A rise in anxiety's mean is bad news. Never write "very good anxiety".
 
 ## Database
 

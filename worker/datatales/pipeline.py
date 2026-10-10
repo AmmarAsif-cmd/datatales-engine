@@ -120,17 +120,26 @@ def _source_id(repo: Repo, slug: str) -> str:
     return source_id
 
 
-def import_recipe(repo: Repo, text: str) -> Recipe:
+def import_recipe(repo: Repo, text: str, replace: bool = False) -> Recipe:
+    """Store a recipe unapproved. `replace` overwrites an existing *unapproved* version
+    (it has never run); approved versions are immutable."""
     spec = parse_recipe_text(text)
     source_id = _source_id(repo, spec.source)
-    taken = {r.version for r in repo.list_recipes(source_id)}
-    if spec.version in taken:
-        nxt = max(taken) + 1
+    existing = {r.version: r for r in repo.list_recipes(source_id)}
+    current = existing.get(spec.version)
+    if current is None:
+        return repo.insert_recipe(source_id, spec.version, spec.model_dump(mode="json"))
+    if current.approved:
         raise PipelineError(
-            f"{spec.source} v{spec.version} already exists (recipes are immutable); "
-            f"set version: {nxt}"
+            f"{spec.source} v{spec.version} is approved and immutable; "
+            f"set version: {max(existing) + 1}"
         )
-    return repo.insert_recipe(source_id, spec.version, spec.model_dump(mode="json"))
+    if not replace:
+        raise PipelineError(
+            f"{spec.source} v{spec.version} already exists (unapproved). Use --replace to "
+            f"overwrite it, or set version: {max(existing) + 1}"
+        )
+    return repo.replace_unapproved_spec(current.id, spec.model_dump(mode="json"))
 
 
 def find_recipe(repo: Repo, slug: str, version: int | None, approved_only: bool) -> Recipe:

@@ -81,6 +81,13 @@ class MemRepo:
         self.recipes[recipe.id] = recipe
         return recipe
 
+    def replace_unapproved_spec(self, recipe_id: str, spec: dict[str, Any]) -> Recipe:
+        r = self.recipes[recipe_id]
+        if r.approved:
+            raise ValueError(f"recipe {recipe_id} is approved or missing; it cannot be replaced")
+        self.recipes[recipe_id] = Recipe(r.id, r.source_id, r.version, spec, None, None)
+        return self.recipes[recipe_id]
+
     def approve_recipe(self, recipe_id: str, approved_by: str) -> Recipe:
         r = self.recipes[recipe_id]
         approved = Recipe(r.id, r.source_id, r.version, r.spec, now_utc().isoformat(), approved_by)

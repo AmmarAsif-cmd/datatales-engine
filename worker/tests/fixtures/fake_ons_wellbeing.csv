@@ -19,3 +19,13 @@ v4_3,Data marking,Lower limit,Upper limit,yyyy-yy,Time,administrative-geography,
 ,[x],[x],[x],2012-13,2012-13,E06000001,Fakeshire,life-satisfaction,Life satisfaction,fair,Fair
 ,[x],[x],[x],2012-13,2012-13,E06000001,Fakeshire,life-satisfaction,Life satisfaction,good,Good
 ,[x],[x],[x],2012-13,2012-13,E06000001,Fakeshire,life-satisfaction,Life satisfaction,very-good,Very good
+2.90,,2.80,3.00,2011-12,2011-12,E12000001,North East,anxiety,Anxiety,average-mean,Average (mean)
+20.00,,18.00,22.00,2011-12,2011-12,E12000001,North East,anxiety,Anxiety,poor,Poor
+15.00,,13.00,17.00,2011-12,2011-12,E12000001,North East,anxiety,Anxiety,fair,Fair
+25.00,,23.00,27.00,2011-12,2011-12,E12000001,North East,anxiety,Anxiety,good,Good
+40.00,,38.00,42.00,2011-12,2011-12,E12000001,North East,anxiety,Anxiety,very-good,Very good
+,[u],[u],[u],2011-12,2011-12,E06000001,Fakeshire,anxiety,Anxiety,average-mean,Average (mean)
+,[u],[u],[u],2011-12,2011-12,E06000001,Fakeshire,anxiety,Anxiety,poor,Poor
+,[u],[u],[u],2011-12,2011-12,E06000001,Fakeshire,anxiety,Anxiety,fair,Fair
+,[u],[u],[u],2011-12,2011-12,E06000001,Fakeshire,anxiety,Anxiety,good,Good
+,[u],[u],[u],2011-12,2011-12,E06000001,Fakeshire,anxiety,Anxiety,very-good,Very good

@@ -23,12 +23,23 @@ def test_wellbeing_draft_recipe_on_fake_ons_file(ons_csv: bytes) -> None:
     path = WORKER_DIR / "recipes" / "drafts" / "ons-wellbeing-local-authority.v1.yaml"
     recipe = parse_recipe_text(path.read_text(encoding="utf-8"))
     df = run_recipe(recipe, ons_csv, "fake.csv")
-    assert len(df) == 20
+    assert len(df) == 30
     assert list(df.columns) == recipe.checks.expected_columns
-    ne = df[(df.geo_code == "E12000001") & (df.year_start == 2011)]
+    ne = df[
+        (df.geo_code == "E12000001") & (df.year_start == 2011) & (df.measure == "Life satisfaction")
+    ]
     assert ne.set_index("estimate").loc["Average (mean)", "value"] == 7.1
+    # is_reliable is false exactly where ONS marked [u] (fake Fakeshire anxiety rows)
+    unreliable = df[~df.is_reliable]
+    assert len(unreliable) == 5 and set(unreliable.marking) == {"[u]"}
+    assert df[df.marking == "[c]"].is_reliable.all() and df[df.marking.isna()].is_reliable.all()
     assert set(df.geo_level) == {"region", "local_authority"}
-    poor = df[(df.geography == "Fakeshire") & (df.estimate == "Poor") & (df.year_start == 2011)]
+    poor = df[
+        (df.geography == "Fakeshire")
+        & (df.measure == "Life satisfaction")
+        & (df.estimate == "Poor")
+        & (df.year_start == 2011)
+    ]
     assert math.isnan(poor.value.iloc[0]) and poor.marking.iloc[0] == "[c]"
 
 
@@ -206,3 +217,72 @@ def test_parquet_round_trip(ons_csv: bytes) -> None:
     df = run("  - op: parse_number\n    columns: [v4_3]\n", ons_csv)
     back = pd.read_parquet(io.BytesIO(to_parquet_bytes(df)))
     assert back.shape == df.shape
+
+
+# ---- whitelist: every allowed step is deliberate and tested ----
+
+
+def test_whitelisted_ops_are_exactly_these() -> None:
+    from typing import get_args
+
+    from datatales.clean.schema import Step
+
+    union = get_args(Step)[0]
+    ops = sorted(get_args(m.model_fields["op"].annotation)[0] for m in get_args(union))
+    assert ops == sorted(
+        [
+            "select_sheet", "skip_rows", "use_header_row", "rename_columns", "drop_columns",
+            "select_columns", "drop_rows_where", "filter", "strip_footnotes", "parse_number",
+            "parse_date", "melt", "cast", "dedupe", "sort", "classify_prefix", "derive_flag",
+        ]
+    )  # fmt: skip
+
+
+def lines(*parts: str) -> str:
+    return "".join(f"{p}\n" for p in parts)
+
+
+def test_select_columns_keeps_only_listed_in_order() -> None:
+    out = apply_step(frame(), step(lines("  - op: select_columns", "    columns: [period, code]")))
+    assert list(out.columns) == ["period", "code"]
+    assert out.code.tolist() == frame().code.tolist()
+
+
+def test_select_columns_unknown_column_fails() -> None:
+    s = step(lines("  - op: select_columns", "    columns: [code, missing]"))
+    with pytest.raises(ValueError, match="unknown column"):
+        apply_step(frame(), s)
+
+
+def test_classify_prefix_without_default_gives_null() -> None:
+    s = step(
+        lines(
+            "  - op: classify_prefix",
+            "    column: code",
+            "    into: level",
+            "    mapping: {E12: region}",
+        )
+    )
+    level = apply_step(frame(), s).level
+    assert level.iloc[0] == "region" and level.iloc[1:].isna().all()
+
+
+def test_classify_prefix_unknown_column_fails() -> None:
+    s = step(
+        lines("  - op: classify_prefix", "    column: nope", "    into: x", "    mapping: {E: e}")
+    )
+    with pytest.raises(ValueError, match="unknown column"):
+        apply_step(frame(), s)
+
+
+def test_derive_flag_true_where_condition_matches_including_nulls() -> None:
+    df = pd.DataFrame({"marking": [None, "[u]", "[c]"]})
+    s = step(
+        lines(
+            "  - op: derive_flag",
+            "    into: ok",
+            '    where: {column: marking, op: ne, value: "[u]"}',
+        )
+    )
+    out = apply_step(df, s)
+    assert out.ok.tolist() == [True, False, True] and out.ok.dtype == bool

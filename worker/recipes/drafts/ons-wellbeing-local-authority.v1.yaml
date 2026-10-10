@@ -1,10 +1,13 @@
 source: ons-wellbeing-local-authority
 version: 1
 description: >-
-  ONS personal well-being by local authority (API dataset wellbeing-local-authority).
+  ONS personal well-being by local authority (API dataset wellbeing-local-authority, v4).
   Long format already: one row per period x geography x measure x estimate. Renames the
   ONS column names, keeps labels (drops slug duplicates), turns suppression markers
-  ([c], [u], [w], [x]) into nulls, adds the financial-year start and geography level.
+  ([c], [u], [w], [x]) into nulls, adds the financial-year start, geography level and an
+  is_reliable flag (false where ONS marks the estimate [u], i.e. 50 or fewer respondents).
+  Band labels are the same for every measure; per the ONS metadata, for anxiety
+  Poor = high, Fair = medium, Good = low and Very good = very low anxiety.
 steps:
   - op: rename_columns
     mapping:
@@ -46,22 +49,50 @@ steps:
       S12: local_authority
       N09: local_authority
     default: other
+  - op: derive_flag
+    into: is_reliable
+    where: {column: marking, op: ne, value: "[u]"}
   - op: sort
     by: [year_start, geo_code, measure, estimate]
 checks:
   expected_columns:
-    [period, geo_code, geography, measure, estimate, value, lower_ci, upper_ci, marking, year_start, geo_level]
-  row_count: {min: 90000, max: 120000}
-  not_null: [period, geo_code, geography, measure, estimate, year_start, geo_level]
+    [period, geo_code, geography, measure, estimate, value, lower_ci, upper_ci, marking, year_start, geo_level, is_reliable]
+  # Raw file v4 has 100,320 data rows; allow ±10%.
+  row_count: {min: 90288, max: 110352}
+  not_null: [period, geo_code, geography, measure, estimate, year_start, geo_level, is_reliable]
   unique: [period, geo_code, measure, estimate]
   ranges:
-    value: {min: 0, max: 100}
     year_start: {min: 2011, max: 2030}
+  ranges_where:
+    - name: mean_0_to_10
+      column: value
+      where: {estimate: [Average (mean)]}
+      min: 0
+      max: 10
+    - name: band_pct_0_to_100
+      column: value
+      where: {estimate: [Poor, Fair, Good, Very good]}
+      min: 0
+      max: 100
+  # Bands are percentages of respondents and should total 100. In v4 the worst complete
+  # group is 0.01 away (rounding), so ±0.05 leaves headroom without hiding real errors.
+  # Groups with any suppressed (null) band, or fewer than 4 bands, are skipped.
   sums:
     - name: bands_sum_to_100
       value: value
       group_by: [period, geo_code, measure]
-      where_column: estimate
-      where_in: [Poor, Fair, Good, Very good]
+      where:
+        measure: [Life satisfaction, Worthwhile, Happiness]
+        estimate: [Poor, Fair, Good, Very good]
+      group_size: 4
       target: 100
-      tolerance: 0.5
+      tolerance: 0.05
+    - name: anxiety_bands_sum_to_100
+      value: value
+      group_by: [period, geo_code]
+      where:
+        measure: [Anxiety]
+        estimate: [Poor, Fair, Good, Very good]
+      group_size: 4
+      target: 100
+      tolerance: 0.05

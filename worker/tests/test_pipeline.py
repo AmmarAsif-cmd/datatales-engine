@@ -40,7 +40,7 @@ def recipe_text(**overrides: object) -> str:
 def test_profile_is_stored(repo_with_dataset: tuple[MemRepo, str]) -> None:
     repo, ds_id = repo_with_dataset
     profile = repo.get_dataset(ds_id).profile
-    assert profile and profile["sheets"][0]["rows"] == 20
+    assert profile and profile["sheets"][0]["rows"] == 30
 
 
 def test_full_flow_import_approve_clean(
@@ -49,7 +49,7 @@ def test_full_flow_import_approve_clean(
     repo, ds_id = repo_with_dataset
     # The fake file is tiny, so relax the row-count check the real recipe uses.
     text = DRAFT.read_text(encoding="utf-8").replace(
-        "row_count: {min: 90000, max: 120000}", "row_count: {min: 10, max: 30}"
+        "row_count: {min: 90288, max: 110352}", "row_count: {min: 27, max: 33}"
     )
     recipe = pipeline.import_recipe(repo, text)
     assert not recipe.approved
@@ -64,18 +64,18 @@ def test_full_flow_import_approve_clean(
     assert parse_recipe_text(path.read_text(encoding="utf-8")).version == 1
 
     outcome = pipeline.clean_dataset(repo, ds_id, noop)
-    assert outcome.passed and outcome.row_count == 20
+    assert outcome.passed and outcome.row_count == 30
     df = pipeline.read_parquet(repo.get_object("clean", outcome.parquet_path))
-    assert len(df) == 20 and "geo_level" in df.columns
+    assert len(df) == 30 and "geo_level" in df.columns
     row = next(iter(repo.clean_tables.values()))
-    assert row["checks_passed"] is True and row["row_count"] == 20
+    assert row["checks_passed"] is True and row["row_count"] == 30
 
 
 def test_failing_checks_write_no_parquet(
     repo_with_dataset: tuple[MemRepo, str], tmp_path: Path
 ) -> None:
     repo, ds_id = repo_with_dataset
-    pipeline.import_recipe(repo, DRAFT.read_text(encoding="utf-8"))  # expects 90k+ rows
+    pipeline.import_recipe(repo, DRAFT.read_text(encoding="utf-8"))  # expects ~100k rows
     pipeline.approve_recipe(repo, SLUG, 1, "Tester", tmp_path)
     outcome = pipeline.clean_dataset(repo, ds_id, noop)
     assert not outcome.passed and outcome.parquet_path is None
@@ -117,7 +117,7 @@ def test_dry_run_writes_nothing(repo_with_dataset: tuple[MemRepo, str]) -> None:
     repo, ds_id = repo_with_dataset
     before = (dict(repo.objects), dict(repo.recipes), dict(repo.clean_tables))
     df, results = pipeline.dry_run_recipe(repo, DRAFT.read_text(encoding="utf-8"), ds_id)
-    assert len(df) == 20 and results
+    assert len(df) == 30 and results
     assert (repo.objects, repo.recipes, repo.clean_tables) == before
 
 
@@ -157,3 +157,18 @@ def test_recipe_prompt_contains_everything_needed(repo_with_dataset: tuple[MemRe
     assert '"v4_3"' in prompt  # profile included
     assert '"parse_number"' in prompt  # schema included
     assert ds_id in prompt
+
+
+def test_replace_only_works_on_unapproved(
+    repo_with_dataset: tuple[MemRepo, str], tmp_path: Path
+) -> None:
+    repo, _ = repo_with_dataset
+    text = DRAFT.read_text(encoding="utf-8")
+    first = pipeline.import_recipe(repo, text)
+    changed = text.replace("tolerance: 0.05", "tolerance: 0.04")
+    replaced = pipeline.import_recipe(repo, changed, replace=True)
+    assert replaced.id == first.id and replaced.version == 1
+    assert replaced.spec["checks"]["sums"][0]["tolerance"] == 0.04
+    pipeline.approve_recipe(repo, SLUG, 1, "A", tmp_path)
+    with pytest.raises(pipeline.PipelineError, match="approved and immutable"):
+        pipeline.import_recipe(repo, text, replace=True)

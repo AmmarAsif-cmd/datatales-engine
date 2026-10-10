@@ -251,6 +251,10 @@ def apply_step(df: pd.DataFrame, step: Any) -> pd.DataFrame:
             out = df.copy()
             out[into] = df[c].map(label)
             return out
+        case s.DeriveFlag(into=into, where=cond):
+            out = df.copy()
+            out[into] = _mask(df, cond).astype(bool)
+            return out
     raise ValueError(f"unsupported step {step!r}")  # pragma: no cover - schema prevents this
 
 

@@ -9,12 +9,12 @@ def _cols(profile: dict) -> dict:
 def test_ons_like_csv_profile(ons_csv: bytes) -> None:
     p = profile_file(ons_csv, "fake.csv")
     sheet = p["sheets"][0]
-    assert sheet["header_row"] == 0 and sheet["rows"] == 20
+    assert sheet["header_row"] == 0 and sheet["rows"] == 30
     cols = _cols(p)
     assert cols["v4_3"]["inferred_type"] == "number"
-    assert cols["v4_3"]["null_pct"] == 35.0
+    assert cols["v4_3"]["null_pct"] == 40.0
     assert cols["Lower limit"]["inferred_type"] == "number_text"
-    assert cols["Lower limit"]["flags"]["suppression_markers"] == {"[x]": 5, "[c]": 2}
+    assert cols["Lower limit"]["flags"]["suppression_markers"] == {"[x]": 5, "[u]": 5, "[c]": 2}
     assert cols["Time"]["inferred_type"] == "date"
     assert cols["Geography"]["inferred_type"] == "text"
     assert cols["Geography"]["distinct"] == 2

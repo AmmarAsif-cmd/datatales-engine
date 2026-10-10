@@ -3,7 +3,7 @@ from datatales.rawio import list_sheets, read_grid
 
 def test_csv_cells_stay_text(ons_csv: bytes) -> None:
     grid = read_grid(ons_csv, "x.csv")
-    assert grid.shape == (21, 12)
+    assert grid.shape == (31, 12)
     assert grid.iat[0, 0] == "v4_3"
     assert grid.iat[1, 0] == "7.10"  # not converted to float
     assert grid.iat[12, 1] == "[c]"

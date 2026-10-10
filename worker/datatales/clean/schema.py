@@ -163,10 +163,18 @@ class ClassifyPrefix(_Step):
     default: str | None = None
 
 
+class DeriveFlag(_Step):
+    """New boolean column: true where the condition matches, false elsewhere."""
+
+    op: Literal["derive_flag"]
+    into: Col
+    where: Condition
+
+
 Step = Annotated[
     SelectSheet | SkipRows | UseHeaderRow | RenameColumns | DropColumns | SelectColumns
     | DropRowsWhere | Filter | StripFootnotes | ParseNumber | ParseDate | Melt | Cast
-    | Dedupe | Sort | ClassifyPrefix,
+    | Dedupe | Sort | ClassifyPrefix | DeriveFlag,
     Field(discriminator="op"),
 ]  # fmt: skip
 
@@ -188,18 +196,35 @@ class RowCount(BaseModel):
     max: Annotated[int, Field(ge=1)] | None = None
 
 
+RowFilter = Annotated[dict[Col, Annotated[list[Scalar], Field(min_length=1)]], Field(min_length=1)]
+
+
+class RangeWhere(BaseModel):
+    """A range check on only the rows where every `where` column is in its listed values."""
+
+    model_config = ConfigDict(extra="forbid")
+    name: str
+    column: Col
+    where: RowFilter
+    min: float | None = None
+    max: float | None = None
+
+
 class SumCheck(BaseModel):
-    """Within each group, values (optionally only where column in values) sum to target."""
+    """Within each group (rows filtered by `where`), values sum to `target` ± `tolerance`.
+
+    Groups with any null value are skipped, and so are groups whose row count is not
+    `group_size` (when set), so suppressed or partial groups never fail the check.
+    """
 
     model_config = ConfigDict(extra="forbid")
     name: str
     value: Col
     group_by: Cols
-    where_column: Col | None = None
-    where_in: list[Scalar] | None = None
+    where: RowFilter | None = None
+    group_size: Annotated[int, Field(ge=1)] | None = None
     target: float
     tolerance: Annotated[float, Field(ge=0)] = 0.5
-    complete_groups_only: bool = True
 
 
 class Checks(BaseModel):
@@ -209,6 +234,7 @@ class Checks(BaseModel):
     not_null: list[Col] = Field(default_factory=list)
     unique: list[Col] = Field(default_factory=list)
     ranges: dict[Col, Range] = Field(default_factory=dict)
+    ranges_where: list[RangeWhere] = Field(default_factory=list)
     sums: list[SumCheck] = Field(default_factory=list)
 
 

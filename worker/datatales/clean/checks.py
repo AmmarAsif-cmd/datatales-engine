@@ -19,6 +19,16 @@ def _numeric(series: pd.Series) -> pd.Series:
     return pd.to_numeric(series, errors="coerce")
 
 
+def _where(df: pd.DataFrame, where: dict[str, list[Any]] | None) -> pd.DataFrame:
+    """Rows where every listed column's value is one of its allowed values."""
+    if not where:
+        return df
+    mask = pd.Series(True, index=df.index)
+    for col, allowed in where.items():
+        mask &= df[col].isin(allowed)
+    return df[mask]
+
+
 def run_checks(df: pd.DataFrame, checks: Checks) -> list[CheckResult]:
     results: list[CheckResult] = []
 
@@ -72,27 +82,47 @@ def run_checks(df: pd.DataFrame, checks: Checks) -> list[CheckResult]:
             f"{below} below {rng.min}, {above} above {rng.max}",
         )
 
-    for sc in checks.sums:
-        needed = [sc.value, *sc.group_by] + ([sc.where_column] if sc.where_column else [])
+    for rw in checks.ranges_where:
+        name = f"range:{rw.name}"
+        needed = [rw.column, *rw.where]
         if any(c not in df.columns for c in needed):
-            add(f"sum:{sc.name}", False, f"columns missing from {needed}")
+            add(name, False, f"columns missing from {needed}")
             continue
-        part = df
-        if sc.where_column and sc.where_in is not None:
-            part = df[df[sc.where_column].isin(sc.where_in)]
+        values = _numeric(_where(df, rw.where)[rw.column]).dropna()
+        if values.empty:
+            add(name, False, "no rows match `where`, or no numeric values")
+            continue
+        below = int((values < rw.min).sum()) if rw.min is not None else 0
+        above = int((values > rw.max).sum()) if rw.max is not None else 0
+        add(
+            name,
+            below == 0 and above == 0,
+            f"{len(values):,} values, min {values.min():g}, max {values.max():g}; "
+            f"{below} below {rw.min}, {above} above {rw.max}",
+        )
+
+    for sc in checks.sums:
+        name = f"sum:{sc.name}"
+        needed = [sc.value, *sc.group_by, *(sc.where or {})]
+        if any(c not in df.columns for c in needed):
+            add(name, False, f"columns missing from {needed}")
+            continue
+        part = _where(df, sc.where)
         vals = part.assign(_v=_numeric(part[sc.value]))
         grouped = vals.groupby(sc.group_by, dropna=False)["_v"]
         sizes, nulls, sums = grouped.size(), grouped.apply(lambda x: x.isna().sum()), grouped.sum()
-        expected_size = len(sc.where_in) if sc.where_in else None
         usable = nulls == 0
-        if sc.complete_groups_only and expected_size:
-            usable &= sizes == expected_size
-        off = (sums[usable] - sc.target).abs() > sc.tolerance
+        if sc.group_size is not None:
+            usable &= sizes == sc.group_size
+        n_usable, n_skipped = int(usable.sum()), int((~usable).sum())
+        deviation = (sums[usable] - sc.target).abs()
+        off = deviation > sc.tolerance
+        worst = f"{deviation.max():.4g}" if n_usable else "n/a"
         add(
-            f"sum:{sc.name}",
-            int(usable.sum()) > 0 and not off.any(),
-            f"{int(usable.sum()):,} complete group(s) checked, {int(off.sum())} off target "
-            f"{sc.target}±{sc.tolerance}",
+            name,
+            n_usable > 0 and not off.any(),
+            f"{n_usable:,} complete group(s) checked, {n_skipped:,} skipped (null or partial); "
+            f"max |sum-{sc.target:g}| = {worst}; {int(off.sum())} beyond ±{sc.tolerance:g}",
         )
     return results
 

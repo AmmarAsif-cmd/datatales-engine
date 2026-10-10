@@ -121,8 +121,9 @@ def cmd_recipe_test(args: argparse.Namespace) -> int:
 def cmd_recipe_import(args: argparse.Namespace) -> int:
     from datatales.pipeline import import_recipe
 
-    recipe = import_recipe(_repo(), _read_text(args.file))
-    print(f"Imported recipe v{recipe.version} ({recipe.id}). Not approved yet.")
+    recipe = import_recipe(_repo(), _read_text(args.file), replace=args.replace)
+    verb = "Replaced" if args.replace else "Imported"
+    print(f"{verb} recipe v{recipe.version} ({recipe.id}). Not approved yet.")
     print("Next: test it with `recipe-test`, then `recipe-approve <source> <version> --by <name>`.")
     return 0
 
@@ -190,6 +191,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = add("recipe-import", cmd_recipe_import, "Validate a recipe file and store it (unapproved).")
     p.add_argument("file")
+    p.add_argument(
+        "--replace", action="store_true", help="update this version if it exists and is unapproved"
+    )
 
     p = add(
         "recipe-approve", cmd_recipe_approve, "Approve a recipe version and save it to recipes/."
