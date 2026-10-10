@@ -1,0 +1,14 @@
+// Cloudflare Workers config: static assets only.
+// No `main` (no Worker script), no adapter, no KV/Images/other bindings, no secrets.
+// The site is built by `npm run build` into ./dist and served as-is.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "datatales-engine",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page",
+    // URLs have no trailing slash: /slug.html and /slug/ both redirect to /slug.
+    "html_handling": "drop-trailing-slash",
+  },
+}

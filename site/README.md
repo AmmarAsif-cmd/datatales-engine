@@ -34,13 +34,32 @@ To preview a production-like build that includes samples: `SHOW_SAMPLES=true npx
 
 URLs have no trailing slash (`build.format: 'file'`), matching the old Hashnode URLs.
 
-## Cloudflare Pages settings
+## Deployment (Cloudflare Workers, static assets)
 
-| Setting                | Value                 |
-| ---------------------- | --------------------- |
-| Root directory         | `site`                |
-| Build command          | `npm run build`       |
-| Build output directory | `dist`                |
-| Environment variable   | `NODE_VERSION` = `22` |
+The site deploys as **static assets only**: `wrangler.jsonc` has no `main`, no adapter and no
+bindings. Do not run `astro add cloudflare`. The site must stay `output: 'static'` with no adapter.
 
-No secrets or environment variables are needed. `public/_redirects` holds old Hashnode paths.
+Cloudflare Workers Builds settings:
+
+| Setting              | Value                 |
+| -------------------- | --------------------- |
+| Root directory       | `site`                |
+| Build command        | `npm run build`       |
+| Deploy command       | `npx wrangler deploy` |
+| Environment variable | `NODE_VERSION` = `22` |
+
+`wrangler` is a pinned devDependency, so the deploy uses the version in `package-lock.json`.
+No secrets or environment variables are needed.
+
+- `public/_redirects`: old Hashnode paths. Static rules go **above** splat (`*`) rules.
+- `public/_headers`: security headers, and long-term caching for hashed `/_astro/*` files.
+- `html_handling: drop-trailing-slash`: `/slug.html` and `/slug/` redirect to `/slug`.
+- `not_found_handling: 404-page`: unknown URLs get `404.html` with a 404 status.
+
+Check locally before pushing:
+
+```sh
+npm run build
+npx wrangler deploy --dry-run   # no login needed; should say "No bindings found"
+npx wrangler dev                # serves dist/ with redirects + headers on http://localhost:8787
+```

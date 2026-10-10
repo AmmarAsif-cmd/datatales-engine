@@ -11,14 +11,14 @@ ingest → profile → clean → detect → narrate → verify → review → pu
 - **Claude only writes words** around numbers it is given. In this phase there is no Claude API: prompts are copied into Claude chat and the JSON reply is pasted back.
 - **Nothing is published until it is approved** in the local review dashboard.
 - **The public site is fully static** and holds no secrets.
-- **£0 running cost:** Supabase free tier, GitHub Actions and Cloudflare Pages.
+- **£0 running cost:** Supabase free tier, GitHub Actions and Cloudflare (free static assets).
 
 ## Repository layout
 
 | Folder | What it is | Runs where |
 |---|---|---|
 | `worker/` | Python 3.12 pipeline (DuckDB, pandas, pydantic) | Your machine + GitHub Actions |
-| `site/` | Astro public site | Built by Cloudflare Pages |
+| `site/` | Astro public site | Cloudflare Workers (static assets) |
 | `dashboard/` | Next.js review app | **Your machine only** |
 | `supabase/migrations/` | Plain SQL migrations | Run by you against Supabase |
 | `.github/` | CI, weekly pipeline, Dependabot | GitHub |
@@ -76,8 +76,8 @@ npm run dev      # http://127.0.0.1:4321
 npm run build    # production build + checks
 ```
 
-Cloudflare Pages builds it from `site/` using only committed files. See [site/README.md](site/README.md)
-for the Pages settings, content folders and how sample stories are kept out of production.
+Cloudflare Workers Builds deploys it from `site/` as static assets, using only committed files.
+See [site/README.md](site/README.md) for the deploy settings, content folders and how sample stories are kept out of production.
 
 ## Review dashboard
 

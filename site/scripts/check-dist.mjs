@@ -27,6 +27,7 @@ for (const f of [
   'sitemap.xml',
   'robots.txt',
   '_redirects',
+  '_headers',
   'favicon.svg',
 ]) {
   must(existsSync(join(DIST, f)), `missing ${f}`);
@@ -65,6 +66,11 @@ must(
   !existsSync(join(DIST, 'stories', 'sample-fake-data-demo.html')),
   'sample story page was built',
 );
+
+// 5. Pure static output: no Worker script or adapter artefacts.
+for (const f of ['_worker.js', '_routes.json', 'server']) {
+  must(!existsSync(join(DIST, f)), `unexpected server/adapter output: ${f}`);
+}
 
 if (problems.length) {
   console.error(`check-dist: ${problems.length} problem(s)\n - ` + problems.join('\n - '));

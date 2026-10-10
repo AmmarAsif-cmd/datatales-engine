@@ -10,7 +10,7 @@ Python computes every number. The language model (Claude chat, copy-paste, **no 
 
 ## Hard rules
 
-1. **£0 running cost.** Free tiers only (Supabase free, GitHub Actions, Cloudflare Pages). No paid APIs or packages.
+1. **£0 running cost.** Free tiers only (Supabase free, GitHub Actions, Cloudflare static assets). No paid APIs or packages.
 2. **No secrets in git.** Only `.env.example` files with empty placeholders are committed. `.env*` is gitignored.
 3. **`site/` never touches Supabase.** No keys, no client, no fetches. It builds only from committed files.
 4. **Service-role key** is used only by `worker/` (local `.env` / Actions secret) and `dashboard/` (local `.env.local`, server-side only). Never `NEXT_PUBLIC_` / `PUBLIC_`, and never in a client component.
@@ -60,6 +60,7 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - **Story front matter is the publish contract** (schema in `site/src/content.config.ts`): `title, description, hook, date, updated?, source{name,publisher?,url,licence?}, fetchedAt, recipeVersion, datasetChecksum?, period?, keyNumbers[1-5]{label,value,note?}, chart_spec{type,x,y,series?,highlight?,annotation?,title?,yLabel?}, chart_data[], numbers{}`. `publish.py` (M7) must write exactly this.
 - `sample: true` = fake data, dev only. `scripts/check-dist.mjs` fails the build if sample content, a Supabase URL or a key reaches `dist/`.
 - Charts: `Chart.tsx` (Observable Plot, `client:visible`) inside `ChartFigure.astro` (caption, legend, data table). Palette = validated dataviz default via CSS vars `--series-1..8` (light/dark); highlighted series coloured, others grey; line y-axis not zero-based; ≥2 series ⇒ legend.
+- Deploy: Cloudflare Workers **static assets only** via `site/wrangler.jsonc` (no `main`, no bindings, pinned `wrangler` devDependency). Never add an Astro adapter or run `astro add cloudflare`; keep `output: 'static'`. `check-dist.mjs` fails on `_worker.js`/adapter output. `_redirects`: static rules above splat rules.
 - No analytics, no external fonts, no third-party scripts (migrated posts embed public Power BI iframes only).
 
 ## Database
