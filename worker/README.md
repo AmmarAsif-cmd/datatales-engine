@@ -23,8 +23,18 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest
 | `recipe-import <file> [--replace]` | Validate a recipe and store it, **unapproved**. `--replace` overwrites an existing unapproved version |
 | `recipe-approve <source> <version> --by NAME` | Approve it and write `recipes/<source>.v<N>.yaml` (commit this) |
 | `clean <dataset_id> [--version N]` | Run the latest approved recipe, run checks, write Parquet to `clean` only if all checks pass |
+| `detect <clean_table_id> [--dry-run] [--replace]` | Run all registered detectors (biggest change, rank shift, outlier), score, store the top 5 findings |
+| `findings <clean_table_id> [--numbers]` | List stored findings (and their exact numbers) |
 
-Every `ingest`, `profile` and `clean` run writes a row to the `jobs` table.
+Every `ingest`, `profile`, `clean` and `detect` run writes a row to the `jobs` table.
+
+## Detectors
+
+Configured per source in `sources.yaml` under `detect:` (which columns are the group, period,
+value and confidence interval; how to slice; filters; units; polarity). Rules:
+unreliable/suppressed values are ignored; a change or gap is only reported when the confidence
+intervals don't overlap; changes only compare groups present in both periods; comparisons
+stay within one slice (same measure, estimate and geography level).
 
 ## Adding a dataset
 

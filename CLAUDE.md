@@ -45,6 +45,7 @@ uv sync                              # install
 uv run python -m datatales --help    # CLI
 uv run python -m datatales db-check  # Supabase connection, tables, RLS, buckets
 # M3: sources-sync | ingest <source> [--file] | datasets | profile <id> | recipe-prompt <id>
+# M4: detect <clean_table_id> [--dry-run|--replace] | findings <clean_table_id> [--numbers]
 #     recipe-test <file> <id> | recipe-import <file> | recipe-approve <src> <v> --by NAME | clean <id>
 uv run ruff check . && uv run ruff format --check . && uv run pytest
 ```
@@ -82,6 +83,17 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - Only report a change (between periods) or a gap (between geographies) when the **confidence intervals do not overlap** (`lower_ci`/`upper_ci`). Store both intervals in the finding's `numbers`.
 - Only compare geographies present (with reliable, non-null values) in **both** periods being compared.
 - Compare like with like: same `measure`, same `estimate`, same `geo_level`.
+- Scope: detectors run on **UK, country and region** only (`detect.filters.geo_level` in `sources.yaml`). Add `local_authority` only after the user has reviewed the first batch.
+
+## Detectors (M4)
+
+- `datatales/detect/`: `base.py` (Finding, DetectMeta, helpers, `REGISTRY` + `@register`), `prepare.py` (clean table → standard frame via `sources.yaml` `detect:` config), one module per detector (`change.py`, `rank.py`, `outlier.py`), `scoring.py`, `run.py`.
+- A detector is a pure function `(frame, meta) -> list[Finding]` decorated with `@register("name")`, imported in `detect/__init__.py`. Phase 2 (record high/low, crossover, group gap, turning point) adds modules the same way, with tests.
+- Standard frame columns: `group, group_code, period, period_label, value, lower, upper` + slice columns. Rows are already reliable and non-null; iterate with `iter_slices`, pair periods with `panel()` (inner join = present in both), test CIs with `cis_separate()` (unknown CI ⇒ not significant).
+- Output must not depend on input row order (frames are sorted in `prepare`; ties broken explicitly).
+- Score = effect_norm(effect / normal variation) × surprise × relatability/5 × freshness (release date, −0.2/year, floor 0.2). Top `detect.top_n` (5) per clean table; findings for the same slice+group merge, extras under `numbers.related`.
+- Findings store every number a story may use: values, CIs, periods, ranks, `unit`, `change_unit` ("percentage points" for % values), `higher_is_better`, `improved`, `score_parts`.
+- `detect --replace` refuses if any story uses the existing findings.
 
 ## Wording rules (M5)
 
@@ -109,4 +121,5 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - M1 Database: done (migration 0001 + `db-check`)
 - M2 Public site + Hashnode migration: done (deployed as Cloudflare Workers static assets)
 - M3 Ingest, profile, clean: done (ONS wellbeing v4 ingested; recipe v1 imported, awaiting user approval)
-- Next: M4 Detect
+- M4 Detect: done (3 detectors; awaiting recipe approval + clean to store real findings)
+- Next: M5 Narrate + verify

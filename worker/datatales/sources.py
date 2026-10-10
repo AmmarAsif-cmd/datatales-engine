@@ -24,6 +24,45 @@ class UploadFetch(BaseModel):
     type: Literal["upload"]
 
 
+Scalar = str | int | float | bool
+When = Annotated[dict[str, Annotated[list[Scalar], Field(min_length=1)]], Field(min_length=1)]
+
+
+class UnitRule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    when: When
+    unit: str
+
+
+class PolarityRule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    when: When
+    higher_is_better: bool
+
+
+class DetectConfig(BaseModel):
+    """Maps a clean table's columns onto what the detectors need."""
+
+    model_config = ConfigDict(extra="forbid")
+    group: str
+    group_code: str | None = None
+    period: str
+    period_label: str | None = None
+    value: str
+    lower: str | None = None
+    upper: str | None = None
+    slice_by: list[str] = Field(default_factory=list)
+    filters: dict[str, Annotated[list[Scalar], Field(min_length=1)]] = Field(default_factory=dict)
+    units: list[UnitRule] = Field(default_factory=list)
+    default_unit: str = ""
+    polarity: list[PolarityRule] = Field(default_factory=list)
+    default_higher_is_better: bool = True
+    min_groups_rank: Annotated[int, Field(ge=3)] = 3
+    min_groups_outlier: Annotated[int, Field(ge=4)] = 5
+    outlier_z: Annotated[float, Field(gt=0)] = 2.5
+    top_n: Annotated[int, Field(ge=1, le=50)] = 5
+
+
 class SourceDef(BaseModel):
     model_config = ConfigDict(extra="forbid")
     slug: Slug
@@ -34,6 +73,7 @@ class SourceDef(BaseModel):
     refresh_schedule: str | None = None
     relatability: Annotated[int, Field(ge=1, le=5)] = 3
     fetch: Annotated[OnsApiFetch | UploadFetch, Field(discriminator="type")]
+    detect: DetectConfig | None = None
 
 
 class SourcesFile(BaseModel):

@@ -148,6 +148,31 @@ def cmd_clean(args: argparse.Namespace) -> int:
     return 0 if outcome.passed else 1
 
 
+def cmd_detect(args: argparse.Namespace) -> int:
+    from datatales.pipeline import detect_clean_table, run_job
+
+    repo = _repo()
+    run_job(
+        repo,
+        "detect",
+        lambda log: detect_clean_table(
+            repo, args.clean_table_id, log, replace=args.replace, dry_run=args.dry_run
+        ),
+    )
+    return 0
+
+
+def cmd_findings(args: argparse.Namespace) -> int:
+    rows = _repo().list_findings(args.clean_table_id)
+    if not rows:
+        print("No findings for this clean table. Run `detect` first.")
+    for row in rows:
+        print(f"{row['score']:.4f}  {row['detector']:<15} {row['title_hint']}  ({row['id']})")
+        if args.numbers:
+            print(json.dumps(row["numbers"], indent=2, ensure_ascii=False))
+    return 0
+
+
 # ---- parser ----
 
 
@@ -205,6 +230,15 @@ def build_parser() -> argparse.ArgumentParser:
     p = add("clean", cmd_clean, "Clean a dataset with its latest approved recipe, then run checks.")
     p.add_argument("dataset_id")
     p.add_argument("--version", type=int, help="use this approved recipe version")
+
+    p = add("detect", cmd_detect, "Run detectors on a clean table and store the top findings.")
+    p.add_argument("clean_table_id")
+    p.add_argument("--replace", action="store_true", help="recompute existing findings")
+    p.add_argument("--dry-run", action="store_true", help="show findings without storing them")
+
+    p = add("findings", cmd_findings, "List stored findings for a clean table.")
+    p.add_argument("clean_table_id")
+    p.add_argument("--numbers", action="store_true", help="also print each finding's numbers")
     return parser
 
 

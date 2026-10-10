@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from datatales.repo import Bucket, Dataset, JobStatus, Recipe, now_utc
+from datatales.repo import Bucket, CleanTable, Dataset, JobStatus, Recipe, now_utc
 from datatales.sources import SourceDef
 
 
@@ -16,6 +16,8 @@ class MemRepo:
         self.clean_tables: dict[tuple[str, str], dict[str, Any]] = {}
         self.objects: dict[tuple[str, str], tuple[bytes, str]] = {}
         self.jobs: dict[str, dict[str, Any]] = {}
+        self.findings: dict[str, dict[str, Any]] = {}
+        self.stories: dict[str, dict[str, Any]] = {}
 
     def upsert_source(self, source: SourceDef) -> str:
         existing = self.sources.get(source.slug)
@@ -113,6 +115,41 @@ class MemRepo:
             "checks_passed": checks_passed,
         }
         return row_id
+
+    def get_clean_table(self, clean_table_id: str) -> CleanTable:
+        for (dataset_id, recipe_id), row in self.clean_tables.items():
+            if row["id"] == clean_table_id:
+                return CleanTable(
+                    clean_table_id,
+                    dataset_id,
+                    recipe_id,
+                    row["parquet_path"],
+                    row["row_count"],
+                    row["checks_passed"],
+                )
+        raise KeyError(f"clean table {clean_table_id} not found")
+
+    def list_findings(self, clean_table_id: str) -> list[dict[str, Any]]:
+        rows = [f for f in self.findings.values() if f["clean_table_id"] == clean_table_id]
+        return sorted(rows, key=lambda f: -f["score"])
+
+    def insert_findings(self, clean_table_id: str, records: list[dict[str, Any]]) -> list[str]:
+        ids = []
+        for rec in records:
+            fid = str(uuid.uuid4())
+            self.findings[fid] = {"id": fid, "clean_table_id": clean_table_id, **rec}
+            ids.append(fid)
+        return ids
+
+    def delete_findings(self, clean_table_id: str) -> int:
+        doomed = [k for k, f in self.findings.items() if f["clean_table_id"] == clean_table_id]
+        for k in doomed:
+            del self.findings[k]
+        return len(doomed)
+
+    def count_stories_using(self, finding_ids: list[str]) -> int:
+        wanted = set(finding_ids)
+        return sum(1 for s in self.stories.values() if wanted & set(s["finding_ids"]))
 
     def put_object(
         self, bucket: Bucket, path: str, data: bytes, content_type: str, upsert: bool = False

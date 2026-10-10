@@ -14,3 +14,32 @@ sources:
       type: ons_api
       dataset_id: wellbeing-local-authority
       edition: time-series
+    # How detectors read the clean table (M4). Comparisons only happen within one slice
+    # (same measure, estimate and geography level).
+    detect:
+      group: geography
+      group_code: geo_code
+      period: year_start
+      period_label: period
+      value: value
+      lower: lower_ci
+      upper: upper_ci
+      slice_by: [measure, estimate, geo_level]
+      filters:
+        is_reliable: [true]
+        # First batch: UK, countries and regions only (user, 2026-10-10).
+        # Add local_authority after the first findings are reviewed.
+        geo_level: [uk, country, region]
+        estimate: [Average (mean), Poor, Very good]
+      units:
+        - when: {estimate: [Average (mean)]}
+          unit: average score out of 10
+        - when: {estimate: [Poor, Very good]}
+          unit: "% of people"
+      # Default: higher is better. For anxiety the mean and the Poor band (= high anxiety)
+      # are worse when higher; Poor is worse when higher for every measure.
+      polarity:
+        - when: {measure: [Anxiety], estimate: [Average (mean)]}
+          higher_is_better: false
+        - when: {estimate: [Poor]}
+          higher_is_better: false

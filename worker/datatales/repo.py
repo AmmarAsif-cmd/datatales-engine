@@ -41,6 +41,16 @@ class Recipe:
         return self.approved_at is not None
 
 
+@dataclass(frozen=True)
+class CleanTable:
+    id: str
+    dataset_id: str
+    recipe_id: str
+    parquet_path: str
+    row_count: int
+    checks_passed: bool
+
+
 class Repo(Protocol):
     def upsert_source(self, source: SourceDef) -> str: ...
     def get_source_id(self, slug: str) -> str | None: ...
@@ -64,6 +74,11 @@ class Repo(Protocol):
         checks: list[dict[str, Any]],
         checks_passed: bool,
     ) -> str: ...
+    def get_clean_table(self, clean_table_id: str) -> CleanTable: ...
+    def list_findings(self, clean_table_id: str) -> list[dict[str, Any]]: ...
+    def insert_findings(self, clean_table_id: str, records: list[dict[str, Any]]) -> list[str]: ...
+    def delete_findings(self, clean_table_id: str) -> int: ...
+    def count_stories_using(self, finding_ids: list[str]) -> int: ...
     def put_object(
         self, bucket: Bucket, path: str, data: bytes, content_type: str, upsert: bool = False
     ) -> None: ...
@@ -225,6 +240,51 @@ class SupabaseRepo:
             self.db.table("clean_tables").upsert(row, on_conflict="dataset_id,recipe_id").execute()
         )
         return res.data[0]["id"]
+
+    def get_clean_table(self, clean_table_id: str) -> CleanTable:
+        res = self.db.table("clean_tables").select("*").eq("id", clean_table_id).limit(1).execute()
+        if not res.data:
+            raise KeyError(f"clean table {clean_table_id} not found")
+        row = res.data[0]
+        return CleanTable(
+            id=row["id"],
+            dataset_id=row["dataset_id"],
+            recipe_id=row["recipe_id"],
+            parquet_path=row["parquet_path"],
+            row_count=row["row_count"],
+            checks_passed=row["checks_passed"],
+        )
+
+    def list_findings(self, clean_table_id: str) -> list[dict[str, Any]]:
+        res = (
+            self.db.table("findings")
+            .select("*")
+            .eq("clean_table_id", clean_table_id)
+            .order("score", desc=True)
+            .execute()
+        )
+        return res.data
+
+    def insert_findings(self, clean_table_id: str, records: list[dict[str, Any]]) -> list[str]:
+        if not records:
+            return []
+        rows = [{**rec, "clean_table_id": clean_table_id} for rec in records]
+        return [r["id"] for r in self.db.table("findings").insert(rows).execute().data]
+
+    def delete_findings(self, clean_table_id: str) -> int:
+        res = self.db.table("findings").delete().eq("clean_table_id", clean_table_id).execute()
+        return len(res.data)
+
+    def count_stories_using(self, finding_ids: list[str]) -> int:
+        if not finding_ids:
+            return 0
+        res = (
+            self.db.table("stories")
+            .select("id", count="exact")
+            .overlaps("finding_ids", finding_ids)
+            .execute()
+        )
+        return res.count or 0
 
     def put_object(
         self, bucket: Bucket, path: str, data: bytes, content_type: str, upsert: bool = False

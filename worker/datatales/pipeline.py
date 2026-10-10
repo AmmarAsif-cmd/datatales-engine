@@ -4,9 +4,11 @@ All persistence goes through `Repo`, so every function here is testable with Mem
 """
 
 import io
+import json
 import traceback
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -232,6 +234,71 @@ def clean_dataset(
         ds.id, recipe.id, path if passed else "", len(df), results_to_json(results), passed
     )
     return CleanOutcome(table_id, path if passed else None, len(df), results)
+
+
+# ---- detect ----
+
+
+def release_date(repo: Repo, raw_path: str, fetched_at: str) -> date:
+    """Publisher release date from the raw file's fetch.json, else the fetch date."""
+    folder = raw_path.rsplit("/", 1)[0]
+    try:
+        record = json.loads(repo.get_object("raw", f"{folder}/fetch.json"))
+        if record.get("release_date"):
+            return datetime.fromisoformat(record["release_date"].replace("Z", "+00:00")).date()
+    except Exception:  # noqa: BLE001, S110 - missing/old fetch.json: fall back to the fetch date
+        pass
+    return datetime.fromisoformat(fetched_at.replace("Z", "+00:00")).date()
+
+
+def detect_clean_table(
+    repo: Repo,
+    clean_table_id: str,
+    log: Callable[[str], None],
+    replace: bool = False,
+    dry_run: bool = False,
+    today: date | None = None,
+) -> list[dict[str, Any]]:
+    from datatales.detect.run import finding_record, run_detectors
+
+    ct = repo.get_clean_table(clean_table_id)
+    if not ct.checks_passed:
+        raise PipelineError(f"clean table {ct.id} failed its checks; detectors will not run")
+    ds = repo.get_dataset(ct.dataset_id)
+    source = get_source(ds.source_slug)
+    if source.detect is None:
+        raise PipelineError(f"source {source.slug} has no `detect` config in sources.yaml")
+
+    existing = repo.list_findings(ct.id)
+    if existing and not dry_run:
+        if not replace:
+            raise PipelineError(
+                f"clean table {ct.id} already has {len(existing)} finding(s); "
+                "use --replace to recompute them"
+            )
+        used = repo.count_stories_using([f["id"] for f in existing])
+        if used:
+            raise PipelineError(f"{used} story(ies) use these findings; they cannot be replaced")
+
+    clean = read_parquet(repo.get_object("clean", ct.parquet_path))
+    released = release_date(repo, ds.raw_path, ds.fetched_at)
+    top, total = run_detectors(
+        clean, source.detect, source.relatability, released, today or date.today()
+    )
+    records = [finding_record(f) for f in top]
+    log(
+        f"{total} candidate finding(s) passed the detector rules; keeping top {len(records)} "
+        f"(data released {released})"
+    )
+    for rec in records:
+        log(f"  {rec['score']:.4f}  {rec['detector']:<15} {rec['title_hint']}")
+    if dry_run:
+        log("Dry run: nothing stored")
+        return records
+    if existing:
+        log(f"Replacing {repo.delete_findings(ct.id)} old finding(s)")
+    ids = repo.insert_findings(ct.id, records)
+    return [{**rec, "id": fid} for rec, fid in zip(records, ids, strict=True)]
 
 
 def read_parquet(data: bytes):  # noqa: ANN201 - pandas DataFrame
