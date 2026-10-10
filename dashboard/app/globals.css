@@ -294,3 +294,110 @@ pre.box {
 td.sentence {
   min-width: 18rem;
 }
+
+h2.first {
+  margin-top: 0;
+}
+
+label.inline {
+  display: inline;
+  margin: 0;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.topbar .user {
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+/* ---- phones ---- */
+@media (max-width: 640px) {
+  body {
+    font-size: 16px;
+  }
+  main {
+    padding: 0.75rem;
+  }
+  h1 {
+    font-size: 1.3rem;
+  }
+  .panel {
+    padding: 0.85rem;
+  }
+  .topbar {
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    padding: 0.6rem 0.75rem;
+  }
+  .topbar .brand {
+    width: 100%;
+  }
+  .topbar .local {
+    margin-left: 0;
+  }
+  .topbar a {
+    padding: 0.35rem 0;
+  }
+  button,
+  .button {
+    min-height: 44px;
+    padding: 0.55rem 1rem;
+  }
+  input,
+  textarea,
+  select {
+    font-size: 16px; /* stops iOS zooming into fields */
+  }
+  select {
+    max-width: 100%;
+  }
+  pre.box {
+    max-height: 18rem;
+    font-size: 0.75rem;
+  }
+  td.sentence {
+    min-width: 0;
+  }
+  /* tables become cards, each cell labelled by data-label */
+  table.stack thead {
+    display: none;
+  }
+  table.stack,
+  table.stack tbody,
+  table.stack tr,
+  table.stack td {
+    display: block;
+    width: 100%;
+  }
+  table.stack tr {
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    margin-bottom: 0.6rem;
+    padding: 0.35rem 0.65rem;
+    background: var(--panel);
+  }
+  table.stack td {
+    border: 0;
+    padding: 0.25rem 0;
+    text-align: left;
+  }
+  table.stack td[data-label]:not([data-label=""])::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  table.stack tr.claim-bad {
+    background: var(--bad-bg);
+    border-color: var(--bad);
+  }
+  table.stack tr.claim-bad td {
+    background: transparent;
+  }
+}

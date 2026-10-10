@@ -19,7 +19,7 @@ ingest → profile → clean → detect → narrate → verify → review → pu
 |---|---|---|
 | `worker/` | Python 3.12 pipeline (DuckDB, pandas, pydantic) | Your machine + GitHub Actions |
 | `site/` | Astro public site | Cloudflare Workers (static assets) |
-| `dashboard/` | Next.js review app | **Your machine only** |
+| `dashboard/` | Next.js review app | Cloudflare Workers at admin.datatales.co.uk, behind Cloudflare Access |
 | `supabase/migrations/` | Plain SQL migrations | Run by you against Supabase |
 | `.github/` | CI, weekly pipeline, Dependabot | GitHub |
 
@@ -81,24 +81,22 @@ See [site/README.md](site/README.md) for the deploy settings, content folders an
 
 ## Review dashboard
 
-```sh
-cd dashboard
-cp .env.example .env.local   # server-side Supabase settings
-npm install
-npm run dev                  # http://127.0.0.1:4317
-```
+Deployed at **https://admin.datatales.co.uk** behind Cloudflare Access. See
+[dashboard/README.md](dashboard/README.md) for setup: the Access settings, the fine-grained token
+and Worker secrets.
 
-See [dashboard/README.md](dashboard/README.md). It calls the Python worker for every action, so
-run `uv sync` in `worker/` first.
+**Approve publishes.** The dashboard starts `publish.yml`, which writes
+`site/src/content/stories/<slug>.md`, builds the site, commits and pushes (Cloudflare rebuilds
+the site), then marks the story published. **Run pipeline now** starts `pipeline.yml`, which also
+runs every Monday at 06:00 UTC.
 
-> ⚠️ **Never deploy the dashboard.** It holds the Supabase service-role key, has no login,
-> and is meant to run only on `127.0.0.1`.
 
 ## Secrets
 
 | Secret | Where it lives |
 |---|---|
-| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | `worker/.env` (local), GitHub Actions secrets, `dashboard/.env.local` |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | `worker/.env` (local), GitHub Actions secrets, dashboard Worker secrets (`dashboard/.dev.vars` locally) |
+| `GITHUB_DISPATCH_TOKEN` (Actions: write, this repo only), `CF_ACCESS_*` | Dashboard Worker secrets |
 | *(none)* | `site/` never holds or reads any key |
 
 Only `.env.example` files (placeholder names, no values) are committed.
@@ -112,4 +110,4 @@ Only `.env.example` files (placeholder names, no values) are committed.
 - [x] M4 Detect
 - [x] M5 Narrate + verify
 - [x] M6 Review dashboard
-- [ ] M7 Publish + weekly pipeline
+- [x] M7 Publish + weekly pipeline + deployed dashboard

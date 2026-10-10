@@ -46,6 +46,7 @@ uv run python -m datatales --help    # CLI
 uv run python -m datatales db-check  # Supabase connection, tables, RLS, buckets
 # M3: sources-sync | ingest <source> [--file] | datasets | profile <id> | recipe-prompt <id>
 # M4: detect <clean_table_id> [--dry-run|--replace] | findings <clean_table_id> [--numbers]
+# M7: publish <story_id> [--mark] | run-pipeline
 # M5: candidates <ct> | story-new <ct> --candidate N | story-prompt <id> | story-paste <id> <file> | story-verify <id> | stories
 #     recipe-test <file> <id> | recipe-import <file> | recipe-approve <src> <v> --by NAME | clean <id>
 uv run ruff check . && uv run ruff format --check . && uv run pytest
@@ -111,12 +112,15 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 
 - ONS wellbeing bands use the same labels for every measure. For **anxiety**: Poor = high anxiety, Fair = medium, Good = low, Very good = **very low** anxiety (ONS metadata). A rise in anxiety's mean is bad news. Never write "very good anxiety".
 
-## Dashboard (M6)
+## Dashboard (M6, deployed in M7)
 
-- `dashboard/`: Next.js 16 App Router, local only (`127.0.0.1:4317`; `proxy.ts` rejects other Host headers; never deploy). In Next 16 `middleware` is called `proxy`; read `dashboard/node_modules/next/dist/docs/` before changing Next code (see dashboard/AGENTS.md).
-- Reads: server components query Supabase with the service key (`lib/db.ts`, `server-only`). Writes/logic: server actions (`app/actions.ts`) call `lib/worker.ts` -> `python -m datatales api <action>` (JSON stdin/stdout, no shell). Never reimplement verification or prompts in TypeScript.
-- `datatales/api.py` actions: candidates, story-new, story-prompt, story-paste, story-reverify, story-status, recipe-approve. It always answers JSON (`{ok, data|error}`).
-- Story status transitions: draft -> approved (verify passed only) | rejected; rejected -> draft; approved -> draft. `published` is set by M7 publish only.
+- `dashboard/`: Next.js 16 App Router on **Cloudflare Workers via OpenNext** at admin.datatales.co.uk, behind **Cloudflare Access** (user decision 2026-10-10, overriding the original "never deploy"). `workers_dev`/preview URLs off. Read `dashboard/node_modules/next/dist/docs/` before changing Next code (Next 16: `middleware` is `proxy`; params are Promises).
+- Auth: every page calls `pageUser()` and every server action `requireUser()` (`lib/access.ts` verifies the Access JWT: RS256 via WebCrypto, iss, aud, exp). Fails closed. No `proxy.ts` (Node middleware on Workers is experimental in OpenNext). Local bypass only in `next dev` with a localhost Host.
+- Secrets: Worker secrets only (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GITHUB_DISPATCH_TOKEN, CF_ACCESS_TEAM_DOMAIN, CF_ACCESS_AUD). **Never `.env*` in dashboard/**: OpenNext bundles them. Local dev uses `.dev.vars`. `npm run build:cf` guards both ways.
+- No Python on Workers. Pure text logic is ported to TypeScript in `dashboard/lib/logic/` (verify, narrate/prompt, shortlist, slug). **Change Python first**, regenerate `uv run python -m tests.golden_cases --write`, then mirror in TS until `npm test` passes. Never let them diverge.
+- Heavy/repo-writing work runs in GitHub Actions via **workflow_dispatch** (token: fine-grained, this repo, Actions read/write only): `story-new.yml`, `publish.yml` (write file, build site, commit, push, then `publish --mark`), `recipe-approve.yml`, `pipeline.yml`. Workflow inputs go through env vars and are validated; never interpolate `${{ inputs.* }}` into scripts.
+- `datatales/api.py` (JSON bridge) remains for local scripting; the deployed dashboard doesn't use it.
+- Story status transitions: draft -> approved (verify passed only) | rejected; rejected -> draft; approved -> draft; approved -> published only by `publish.yml`.
 
 ## Database
 
@@ -142,6 +146,6 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - M3 Ingest, profile, clean: done (ONS wellbeing v4 ingested; recipe v1 imported, awaiting user approval)
 - M4 Detect: done (3 detectors; awaiting recipe approval + clean to store real findings)
 - M5 Narrate + verify: done (candidates, full-series chart data, notable moves, prompt, parser, number checker)
-- M6 Dashboard: done (local Next.js; real NI story drafted, verified with claims, awaiting approval)
-- Next: M7 Publish + weekly pipeline
+- M6 Dashboard: done
+- M7 Publish + pipeline + dashboard deployment: done in code (needs user's Cloudflare/GitHub setup; then Approve publishes)
 - Next source after M7 (user, 2026-10-10): DfT vehicle licensing statistics (VEH tables), via upload ingest

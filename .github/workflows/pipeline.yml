@@ -1,17 +1,36 @@
 name: pipeline
 
-# Weekly schedule (Monday 06:00 UTC) is added in Milestone 7, once the pipeline exists.
+# ingest -> profile -> clean (approved recipes only) -> detect, for every ONS API source.
+# Weekly (also keeps the free Supabase project from pausing), and on demand from the
+# dashboard's "Run pipeline now" button. Each run writes rows to the `jobs` table.
 on:
+  schedule:
+    - cron: "0 6 * * 1" # Monday 06:00 UTC
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: pipeline
+  cancel-in-progress: false
+
 jobs:
   run:
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
-      # Placeholder. In M7: ingest -> profile -> clean (approved recipes only) -> detect,
-      # using secrets SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, writing a jobs row per run.
-      - name: Placeholder
-        run: echo "Pipeline not implemented yet (Milestone 7)."
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "worker/uv.lock"
+
+      - name: Run pipeline
+        working-directory: worker
+        run: |
+          uv sync --locked
+          uv run python -m datatales run-pipeline

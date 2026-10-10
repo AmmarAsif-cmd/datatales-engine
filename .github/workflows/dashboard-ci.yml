@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - "dashboard/**"
+      - "worker/tests/golden/**"
       - ".github/workflows/dashboard-ci.yml"
   push:
     branches: [main]
     paths:
       - "dashboard/**"
+      - "worker/tests/golden/**"
       - ".github/workflows/dashboard-ci.yml"
 
 permissions:
@@ -35,8 +37,15 @@ jobs:
       - name: Install
         run: npm ci
 
-      # Local-only app: CI only lints and type-checks it. It is never built for deployment.
       - name: Lint and type check
         run: |
           npm run lint
           npm run typecheck
+
+      # Golden vectors (TypeScript port must match Python) and the Access JWT checks.
+      - name: Tests
+        run: npm test
+
+      # Same build Cloudflare runs; fails if any secret name or value is bundled.
+      - name: Cloudflare build (guarded)
+        run: npm run build:cf

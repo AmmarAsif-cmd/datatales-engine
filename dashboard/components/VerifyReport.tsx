@@ -55,7 +55,7 @@ export default function VerifyReport({ report }: { report: Report | null }) {
       {report.uncovered.length > 0 && (
         <>
           <h3>Numbers outside any claim</h3>
-          <table>
+          <table className="stack">
             <thead>
               <tr>
                 <th>Number</th>
@@ -66,11 +66,11 @@ export default function VerifyReport({ report }: { report: Report | null }) {
             <tbody>
               {report.uncovered.map((u, i) => (
                 <tr key={i} className="claim-bad">
-                  <td>
+                  <td data-label="Number">
                     <code>{u.text}</code>
                   </td>
-                  <td>{u.field}</td>
-                  <td>{u.sentence}</td>
+                  <td data-label="Field">{u.field}</td>
+                  <td data-label="Sentence">{u.sentence}</td>
                 </tr>
               ))}
             </tbody>
@@ -81,7 +81,7 @@ export default function VerifyReport({ report }: { report: Report | null }) {
       {report.claims.length > 0 && (
         <>
           <h3>Claims</h3>
-          <table>
+          <table className="stack">
             <thead>
               <tr>
                 <th style={{ width: "9rem" }}>Status</th>
@@ -92,7 +92,7 @@ export default function VerifyReport({ report }: { report: Report | null }) {
             <tbody>
               {report.claims.map((c, i) => (
                 <tr key={i} className={c.status === "ok" ? undefined : "claim-bad"}>
-                  <td>
+                  <td data-label="Status">
                     <span className={`badge ${c.status === "ok" ? "ok" : "bad"}`}>
                       {CLAIM_LABEL[c.status] ?? c.status}
                     </span>
@@ -100,8 +100,8 @@ export default function VerifyReport({ report }: { report: Report | null }) {
                       <div className="small muted">{c.fields.join(", ")}</div>
                     )}
                   </td>
-                  <td className="sentence">{c.sentence}</td>
-                  <td>
+                  <td className="sentence" data-label="Sentence">{c.sentence}</td>
+                  <td data-label="Numbers → keys">
                     {c.numbers.map((n, j) => (
                       <span key={j} className={`num-chip ${n.key ? "" : "missing"}`}>
                         {n.text} → {n.key ?? "no matching key"}

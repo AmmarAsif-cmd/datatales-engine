@@ -75,6 +75,8 @@ class Repo(Protocol):
         checks_passed: bool,
     ) -> str: ...
     def get_clean_table(self, clean_table_id: str) -> CleanTable: ...
+    def find_clean_table(self, dataset_id: str, recipe_id: str) -> CleanTable | None: ...
+    def get_findings(self, finding_ids: list[str]) -> list[dict[str, Any]]: ...
     def list_findings(self, clean_table_id: str) -> list[dict[str, Any]]: ...
     def insert_findings(self, clean_table_id: str, records: list[dict[str, Any]]) -> list[str]: ...
     def delete_findings(self, clean_table_id: str) -> int: ...
@@ -259,6 +261,22 @@ class SupabaseRepo:
             row_count=row["row_count"],
             checks_passed=row["checks_passed"],
         )
+
+    def find_clean_table(self, dataset_id: str, recipe_id: str) -> CleanTable | None:
+        res = (
+            self.db.table("clean_tables")
+            .select("id")
+            .eq("dataset_id", dataset_id)
+            .eq("recipe_id", recipe_id)
+            .limit(1)
+            .execute()
+        )
+        return self.get_clean_table(res.data[0]["id"]) if res.data else None
+
+    def get_findings(self, finding_ids: list[str]) -> list[dict[str, Any]]:
+        if not finding_ids:
+            return []
+        return self.db.table("findings").select("*").in_("id", finding_ids).execute().data
 
     def list_findings(self, clean_table_id: str) -> list[dict[str, Any]]:
         res = (

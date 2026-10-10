@@ -1,0 +1,65 @@
+name: recipe-approve
+
+# Triggered by the dashboard's recipe Approve button. Marks the recipe approved in Supabase
+# and commits worker/recipes/<source>.v<N>.yaml so approved recipes are versioned in git.
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: Source slug
+        required: true
+        type: string
+      version:
+        description: Recipe version
+        required: true
+        type: string
+      by:
+        description: Name of the approver
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repo-writes
+  cancel-in-progress: false
+
+jobs:
+  approve:
+    runs-on: ubuntu-latest
+    env:
+      SOURCE: ${{ inputs.source }}
+      VERSION: ${{ inputs.version }}
+      APPROVER: ${{ inputs.by }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Validate inputs
+        run: |
+          [[ "$SOURCE" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || { echo "::error::bad source slug"; exit 1; }
+          [[ "$VERSION" =~ ^[1-9][0-9]{0,3}$ ]] || { echo "::error::bad version"; exit 1; }
+          name_re='^[A-Za-z][A-Za-z .-]{1,79}$'
+          [[ "$APPROVER" =~ $name_re ]] || { echo "::error::bad approver name"; exit 1; }
+
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "worker/uv.lock"
+
+      - name: Approve
+        working-directory: worker
+        run: |
+          uv sync --locked
+          uv run python -m datatales recipe-approve "$SOURCE" "$VERSION" --by "$APPROVER"
+
+      - name: Commit and push
+        run: |
+          git config user.name "datatales-publish[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "worker/recipes/${SOURCE}.v${VERSION}.yaml"
+          git commit -m "Approve recipe ${SOURCE} v${VERSION}"
+          git pull --rebase origin main
+          git push origin HEAD:main

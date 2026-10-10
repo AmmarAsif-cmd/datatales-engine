@@ -1,0 +1,79 @@
+name: publish
+
+# Triggered by the dashboard's Approve button (workflow_dispatch; the dashboard token only
+# has "Actions: write"). Writes the story file, proves the site still builds, commits and
+# pushes (Cloudflare rebuilds the site on push), and only then marks the story published.
+on:
+  workflow_dispatch:
+    inputs:
+      story_id:
+        description: Story id (uuid) of an approved story
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repo-writes
+  cancel-in-progress: false
+
+env:
+  ASTRO_TELEMETRY_DISABLED: "1"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      # Inputs are passed through env, never interpolated into scripts.
+      STORY_ID: ${{ inputs.story_id }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Validate input
+        run: |
+          [[ "$STORY_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] \
+            || { echo "::error::story_id is not a uuid"; exit 1; }
+
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "worker/uv.lock"
+
+      - name: Write story file
+        working-directory: worker
+        run: |
+          uv sync --locked
+          uv run python -m datatales publish "$STORY_ID"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Build the site (schema + check-dist)
+        working-directory: site
+        run: |
+          npm ci
+          npm run build
+
+      - name: Commit and push
+        run: |
+          git config user.name "datatales-publish[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add site/src/content/stories
+          if git diff --cached --quiet; then
+            echo "Story file unchanged; nothing to commit."
+          else
+            slug=$(git diff --cached --name-only | head -n1 | xargs -n1 basename | sed 's/\.md$//')
+            git commit -m "Publish story: ${slug}"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+
+      - name: Mark published
+        working-directory: worker
+        run: uv run python -m datatales publish "$STORY_ID" --mark

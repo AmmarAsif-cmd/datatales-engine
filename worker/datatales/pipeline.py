@@ -301,6 +301,53 @@ def detect_clean_table(
     return [{**rec, "id": fid} for rec, fid in zip(records, ids, strict=True)]
 
 
+# ---- scheduled run ----
+
+
+def run_scheduled(repo: Repo, log: Callable[[str], None]) -> bool:
+    """ingest -> profile -> clean -> detect for every ONS API source with an approved recipe.
+
+    Idempotent: an unchanged raw file is skipped, and clean/detect only run for a dataset
+    that has no clean table (or no findings) for the latest approved recipe yet.
+    Returns True if every source succeeded.
+    """
+    ok = True
+    sync_sources(repo)
+    for slug, source in load_sources().items():
+        if source.fetch.type != "ons_api":
+            log(f"[{slug}] upload source: skipped (ingest with --file)")
+            continue
+        try:
+            recipe = find_recipe(repo, slug, None, approved_only=True)
+        except PipelineError:
+            log(f"[{slug}] no approved recipe: skipped")
+            continue
+        try:
+            result = ingest(repo, source, fetch_raw(source), log)
+            ds = result.dataset
+            if ds.profile is None:
+                profile_dataset(repo, ds.id, log)
+            ct = repo.find_clean_table(ds.id, recipe.id)
+            if ct is None:
+                outcome = clean_dataset(repo, ds.id, log, recipe.version)
+                if not outcome.passed or outcome.clean_table_id is None:
+                    log(f"[{slug}] checks failed: stopping this source")
+                    ok = False
+                    continue
+                ct = repo.get_clean_table(outcome.clean_table_id)
+            if not ct.checks_passed:
+                log(f"[{slug}] latest clean table failed its checks: nothing to detect")
+                continue
+            if repo.list_findings(ct.id):
+                log(f"[{slug}] findings already exist for clean table {ct.id}")
+            else:
+                detect_clean_table(repo, ct.id, log)
+        except Exception as exc:  # noqa: BLE001 - one source failing must not stop the others
+            log(f"[{slug}] FAILED: {type(exc).__name__}: {exc}")
+            ok = False
+    return ok
+
+
 def read_parquet(data: bytes):  # noqa: ANN201 - pandas DataFrame
     import pandas as pd
 

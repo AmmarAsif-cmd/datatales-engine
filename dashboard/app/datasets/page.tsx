@@ -1,4 +1,5 @@
 import { db, must } from "@/lib/db";
+import { Denied, pageUser } from "@/lib/gate";
 import { short, when } from "@/lib/format";
 import type { Json } from "@/lib/types";
 
@@ -34,6 +35,7 @@ type Job = {
 };
 
 export default async function DatasetsPage() {
+  if (!(await pageUser())) return <Denied />;
   const [datasets, tables, jobs] = await Promise.all([
     must<Dataset[]>(
       db()
@@ -55,7 +57,7 @@ export default async function DatasetsPage() {
       <h1>Datasets &amp; jobs</h1>
 
       <h2>Datasets</h2>
-      <div className="panel">
+      <div className="panel table-scroll">
         <table>
           <thead>
             <tr>
@@ -132,7 +134,7 @@ export default async function DatasetsPage() {
       </div>
 
       <h2>Jobs (latest 50)</h2>
-      <div className="panel">
+      <div className="panel table-scroll">
         <table>
           <thead>
             <tr>

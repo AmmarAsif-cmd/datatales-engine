@@ -1,0 +1,24 @@
+// Review dashboard on Cloudflare Workers (OpenNext), at admin.datatales.co.uk behind
+// Cloudflare Access. Only reachable on the custom domain: workers.dev and preview URLs are
+// off, so Access cannot be bypassed. Secrets (never in this file), set once with
+// `npx wrangler secret put <NAME>`:
+//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GITHUB_DISPATCH_TOKEN,
+//   CF_ACCESS_TEAM_DOMAIN (https://<team>.cloudflareaccess.com), CF_ACCESS_AUD
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "datatales-admin",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "admin.datatales.co.uk", "custom_domain": true }],
+  "vars": {
+    "GITHUB_REPO": "AmmarAsif-cmd/datatales-engine",
+  },
+  "observability": { "enabled": true },
+}

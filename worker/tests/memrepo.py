@@ -129,6 +129,13 @@ class MemRepo:
                 )
         raise KeyError(f"clean table {clean_table_id} not found")
 
+    def find_clean_table(self, dataset_id: str, recipe_id: str) -> CleanTable | None:
+        row = self.clean_tables.get((dataset_id, recipe_id))
+        return self.get_clean_table(row["id"]) if row else None
+
+    def get_findings(self, finding_ids: list[str]) -> list[dict[str, Any]]:
+        return [self.findings[f] for f in finding_ids if f in self.findings]
+
     def list_findings(self, clean_table_id: str) -> list[dict[str, Any]]:
         rows = [f for f in self.findings.values() if f["clean_table_id"] == clean_table_id]
         return sorted(rows, key=lambda f: -f["score"])

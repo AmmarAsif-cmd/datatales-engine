@@ -177,7 +177,8 @@ def repo_ct() -> tuple[MemRepo, str]:
     )
     df = pd.DataFrame(rows)
     repo.put_object("clean", "c.parquet", to_parquet_bytes(df), "application/vnd.apache.parquet")
-    ct = repo.upsert_clean_table(ds.id, "r1", "c.parquet", len(df), [], True)
+    recipe = repo.insert_recipe(sid, 1, {"fake": True})
+    ct = repo.upsert_clean_table(ds.id, recipe.id, "c.parquet", len(df), [], True)
     pipeline.detect_clean_table(repo, ct, lambda _m: None, today=date(2026, 1, 1))
     return repo, ct
 

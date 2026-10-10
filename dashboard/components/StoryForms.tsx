@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import { type ActionState, pasteReply, saveEdits, setStatus } from "@/app/actions";
+import { type ActionState, pasteReply, republish, saveEdits, setStatus } from "@/app/actions";
 import type { Story } from "@/lib/types";
 
 const initial: ActionState = { ok: true, message: "" };
@@ -87,6 +87,7 @@ export function EditForm({ story, claimsJson }: { story: Story; claimsJson: stri
 
 export function StatusButtons({ story }: { story: Story }) {
   const [state, action, pending] = useActionState(setStatus, initial);
+  const [pubState, pubAction, pubPending] = useActionState(republish, initial);
   const canApprove = story.status === "draft" && story.verify_status === "passed";
   return (
     <form action={action}>
@@ -116,8 +117,21 @@ export function StatusButtons({ story }: { story: Story }) {
         {story.status === "draft" && !canApprove && (
           <span className="small muted">Approval needs a passed verification.</span>
         )}
+        {story.status === "approved" && (
+          <button type="submit" formAction={pubAction} className="secondary" disabled={pubPending}>
+            {pubPending ? "Starting…" : "Publish again"}
+          </button>
+        )}
+        {story.status === "published" && (
+          <span className="small muted">Published. Edits need a new story for now.</span>
+        )}
       </div>
+      <p className="small muted">
+        Approving publishes: a GitHub workflow writes the story file, builds the site, commits and
+        pushes, then marks the story published.
+      </p>
       <Message state={state} />
+      <Message state={pubState} />
     </form>
   );
 }

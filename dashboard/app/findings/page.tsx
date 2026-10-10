@@ -1,11 +1,12 @@
 import Link from "next/link";
 
-import { createStory } from "@/app/actions";
+import { CreateStoryButton } from "@/components/Buttons";
 import MiniChart from "@/components/MiniChart";
 import { db, must } from "@/lib/db";
 import { short, when } from "@/lib/format";
-import type { Candidate, Finding } from "@/lib/types";
-import { runWorker } from "@/lib/worker";
+import { Denied, pageUser } from "@/lib/gate";
+import { type FindingRow, shortlist } from "@/lib/logic/stories.ts";
+import type { Finding } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ export default async function FindingsPage({
 }: {
   searchParams: Promise<{ ct?: string }>;
 }) {
+  if (!(await pageUser())) return <Denied />;
   const { ct } = await searchParams;
   const tables = await must<CleanTable[]>(
     db()
@@ -35,31 +37,29 @@ export default async function FindingsPage({
     return (
       <>
         <h1>Findings</h1>
-        <p className="muted">No clean tables yet. Run ingest, approve a recipe, then clean.</p>
+        <p className="muted">No clean tables yet. Run the pipeline from the overview.</p>
       </>
     );
   }
   const current = tables.find((t) => t.id === ct) ?? tables[0];
-  const [findings, cands] = await Promise.all([
-    must<Finding[]>(
-      db().from("findings").select("*").eq("clean_table_id", current.id).order("score", { ascending: false }),
-    ),
-    runWorker<Candidate[]>("candidates", { clean_table_id: current.id }),
-  ]);
+  const findings = await must<Finding[]>(
+    db().from("findings").select("*").eq("clean_table_id", current.id).order("score", { ascending: false }),
+  );
+  const cands = shortlist(findings as unknown as FindingRow[]);
 
   return (
     <>
       <h1>Findings</h1>
       <div className="panel">
         <form className="row">
-          <label htmlFor="ct" style={{ margin: 0 }}>
+          <label htmlFor="ct" className="inline">
             Clean table
           </label>
-          <select id="ct" name="ct" defaultValue={current.id} style={{ maxWidth: "36rem" }}>
+          <select id="ct" name="ct" defaultValue={current.id}>
             {tables.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.datasets?.sources?.slug} · recipe v{t.recipes?.version} · {t.row_count.toLocaleString("en-GB")} rows ·{" "}
-                {when(t.created_at)}
+                {t.datasets?.sources?.slug} · v{t.recipes?.version} ·{" "}
+                {t.row_count.toLocaleString("en-GB")} rows · {when(t.created_at)}
               </option>
             ))}
           </select>
@@ -71,55 +71,49 @@ export default async function FindingsPage({
 
       <h2>Story shortlist</h2>
       <div className="panel">
-        {!cands.ok ? (
-          <p className="msg bad">{cands.error}</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th className="num">Score</th>
-                <th>Candidate</th>
-                <th>Findings</th>
-                <th />
+        {cands.length === 0 && <p className="muted">No findings yet for this table.</p>}
+        <table className="stack">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th className="num">Score</th>
+              <th>Candidate</th>
+              <th className="num">Findings</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {cands.map((c, i) => (
+              <tr key={c.finding_ids.join()}>
+                <td data-label="#">{i + 1}</td>
+                <td data-label="Score" className="num">
+                  {c.score.toFixed(3)}
+                </td>
+                <td data-label="Candidate">
+                  <b>{c.geography}</b> <span className="muted small">({c.geo_level})</span>{" "}
+                  <span className={`badge ${c.good_news ? "ok" : "bad"}`}>
+                    {c.good_news ? "good news" : "bad news"}
+                  </span>
+                  <div className="small muted">{c.measures.join(", ")}</div>
+                </td>
+                <td data-label="Findings" className="num">
+                  {c.finding_ids.length}
+                </td>
+                <td data-label="">
+                  <CreateStoryButton cleanTableId={current.id} candidate={i + 1} />
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {cands.data.map((c) => (
-                <tr key={c.index}>
-                  <td>{c.index}</td>
-                  <td className="num">{c.score.toFixed(3)}</td>
-                  <td>
-                    <b>{c.geography}</b> <span className="muted small">({c.geo_level})</span>{" "}
-                    <span className={`badge ${c.good_news ? "ok" : "bad"}`}>
-                      {c.good_news ? "good news" : "bad news"}
-                    </span>
-                    <div className="small muted">{c.measures.join(", ")}</div>
-                  </td>
-                  <td>{c.finding_ids.length}</td>
-                  <td>
-                    <form action={createStory}>
-                      <input type="hidden" name="clean_table_id" value={current.id} />
-                      <input type="hidden" name="candidate" value={c.index} />
-                      <button type="submit" className="secondary">
-                        Create story
-                      </button>
-                    </form>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+            ))}
+          </tbody>
+        </table>
       </div>
 
       <h2>All findings ({findings.length}), by score</h2>
       <div className="panel">
-        <table>
+        <table className="stack">
           <thead>
             <tr>
               <th className="num">Score</th>
-              <th>Detector</th>
               <th>Finding</th>
               <th>Start → end (with CIs)</th>
               <th>Numbers</th>
@@ -128,21 +122,17 @@ export default async function FindingsPage({
           <tbody>
             {findings.map((f) => (
               <tr key={f.id}>
-                <td className="num">{f.score.toFixed(3)}</td>
-                <td>
-                  <span className="badge plain">{f.detector}</span>
+                <td data-label="Score" className="num">
+                  {f.score.toFixed(3)}
                 </td>
-                <td>
+                <td data-label="Finding">
                   {f.title_hint}
                   <div className="small muted">
-                    {String(f.numbers.unit ?? "")} ·{" "}
-                    <span className={f.numbers.good_news ? "" : ""}>
-                      {f.numbers.good_news ? "good news" : "bad news"}
-                    </span>{" "}
-                    · {short(f.id)}
+                    <span className="badge plain">{f.detector}</span> {String(f.numbers.unit ?? "")} ·{" "}
+                    {f.numbers.good_news ? "good news" : "bad news"} · {short(f.id)}
                   </div>
                 </td>
-                <td>
+                <td data-label="Change">
                   <MiniChart finding={f} />
                   <div className="small muted">
                     {f.detector === "outlier"
@@ -150,7 +140,7 @@ export default async function FindingsPage({
                       : `${f.numbers.start_value} → ${f.numbers.end_value}`}
                   </div>
                 </td>
-                <td>
+                <td data-label="Numbers">
                   <details>
                     <summary className="small">JSON</summary>
                     <pre className="box small">{JSON.stringify(f.numbers, null, 1)}</pre>

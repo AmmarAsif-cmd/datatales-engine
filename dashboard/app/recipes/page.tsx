@@ -1,5 +1,6 @@
 import RecipeApprove from "@/components/RecipeApprove";
 import { db, must } from "@/lib/db";
+import { Denied, pageUser } from "@/lib/gate";
 import { when } from "@/lib/format";
 import type { Json } from "@/lib/types";
 
@@ -16,6 +17,7 @@ type Recipe = {
 };
 
 export default async function RecipesPage() {
+  if (!(await pageUser())) return <Denied />;
   const recipes = await must<Recipe[]>(
     db()
       .from("recipes")

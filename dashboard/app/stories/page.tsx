@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { db, must } from "@/lib/db";
+import { Denied, pageUser } from "@/lib/gate";
 import { when } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,7 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export default async function StoriesPage() {
+  if (!(await pageUser())) return <Denied />;
   const stories = await must<Row[]>(
     db()
       .from("stories")
@@ -39,7 +41,7 @@ export default async function StoriesPage() {
       )}
       {stories.length > 0 && (
         <div className="panel">
-          <table>
+          <table className="stack">
             <thead>
               <tr>
                 <th>Headline</th>
@@ -52,22 +54,22 @@ export default async function StoriesPage() {
             <tbody>
               {stories.map((s) => (
                 <tr key={s.id}>
-                  <td>
+                  <td data-label="Headline">
                     <Link href={`/stories/${s.id}`}>{s.headline ?? "(untitled)"}</Link>
                     <div className="small muted">{s.slug}</div>
                   </td>
-                  <td>
+                  <td data-label="Status">
                     <span className={`badge ${STATUS_BADGE[s.status] ?? "plain"}`}>{s.status}</span>
                   </td>
-                  <td>
+                  <td data-label="Verification">
                     <span
                       className={`badge ${s.verify_status === "passed" ? "ok" : s.verify_status === "failed" ? "bad" : "warn"}`}
                     >
                       {s.verify_status}
                     </span>
                   </td>
-                  <td className="num">{s.finding_ids.length}</td>
-                  <td className="small">{when(s.updated_at)}</td>
+                  <td className="num" data-label="Findings">{s.finding_ids.length}</td>
+                  <td className="small" data-label="Updated">{when(s.updated_at)}</td>
                 </tr>
               ))}
             </tbody>

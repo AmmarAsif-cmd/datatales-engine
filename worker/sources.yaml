@@ -39,6 +39,19 @@ sources:
       # Default: higher is better. For anxiety the mean and the Poor band (= high anxiety)
       # are worse when higher; Poor is worse when higher for every measure.
       top_n: 20  # findings kept per clean table; the story shortlist keeps the top 5 candidates
+      # Plain-English labels for key-number cards ({measure} is replaced, lower-cased).
+      # First matching rule wins. Anxiety bands are reversed: Poor = high anxiety.
+      labels:
+        - when: {estimate: [Average (mean)]}
+          label: "Average {measure} score"
+        - when: {measure: [Anxiety], estimate: [Poor]}
+          label: "Share with high anxiety"
+        - when: {measure: [Anxiety], estimate: [Very good]}
+          label: "Share with very low anxiety"
+        - when: {estimate: [Poor]}
+          label: "Share with low {measure}"
+        - when: {estimate: [Very good]}
+          label: "Share with very high {measure}"
       polarity:
         - when: {measure: [Anxiety], estimate: [Average (mean)]}
           higher_is_better: false

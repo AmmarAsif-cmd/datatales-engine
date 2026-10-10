@@ -1,0 +1,46 @@
+name: story-new
+
+# Triggered by the dashboard's "Create story" button: drafts a story (numbers, full yearly
+# chart data, notable moves) from a shortlist candidate. Needs pandas, so it runs here.
+on:
+  workflow_dispatch:
+    inputs:
+      clean_table_id:
+        description: Clean table id (uuid)
+        required: true
+        type: string
+      candidate:
+        description: Shortlist candidate number (1-5)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  story-new:
+    runs-on: ubuntu-latest
+    env:
+      CLEAN_TABLE_ID: ${{ inputs.clean_table_id }}
+      CANDIDATE: ${{ inputs.candidate }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Validate inputs
+        run: |
+          [[ "$CLEAN_TABLE_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] \
+            || { echo "::error::clean_table_id is not a uuid"; exit 1; }
+          [[ "$CANDIDATE" =~ ^[1-9][0-9]?$ ]] || { echo "::error::candidate must be a number"; exit 1; }
+
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "worker/uv.lock"
+
+      - name: Draft the story
+        working-directory: worker
+        run: |
+          uv sync --locked
+          uv run python -m datatales story-new "$CLEAN_TABLE_ID" --candidate "$CANDIDATE"

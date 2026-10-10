@@ -1,0 +1,11 @@
+# Local development only. Copy to dashboard/.dev.vars (gitignored) and fill in.
+# NOT .env.local: OpenNext bundles every .env* file into the Worker, so secrets must not
+# live in one. In production these are Worker secrets (`npx wrangler secret put NAME`).
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+# Fine-grained token: this repository only, "Actions: Read and write" only.
+GITHUB_DISPATCH_TOKEN=
+GITHUB_REPO=AmmarAsif-cmd/datatales-engine
+# Production only (Cloudflare Access); leave empty for local development.
+CF_ACCESS_TEAM_DOMAIN=
+CF_ACCESS_AUD=

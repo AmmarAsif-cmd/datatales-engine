@@ -129,9 +129,16 @@ def cmd_recipe_import(args: argparse.Namespace) -> int:
 
 
 def cmd_recipe_approve(args: argparse.Namespace) -> int:
-    from datatales.pipeline import approve_recipe
+    from datatales.pipeline import approve_recipe, run_job
 
-    recipe, path = approve_recipe(_repo(), args.source, args.version, args.by)
+    repo = _repo()
+
+    def job(log):  # noqa: ANN001, ANN202
+        result = approve_recipe(repo, args.source, args.version, args.by)
+        log(f"Approved {args.source} v{args.version} by {args.by}")
+        return result
+
+    recipe, path = run_job(repo, f"recipe-approve:{args.source}", job)
     print(f"Approved {args.source} v{recipe.version} by {recipe.approved_by}.")
     print(f"Wrote {path}. Commit it so the approved recipe is versioned in git.")
     return 0
@@ -184,9 +191,17 @@ def cmd_candidates(args: argparse.Namespace) -> int:
 
 
 def cmd_story_new(args: argparse.Namespace) -> int:
+    from datatales.pipeline import run_job
     from datatales.stories import create_story
 
-    story = create_story(_repo(), args.clean_table_id, args.candidate)
+    repo = _repo()
+
+    def job(log):  # noqa: ANN001, ANN202
+        s = create_story(repo, args.clean_table_id, args.candidate)
+        log(f"Draft story {s['id']} from candidate {args.candidate}: {s['headline']}")
+        return s
+
+    story = run_job(repo, "story-new", job)
     rows, n = len(story["chart_data"]), len(story["finding_ids"])
     print(f"Draft story {story['id']}: {n} finding(s), {rows} chart rows.")
     print(f"Next: story-prompt {story['id']} --out prompt.txt")
@@ -234,6 +249,40 @@ def cmd_stories(_args: argparse.Namespace) -> int:
     for s in _repo().list_stories():
         print(f"{s['id']}  {s['status']:<9} verify:{s['verify_status']:<8} {s['headline']}")
     return 0
+
+
+def cmd_publish(args: argparse.Namespace) -> int:
+    from datatales.pipeline import run_job
+    from datatales.publish import mark_published, write_story_file
+
+    repo = _repo()
+    if args.mark:
+
+        def mark(log):  # noqa: ANN001, ANN202
+            s = mark_published(repo, args.story_id)
+            log(f"Marked published at {s['published_at']}: {s['slug']}")
+            return s
+
+        run_job(repo, "publish:mark", mark)
+        return 0
+
+    def write(log):  # noqa: ANN001, ANN202
+        out = write_story_file(repo, args.story_id)
+        log(f"Wrote {out.name}")
+        return out
+
+    path = run_job(repo, "publish:write", write)
+    print(f"Wrote {path}")
+    print("Next: build the site, commit and push, then `publish <id> --mark`.")
+    return 0
+
+
+def cmd_run_pipeline(_args: argparse.Namespace) -> int:
+    from datatales.pipeline import run_job, run_scheduled
+
+    repo = _repo()
+    ok = run_job(repo, "pipeline", lambda log: run_scheduled(repo, log))
+    return 0 if ok else 1
 
 
 def cmd_api(args: argparse.Namespace) -> int:
@@ -328,6 +377,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("story_id")
 
     add("stories", cmd_stories, "List stories.")
+
+    p = add("publish", cmd_publish, "Write an approved story's site file (or --mark it published).")
+    p.add_argument("story_id")
+    p.add_argument("--mark", action="store_true", help="mark published (after commit + push)")
+
+    add("run-pipeline", cmd_run_pipeline, "Scheduled run: ingest, profile, clean, detect.")
 
     p = add("api", cmd_api, "JSON bridge for the local dashboard (stdin -> stdout).")
     p.add_argument("action")

@@ -8,20 +8,22 @@ import VerifyReport from "@/components/VerifyReport";
 import { db } from "@/lib/db";
 import { when } from "@/lib/format";
 import type { Story } from "@/lib/types";
-import { runWorker } from "@/lib/worker";
+import { Denied, pageUser } from "@/lib/gate";
+import { buildPrompt } from "@/lib/logic/narrate.ts";
 
 export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function StoryPage({ params }: { params: Promise<{ id: string }> }) {
+  if (!(await pageUser())) return <Denied />;
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const { data: story, error } = await db().from("stories").select("*").eq("id", id).maybeSingle<Story>();
   if (error) throw new Error(error.message);
   if (!story) notFound();
 
-  const prompt = await runWorker<{ prompt: string }>("story-prompt", { story_id: id });
+  const prompt = buildPrompt(story.numbers ?? {}, story.chart_data ?? [], story.chart_spec ?? {});
   const locked = story.status === "approved" || story.status === "published";
   const claims = (story.verify_report?.claims ?? []).map((c) => ({ sentence: c.sentence, keys: c.keys }));
   const passed = story.verify_status === "passed";
@@ -51,21 +53,15 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
       <div className="grid2">
         <div className="panel">
           <h2 style={{ marginTop: 0 }}>1. Copy the prompt</h2>
-          {prompt.ok ? (
-            <>
-              <p className="small muted">
-                {prompt.data.prompt.length.toLocaleString("en-GB")} characters. Paste it into Claude
-                chat, then paste the JSON reply in step 2.
-              </p>
-              <CopyButton text={prompt.data.prompt} />
-              <details style={{ marginTop: "0.6rem" }}>
-                <summary className="small">Show prompt</summary>
-                <pre className="box small">{prompt.data.prompt}</pre>
-              </details>
-            </>
-          ) : (
-            <p className="msg bad">{prompt.error}</p>
-          )}
+          <p className="small muted">
+            {prompt.length.toLocaleString("en-GB")} characters. Paste it into Claude chat, then
+            paste the JSON reply in step 2.
+          </p>
+          <CopyButton text={prompt} />
+          <details style={{ marginTop: "0.6rem" }}>
+            <summary className="small">Show prompt</summary>
+            <pre className="box small">{prompt}</pre>
+          </details>
         </div>
         <div className="panel">
           <h2 style={{ marginTop: 0 }}>2. Paste the reply</h2>

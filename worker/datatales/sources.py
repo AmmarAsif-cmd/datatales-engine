@@ -34,6 +34,12 @@ class UnitRule(BaseModel):
     unit: str
 
 
+class LabelRule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    when: When
+    label: str
+
+
 class PolarityRule(BaseModel):
     model_config = ConfigDict(extra="forbid")
     when: When
@@ -56,6 +62,7 @@ class DetectConfig(BaseModel):
     units: list[UnitRule] = Field(default_factory=list)
     default_unit: str = ""
     polarity: list[PolarityRule] = Field(default_factory=list)
+    labels: list[LabelRule] = Field(default_factory=list)
     default_higher_is_better: bool = True
     min_groups_rank: Annotated[int, Field(ge=3)] = 3
     min_groups_outlier: Annotated[int, Field(ge=4)] = 5
