@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { dodge } from '../src/lib/chart.ts';
+import { dodge, pickTicks } from '../src/lib/chart.ts';
 import { boundariesFor, renderStaticChart } from '../src/lib/charts/static.ts';
 import lads from '../src/data/geo/local-authorities.json' with { type: 'json' };
 import nations from '../src/data/geo/nations.json' with { type: 'json' };
@@ -88,7 +88,7 @@ test('regions map shows nations without data in grey', () => {
   assert.match(svg, /Grey: no data\./);
 });
 
-test('slope: every group labelled at both ends, highlighted drawn in colour', () => {
+test('slope: name and value on both sides, highlighted drawn in colour', () => {
   const data = ['2011-12', '2022-23'].flatMap((period, i) =>
     ['A', 'B', 'C'].map((g, j) => ({
       period,
@@ -99,9 +99,42 @@ test('slope: every group labelled at both ends, highlighted drawn in colour', ()
   const svg = renderStaticChart({ ...spec, type: 'slope', highlight: 'A', yLabel: '%' }, data, {
     title: 'T',
   })!;
-  assert.match(svg, /15%  A/);
+  for (const name of ['A', 'B', 'C'])
+    assert.equal((svg.match(new RegExp(`>${name}<`, 'g')) ?? []).length, 2);
+  assert.match(svg, />15%</);
   assert.match(svg, />10%</);
   assert.match(svg, /var\(--series-1/);
   assert.equal((svg.match(/<title>/g) ?? []).length, 3);
   assert.equal(renderStaticChart({ ...spec, type: 'line' }, data, { title: 'T' }), null);
+});
+
+test('slope: labels never overlap, even when values are almost equal', () => {
+  const groups = Array.from({ length: 12 }, (_, i) => `Area ${i}`);
+  const data = ['2011-12', '2022-23'].flatMap((period) =>
+    groups.map((g, i) => ({ period, geography: g, value: 50 + i * 0.01 })),
+  );
+  const svg = renderStaticChart({ ...spec, type: 'slope', highlight: 'Area 3' }, data, {
+    title: 'T',
+  })!;
+  for (const anchor of ['end', 'start']) {
+    const ys = [
+      ...svg.matchAll(
+        new RegExp(`<text x="[\\d.]+" y="([\\d.]+)" text-anchor="${anchor}"[^>]*>Area`, 'g'),
+      ),
+    ]
+      .map((m) => Number(m[1]))
+      .sort((a, b) => a - b);
+    assert.equal(ys.length, 12);
+    for (let i = 1; i < ys.length; i++)
+      assert.ok(ys[i] - ys[i - 1] >= 30, `${anchor}: ${ys[i - 1]} vs ${ys[i]}`);
+  }
+});
+
+test('pickTicks: every 2nd period above 8, last always labelled, fits the width', () => {
+  const p = Array.from({ length: 12 }, (_, i) => 2011 + i);
+  assert.deepEqual(pickTicks(p, 2000, 60), [2012, 2014, 2016, 2018, 2020, 2022]);
+  assert.deepEqual(pickTicks(p.slice(0, 8), 2000, 60), p.slice(0, 8));
+  const narrow = pickTicks(p, 180, 60);
+  assert.ok(narrow.length <= 3 && narrow.at(-1) === 2022);
+  assert.deepEqual(pickTicks([], 100, 60), []);
 });

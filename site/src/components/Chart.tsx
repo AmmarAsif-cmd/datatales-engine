@@ -6,6 +6,7 @@ import {
   dodge,
   enDash,
   highlightList,
+  pickTicks,
   seriesOrder,
   type ChartSpec,
   type Row,
@@ -71,13 +72,23 @@ function build(spec: ChartSpec, data: Row[], width: number): SVGSVGElement | HTM
     const lastRow = (s: string) =>
       data.filter((r) => String(r[sKey!]) === s && r[spec.y] != null).at(-1);
     const ends = labelSeries.map(lastRow).filter(Boolean) as Row[];
-    const labelText = (r: Row) => `${r[sKey!]} ${numFmt.format(Number(r[spec.y]))}`;
+    // Narrow screens: names only (values are in the tooltip and the table) to keep plot room.
+    const narrow = width < 560;
+    const labelText = (r: Row) =>
+      narrow ? String(r[sKey!]) : `${r[sKey!]} ${numFmt.format(Number(r[spec.y]))}`;
     const longest = Math.max(0, ...ends.map((r) => labelText(r).length));
-    const rightRoom = ends.length ? Math.min(190, longest * 7 + 16) : 16;
+    const rightRoom = ends.length ? Math.min(190, longest * (narrow ? 6.4 : 7) + 16) : 16;
     const height = Math.max(260, Math.min(420, width * 0.6));
+    const periods = [...new Set(xValues.filter((v) => v != null))].sort() as (string | number)[];
+    const ticks = pickTicks(periods, width - 48 - rightRoom, years ? 44 : 62);
     const xOpt = years
-      ? { tickFormat: 'd', label: null, ticks: Math.min(8, Math.floor(width / 70)) }
-      : { type: 'point' as const, label: null, tickFormat: (v: unknown) => enDash(String(v)) };
+      ? { tickFormat: 'd', label: null, ticks }
+      : {
+          type: 'point' as const,
+          label: null,
+          ticks,
+          tickFormat: (v: unknown) => enDash(String(v)),
+        };
     const yOpt = { grid: true, label: null, nice: true, zero: false };
 
     // Pass 1 finds the y scale; labels are then spread so they never overlap.

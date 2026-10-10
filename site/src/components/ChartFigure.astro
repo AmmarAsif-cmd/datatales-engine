@@ -53,7 +53,7 @@ const hasOthers =
     )}
   </figcaption>
 
-  <div class="chart-frame">
+  <div class={`chart-frame ${staticSvg ? 'static' : ''}`}>
     {staticSvg ? (
       <div class="static-frame" set:html={staticSvg} />
     ) : (
@@ -111,6 +111,9 @@ const hasOthers =
   .chart-frame {
     margin-top: 0.75rem;
     min-height: 260px; /* reserve space before the island hydrates */
+  }
+  .chart-frame.static {
+    min-height: 0; /* drawn at build time: no space to reserve */
   }
   .chart-note {
     margin: 0.5rem 0 0;

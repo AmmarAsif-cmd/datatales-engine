@@ -64,3 +64,18 @@ test("alt text is built from the data", () => {
   const map = chartAlt({ ...spec, type: "map" }, data, "Map title");
   assert.match(map, /Values range from 33% in South to 38% in North/);
 });
+
+test("cover text always fits its column, however long the headline", async () => {
+  const { CHART_X, fitText } = await import("../lib/graphics/cover.ts");
+  const long = "Northern Ireland’s extraordinarily disproportionate anxiety improvements outpaced every comparable nation across the entire decade-long measurement period";
+  for (const [max, min, width, lines] of [[52, 36, 600, 4], [68, 48, 936, 5], [22, 13, 300, 1]] as const) {
+    const f = fitText(fonts.bold, long, max, min, width, lines);
+    assert.ok(f.lines.length <= lines);
+    for (const l of f.lines) assert.ok(measure(fonts.bold, l, f.size) <= width + 0.5, `${l} @ ${f.size}`);
+  }
+  const short = fitText(fonts.bold, "Short headline", 52, 36, 600, 4);
+  assert.deepEqual(short, { size: 52, lines: ["Short headline"] });
+  const word = fitText(fonts.bold, "Supercalifragilisticexpialidocious".repeat(3), 52, 36, 300, 2);
+  for (const l of word.lines) assert.ok(measure(fonts.bold, l, word.size) <= 300 + 0.5);
+  assert.equal(CHART_X, 712);
+});

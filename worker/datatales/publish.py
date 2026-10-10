@@ -44,8 +44,26 @@ def format_value(value: float, unit: str) -> str:
     return f"{text}%" if unit.startswith("%") else text
 
 
+def rank_card(numbers: dict[str, Any]) -> dict[str, str] | None:
+    """A "4th → 1st" card when the story has a rank-shift finding for its charted measure."""
+    from datatales.storydata import ordinal
+
+    cover = numbers.get("cover") or {}
+    rank = cover.get("rank")
+    if not rank:
+        return None
+    label = cover.get("measure_label") or "Rank"
+    return {
+        "label": f"Rank among {rank['groups']} {rank['noun']} (1st = {rank['first_means']})",
+        "value": f"{ordinal(rank['start_rank'])} → {ordinal(rank['end_rank'])}",
+        "note": f"{label}, {rank['start_period']} to {rank['end_period']}",
+        "kind": "rank",
+    }
+
+
 def key_numbers(numbers: dict[str, Any], config: DetectConfig) -> list[dict[str, str]]:
-    """Cards from the story's findings: latest value, with where it started as the note."""
+    """Cards from the story's findings: latest value, with where it started as the note. A rank
+    card follows the first card when the story has a rank shift. At most 4 cards."""
     cards: list[dict[str, str]] = []
     seen: set[str] = set()
     for f in numbers.get("findings", []):
@@ -60,9 +78,13 @@ def key_numbers(numbers: dict[str, Any], config: DetectConfig) -> list[dict[str,
         if unit and not unit.startswith("%"):
             note += f" ({unit})"
         cards.append({"label": label, "value": format_value(f["end_value"], unit), "note": note})
+        if len(cards) == 1:
+            rank = rank_card(numbers)
+            if rank:
+                cards.append(rank)
     if not cards:
         raise PublishError("story has no findings with start and end values for key numbers")
-    return cards
+    return cards[:MAX_KEY_NUMBERS]
 
 
 def first_sentence(text: str, limit: int = DESCRIPTION_MAX) -> str:

@@ -214,6 +214,16 @@ def test_cover_facts_prefers_rank_change_then_verified_framing() -> None:
     facts = facts_for(CHART, "A")
     rank = {"start_rank": 3, "end_rank": 1, "groups_ranked": 3}
     c = cover_facts(CHART, "A", "country", "Share", "%", rank, facts)
+    assert c.pop("rank") == {
+        "start_rank": 3,
+        "end_rank": 1,
+        "groups": 3,
+        "noun": "UK nations",
+        "start_period": "2011-12",
+        "end_period": "2014-15",
+        "first_means": "highest",
+    }
+    assert c.pop("measure_label") == "Share"
     assert c == {
         "group": "A",
         "value": "8%",
@@ -281,3 +291,29 @@ def test_mappable_uses_the_site_boundaries() -> None:
     assert mappable({"N09000003", "E06000001"})
     assert not mappable({"E92000001", "E06000001"})  # nation + LA: no single map
     assert not mappable({"FAKE-Riser"}) and not mappable(set())
+
+
+def test_rank_card_follows_first_card() -> None:
+    from datatales.sources import get_source
+
+    config = get_source("ons-wellbeing-local-authority").detect
+    assert config is not None
+    finding = {"measure": "Life satisfaction", "estimate": "Average (mean)", "unit": "score",
+               "start_value": 7.0, "end_value": 7.5, "start_period": "2011-12",
+               "end_period": "2014-15"}  # fmt: skip
+    rank = {"start_rank": 4, "end_rank": 1, "groups": 4, "noun": "UK nations",
+            "start_period": "2011-12", "end_period": "2014-15",
+            "first_means": "highest"}  # fmt: skip
+    cover = {"rank": rank, "measure_label": "Average life satisfaction score"}
+    numbers = {"findings": [finding, {**finding, "measure": "Happiness"}], "cover": cover}
+    cards = publish.key_numbers(numbers, config)
+    assert [c.get("kind") for c in cards] == [None, "rank", None]
+    assert cards[1] == {
+        "label": "Rank among 4 UK nations (1st = highest)",
+        "value": "4th → 1st",
+        "note": "Average life satisfaction score, 2011-12 to 2014-15",
+        "kind": "rank",
+    }
+    many = {"findings": [{**finding, "measure": m} for m in ("A", "B", "C", "D", "E")],
+            "cover": numbers["cover"]}  # fmt: skip
+    assert len(publish.key_numbers(many, config)) == 4

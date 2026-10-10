@@ -57,3 +57,16 @@ export function dodge(ys: number[], gap: number, lo: number, hi: number): number
   order.forEach(([, idx], k) => (result[idx] = out[k]));
   return result;
 }
+
+/**
+ * Which x labels to show so none overlap: at most one per `labelWidth` px of plot, and at
+ * most every 2nd period when there are more than 8. Counts back from the last period so the
+ * latest one is always labelled.
+ */
+export function pickTicks<T>(values: T[], plotWidth: number, labelWidth: number): T[] {
+  const n = values.length;
+  if (n === 0) return [];
+  const fit = Math.max(2, Math.floor(plotWidth / labelWidth));
+  const step = Math.max(n > 8 ? 2 : 1, Math.ceil(n / fit));
+  return values.filter((_, i) => (n - 1 - i) % step === 0);
+}

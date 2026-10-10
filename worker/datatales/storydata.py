@@ -127,8 +127,11 @@ def ordinal(n: int) -> str:
     return f"{n}{suffix}"
 
 
-def rank_shift_for(findings: list[dict[str, Any]], key: dict[str, Any]) -> dict[str, Any] | None:
-    """A rank_shift result (a finding, or merged under `related`) for the charted slice."""
+def rank_shift_for(
+    findings: list[dict[str, Any]], key: dict[str, Any], group: str | None = None
+) -> dict[str, Any] | None:
+    """A rank_shift result (a finding, or merged under `related`) for the charted slice and,
+    when given, the story's own place."""
     for f in findings:
         if any(f["numbers"].get(k) != v for k, v in key.items()):
             continue  # another measure: its ranks say nothing about the charted one
@@ -137,7 +140,9 @@ def rank_shift_for(findings: list[dict[str, Any]], key: dict[str, Any]) -> dict[
         entries += f["numbers"].get("related") or []
         for e in entries:
             n = e.get("numbers") or {}
-            if e.get("detector") == "rank_shift" and "start_rank" in n and "end_rank" in n:
+            if e.get("detector") != "rank_shift" or "start_rank" not in n or "end_rank" not in n:
+                continue
+            if group is None or n.get("group", f["numbers"].get("group")) == group:
                 return n
     return None
 
@@ -168,6 +173,7 @@ def cover_facts(
         "group": group,
         "value": format_value(v1, unit),
         "label": f"{label}, {p1}",
+        "measure_label": label,
     }
     if len(points) > 1 and v1 != v0:
         word = "Up" if v1 > v0 else "Down"
@@ -176,6 +182,15 @@ def cover_facts(
     kinds = {c["kind"]: c for c in facts.get("supported_checks", [])}
     if rank and rank.get("start_rank") != rank.get("end_rank"):
         total = rank.get("groups_ranked") or n
+        cover["rank"] = {
+            "start_rank": rank["start_rank"],
+            "end_rank": rank["end_rank"],
+            "groups": total,
+            "noun": noun,
+            "start_period": rank.get("start_period", p0),
+            "end_period": rank.get("end_period", p1),
+            "first_means": "highest",  # rank_shift ranks by value, 1st = highest
+        }
         cover["badge"] = (
             f"{ordinal(rank['start_rank'])} → {ordinal(rank['end_rank'])} of {total} {noun}"
         )
@@ -292,7 +307,7 @@ def build_story_data(
         candidate.geo_level,
         label_for(config, lead_key),
         info.unit,
-        rank_shift_for(candidate.findings, lead_key),
+        rank_shift_for(candidate.findings, lead_key, candidate.geography),
         numbers["chart_facts"],
     )
     return chart_data, chart_spec, numbers

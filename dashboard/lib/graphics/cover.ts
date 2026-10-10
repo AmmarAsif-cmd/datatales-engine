@@ -57,6 +57,37 @@ const text = (font: Font, s: string, x: number, y: number, size: number, fill: s
 
 const n1 = (v: number) => Math.round(v * 10) / 10;
 
+/** Landscape: the mini chart starts here; the text column ends COLUMN_GAP before it. */
+export const CHART_X = 712;
+const COLUMN_GAP = 48;
+
+/**
+ * The largest size (from `max` down to `min`, in steps of 2) at which `text` fits `width` in at
+ * most `maxLines` lines without cutting. At `min`, lines are cut with "…" (and a single word
+ * that is still too wide is shortened), so the result always fits.
+ */
+export function fitText(
+  font: Font,
+  s: string,
+  max: number,
+  min: number,
+  width: number,
+  maxLines: number,
+): { size: number; lines: string[] } {
+  const fits = (lines: string[], size: number) =>
+    lines.every((l) => measure(font, l, size) <= width) && !lines.at(-1)?.endsWith('…');
+  for (let size = max; size >= min; size -= 2) {
+    const lines = wrap(font, s, size, width, maxLines);
+    if (fits(lines, size)) return { size, lines };
+  }
+  const lines = wrap(font, s, min, width, maxLines).map((line) => {
+    let l = line;
+    while (l.length > 1 && measure(font, l, min) > width) l = `${l.slice(0, -2)}…`;
+    return l;
+  });
+  return { size: min, lines };
+}
+
 /** Layout sizes per format. Headline shrinks until the text block fits above the chart. */
 const LAYOUT = {
   landscape: {
@@ -100,19 +131,24 @@ export function coverSvg(input: CoverInput, fonts: Fonts, format: CoverFormat): 
   out.push(text(bold, 'Data', L.pad, wordY, L.word, C.accent));
   out.push(text(bold, 'Tales', L.pad + measure(bold, 'Data', L.word), wordY, L.word, C.accent2));
 
-  // text block: headline, key number, label, change, badge
+  // Text column: a fixed width left of (landscape) or above (portrait) the chart. Every line
+  // is fitted to it, so text can never run into the chart.
+  const col = format === 'landscape' ? CHART_X - COLUMN_GAP - L.pad : w - 2 * L.pad;
+  const footerY = h - L.pad + L.footer * 0.4;
+  const limit = format === 'landscape' ? footerY - L.footer * 2.5 : h * 0.55;
   const c = input.cover;
-  const block = (size: number) => {
-    const lines = wrap(bold, enDash(input.headline), size, L.textW, L.headLines);
-    const lh = Math.round(size * 1.14);
-    let y = wordY + Math.round(L.word * 1.6) + size;
-    const parts: string[] = lines.map((line, i) =>
-      text(bold, line, L.pad, y + i * lh, size, C.ink),
+  const block = (headSize: number) => {
+    const head = fitText(bold, enDash(input.headline), headSize, L.head.at(-1)!, col, L.headLines);
+    const lh = Math.round(head.size * 1.14);
+    let y = wordY + Math.round(L.word * 1.6) + head.size;
+    const parts: string[] = head.lines.map((line, i) =>
+      text(bold, line, L.pad, y + i * lh, head.size, C.ink),
     );
-    y += (lines.length - 1) * lh;
+    y += (head.lines.length - 1) * lh;
     if (c.value) {
-      y += Math.round(L.value * 1.25);
-      parts.push(text(bold, c.value, L.pad, y, L.value, C.ink));
+      const v = fitText(bold, c.value, L.value, L.value * 0.5, col, 1);
+      y += Math.round(v.size * 1.25);
+      parts.push(text(bold, v.lines[0], L.pad, y, v.size, C.ink));
       y += Math.round(L.label * 0.45);
     }
     for (const [s, size2, font, fill] of [
@@ -120,44 +156,52 @@ export function coverSvg(input: CoverInput, fonts: Fonts, format: CoverFormat): 
       [c.change, L.change, regular, C.muted],
     ] as const) {
       if (!s) continue;
-      for (const line of wrap(font, enDash(s), size2, L.textW, 2)) {
-        y += Math.round(size2 * 1.4);
-        parts.push(text(font, line, L.pad, y, size2, fill));
+      const f = fitText(font, enDash(s), size2, size2 * 0.75, col, 2);
+      for (const line of f.lines) {
+        y += Math.round(f.size * 1.4);
+        parts.push(text(font, line, L.pad, y, f.size, fill));
       }
     }
     if (c.badge) {
-      const label = enDash(c.badge);
-      const bw = measure(bold, label, L.badge) + L.badge * 1.4;
+      const inner = col - L.badge * 1.4;
+      const f = fitText(bold, enDash(c.badge), L.badge, L.badge * 0.6, inner, 1);
+      const bw = measure(bold, f.lines[0], f.size) + L.badge * 1.4;
       const bh = Math.round(L.badge * 1.9);
       const top = y + Math.round(L.badge * 0.9);
       parts.push(
         `<rect x="${L.pad}" y="${top}" width="${n1(bw)}" height="${bh}" rx="${bh / 2}" fill="${C.badgeBg}"/>`,
-        text(bold, label, L.pad + L.badge * 0.7, top + bh / 2 + L.badge * 0.36, L.badge, C.accent),
+        text(
+          bold,
+          f.lines[0],
+          L.pad + L.badge * 0.7,
+          top + bh / 2 + f.size * 0.36,
+          f.size,
+          C.accent,
+        ),
       );
       y = top + bh;
     }
     return { parts, bottom: y };
   };
 
-  // chart box
-  const footerY = h - L.pad + L.footer * 0.4;
+  // Largest headline size whose whole block still fits above the footer / chart.
   let chosen = block(L.head[0]);
+  for (let size = L.head[0] - 2; size >= L.head.at(-1)! && chosen.bottom > limit; size -= 2) {
+    chosen = block(size);
+  }
   let box: { x: number; y: number; w: number; h: number };
   if (format === 'landscape') {
-    for (const size of L.head.slice(1)) {
-      if (chosen.bottom <= footerY - L.footer * 2.5) break;
-      chosen = block(size);
-    }
-    box = { x: 712, y: 150, w: w - 712 - L.pad, h: footerY - 150 - L.footer * 3 };
+    box = { x: CHART_X, y: 150, w: w - CHART_X - L.pad, h: footerY - 150 - L.footer * 3 };
   } else {
-    for (const size of L.head.slice(1)) {
-      if (chosen.bottom <= h * 0.55) break;
-      chosen = block(size);
-    }
     const top = chosen.bottom + 64;
     box = { x: L.pad, y: top, w: w - 2 * L.pad, h: footerY - top - L.footer * 3 };
   }
-  out.push(...chosen.parts);
+  // Hard guarantee on top of the fitting: nothing in the column can paint outside it.
+  out.push(
+    `<clipPath id="col"><rect x="${L.pad - 4}" y="0" width="${col + 8}" height="${h}"/></clipPath>`,
+  );
+  out.push(`<g clip-path="url(#col)">`, ...chosen.parts, '</g>');
+
   out.push(miniChart(input, fonts, box, format === 'portrait' ? 26 : 20));
 
   // footer
@@ -166,10 +210,10 @@ export function coverSvg(input: CoverInput, fonts: Fonts, format: CoverFormat): 
   );
   out.push(text(bold, 'datatales.co.uk', L.pad, footerY, L.footer, C.accent));
   if (input.source) {
-    const s = `Source: ${input.source}`;
-    out.push(
-      text(regular, s, w - L.pad - measure(regular, s, L.footer), footerY, L.footer, C.muted),
-    );
+    const room = w - 2 * L.pad - measure(bold, 'datatales.co.uk', L.footer) - L.footer * 2;
+    const f = fitText(regular, `Source: ${input.source}`, L.footer, L.footer * 0.7, room, 1);
+    const sw = measure(regular, f.lines[0], f.size);
+    out.push(text(regular, f.lines[0], w - L.pad - sw, footerY, f.size, C.muted));
   }
 
   return (

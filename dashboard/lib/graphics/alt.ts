@@ -168,7 +168,8 @@ export function chartAlt(spec: Spec, data: Row[], title: string, facts?: ChartFa
       .map((g) => [g, valueAt(spec, data, g, period)] as const)
       .filter((x): x is readonly [string, number] => x[1] !== null)
       .sort((x, y) => x[1] - y[1]);
-    parts[0] = `Map: ${enDash(title)}${unit}, ${enDash(period)}.`;
+    const when = enDash(title).includes(enDash(period)) ? '' : `, ${enDash(period)}`;
+    parts[0] = `Map: ${enDash(title)}${unit}${when}.`;
     for (const g of hl) {
       const v = valueAt(spec, data, g, period);
       if (v !== null) parts.push(`${g}, outlined, ${f(v)}.`);

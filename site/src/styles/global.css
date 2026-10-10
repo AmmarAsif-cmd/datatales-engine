@@ -29,11 +29,18 @@
   --series-6: #008300;
   --series-7: #4a3aa7;
   --series-8: #e34948;
-  --seq-1: #d6e6f9;
-  --seq-2: #a8c9f0;
-  --seq-3: #6ea4e3;
-  --seq-4: #3478c9;
-  --seq-5: #1b4f91; /* sequential ramp for maps: one hue, light to dark */
+  /* Map ramp: one hue, higher = stronger. --seq-ink-N is the label colour on --seq-N
+     (each pair is at least 4.5:1). */
+  --seq-1: #c9dcf4;
+  --seq-2: #9cc0ec;
+  --seq-3: #6399dc;
+  --seq-4: #2b66ad;
+  --seq-5: #1b4f91;
+  --seq-ink-1: #111110;
+  --seq-ink-2: #111110;
+  --seq-ink-3: #111110;
+  --seq-ink-4: #ffffff;
+  --seq-ink-5: #ffffff;
 
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
@@ -72,11 +79,17 @@
     --series-6: #008300;
     --series-7: #9085e9;
     --series-8: #e66767;
-    --seq-1: #1d3554;
-    --seq-2: #24518a;
-    --seq-3: #2f6fc0;
-    --seq-4: #5a98e6;
-    --seq-5: #a6cbf5; /* dark theme: higher = brighter */
+    /* dark theme: low = dark and muted, high = bright and saturated (never pale) */
+    --seq-1: #2a3546;
+    --seq-2: #2c4a72;
+    --seq-3: #2f63a6;
+    --seq-4: #3d82dc;
+    --seq-5: #69adff;
+    --seq-ink-1: #f4f3ef;
+    --seq-ink-2: #f4f3ef;
+    --seq-ink-3: #f4f3ef;
+    --seq-ink-4: #111110;
+    --seq-ink-5: #111110;
   }
 }
 
@@ -106,11 +119,16 @@
   --series-6: #008300;
   --series-7: #9085e9;
   --series-8: #e66767;
-  --seq-1: #1d3554;
-  --seq-2: #24518a;
-  --seq-3: #2f6fc0;
-  --seq-4: #5a98e6;
-  --seq-5: #a6cbf5;
+  --seq-1: #2a3546;
+  --seq-2: #2c4a72;
+  --seq-3: #2f63a6;
+  --seq-4: #3d82dc;
+  --seq-5: #69adff;
+  --seq-ink-1: #f4f3ef;
+  --seq-ink-2: #f4f3ef;
+  --seq-ink-3: #f4f3ef;
+  --seq-ink-4: #111110;
+  --seq-ink-5: #111110;
 }
 
 *,

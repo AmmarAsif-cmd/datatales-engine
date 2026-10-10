@@ -37,7 +37,9 @@ const V = {
   series: (i: number) =>
     `var(--series-${i + 1}, ${['#2a78d6', '#eb6834', '#1baf7a', '#eda100'][i] ?? '#2a78d6'})`,
   seq: (i: number) =>
-    `var(--seq-${i + 1}, ${['#d6e6f9', '#a8c9f0', '#6ea4e3', '#3478c9', '#1b4f91'][i]})`,
+    `var(--seq-${i + 1}, ${['#c9dcf4', '#9cc0ec', '#6399dc', '#2b66ad', '#1b4f91'][i]})`,
+  /** Label colour with at least 4.5:1 contrast on --seq-N, in either theme. */
+  seqInk: (i: number) => `var(--seq-ink-${i + 1}, ${i >= 3 ? '#ffffff' : '#111110'})`,
 };
 
 const esc = (s: string) =>
@@ -58,8 +60,11 @@ function svgOpen(w: number, h: number, opts: StaticOpts, label: string) {
   const ns = opts.standalone ? ' xmlns="http://www.w3.org/2000/svg"' : '';
   const bg = opts.standalone ? `<rect width="${w}" height="${h}" fill="#fcfcfb"/>` : '';
   const desc = opts.describedBy ? ` aria-describedby="${esc(opts.describedBy)}"` : '';
-  return `<svg${ns} viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${esc(label)}"${desc} class="static-chart" ${FONT}>${bg}`;
+  return `<svg${ns} viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${esc(label)}"${desc} class="static-chart" style="max-width: ${w}px" ${FONT}>${bg}`;
 }
+
+/** Rough text width for the system UI font (static SVG text is laid out by the browser). */
+const textWidth = (s: string, size: number, bold = false) => s.length * size * (bold ? 0.6 : 0.56);
 
 function slope(spec: Spec, data: Row[], opts: StaticOpts): string {
   const periods = periodsOf(spec, data);
@@ -70,25 +75,37 @@ function slope(spec: Spec, data: Row[], opts: StaticOpts): string {
   );
   const hl = highlights(spec).filter((g) => groups.includes(g));
   const pct = isPercent(spec);
-  const labelAll = groups.length <= 12;
-  const W = 560;
-  const H = labelAll ? Math.max(300, groups.length * 22 + 110) : 380;
-  const top = 56;
-  const bottom = H - 24;
-  const xa = 150;
-  const xb = 330;
+  const labelled = groups.length <= 12 ? groups : hl;
+  const FS = 14;
+  const GAP = 36; // two-line labels: name over value
+  // Size to the content: label widths set the margins, label count sets the height.
+  const labelW = Math.max(
+    60,
+    ...labelled.map((g) =>
+      Math.max(
+        textWidth(g, FS, hl.includes(g)),
+        textWidth(formatValue(valueAt(spec, data, g, b)!, pct), FS),
+      ),
+    ),
+  );
+  const xa = Math.ceil(labelW) + 14;
+  const xb = xa + 96;
+  const W = xb + 14 + Math.ceil(labelW) + 6;
+  const top = 46;
+  const bottom = top + Math.max(170, (labelled.length - 1) * GAP + 30);
+  const H = bottom + (groups.length > labelled.length ? 34 : 18);
   const vals = groups.flatMap((g) => [valueAt(spec, data, g, a)!, valueAt(spec, data, g, b)!]);
   const lo = Math.min(...vals);
   const hi = Math.max(...vals);
-  const pad = (hi - lo || 1) * 0.06;
+  const pad = (hi - lo || 1) * 0.04;
   const y = (v: number) => top + (1 - (v - lo + pad) / (hi - lo + 2 * pad)) * (bottom - top);
   const order = [...groups.filter((g) => !hl.includes(g)), ...hl]; // highlighted drawn last
   const out = [svgOpen(W, H, opts, opts.title)];
   out.push(
-    `<text x="${xa}" y="24" text-anchor="middle" font-size="14" font-weight="700" fill="${V.ink2}">${esc(enDash(a))}</text>`,
-    `<text x="${xb}" y="24" text-anchor="middle" font-size="14" font-weight="700" fill="${V.ink2}">${esc(enDash(b))}</text>`,
-    `<line x1="${xa}" x2="${xa}" y1="36" y2="${bottom}" stroke="${V.grid}"/>`,
-    `<line x1="${xb}" x2="${xb}" y1="36" y2="${bottom}" stroke="${V.grid}"/>`,
+    `<text x="${xa}" y="20" text-anchor="middle" font-size="${FS + 1}" font-weight="700" fill="${V.ink2}">${esc(enDash(a))}</text>`,
+    `<text x="${xb}" y="20" text-anchor="middle" font-size="${FS + 1}" font-weight="700" fill="${V.ink2}">${esc(enDash(b))}</text>`,
+    `<line x1="${xa}" x2="${xa}" y1="30" y2="${bottom}" stroke="${V.grid}"/>`,
+    `<line x1="${xb}" x2="${xb}" y1="30" y2="${bottom}" stroke="${V.grid}"/>`,
   );
   for (const g of order) {
     const i = hl.indexOf(g);
@@ -104,28 +121,28 @@ function slope(spec: Spec, data: Row[], opts: StaticOpts): string {
         `<circle cx="${xb}" cy="${n1(y(vb))}" r="${i >= 0 ? 5 : 4}" fill="${colour}" stroke="${V.surface}" stroke-width="2"/></g>`,
     );
   }
-  const labelled = labelAll ? groups : hl;
-  const side = (period: string, x: number, anchor: 'start' | 'end', withName: boolean) => {
+  // Both sides: name over value, spread so no two labels overlap.
+  const side = (period: string, x: number, anchor: 'start' | 'end') => {
     const ys = dodge(
       labelled.map((g) => y(valueAt(spec, data, g, period)!)),
-      17,
-      top,
-      bottom,
+      GAP,
+      top - 4,
+      bottom + 4,
     );
     labelled.forEach((g, k) => {
-      const v = formatValue(valueAt(spec, data, g, period)!, pct);
       const strong = hl.includes(g);
-      const label = withName ? `${v}  ${g}` : v;
+      const v = formatValue(valueAt(spec, data, g, period)!, pct);
       out.push(
-        `<text x="${x}" y="${n1(ys[k] + 4.5)}" text-anchor="${anchor}" font-size="13" font-weight="${strong ? 700 : 400}" fill="${strong ? V.ink : V.ink2}" xml:space="preserve">${esc(label)}</text>`,
+        `<text x="${x}" y="${n1(ys[k] - 2)}" text-anchor="${anchor}" font-size="${FS}" font-weight="${strong ? 700 : 400}" fill="${strong ? V.ink : V.ink2}">${esc(g)}</text>`,
+        `<text x="${x}" y="${n1(ys[k] + FS - 1)}" text-anchor="${anchor}" font-size="${FS}" font-weight="${strong ? 700 : 400}" fill="${strong ? V.ink : V.muted}">${esc(v)}</text>`,
       );
     });
   };
-  side(a, xa - 12, 'end', false);
-  side(b, xb + 12, 'start', true);
-  if (!labelAll) {
+  side(a, xa - 12, 'end');
+  side(b, xb + 12, 'start');
+  if (groups.length > labelled.length) {
     out.push(
-      `<text x="${xb + 12}" y="${bottom}" font-size="12" fill="${V.muted}">${groups.length - hl.length} other areas in grey</text>`,
+      `<text x="${xb + 12}" y="${H - 8}" font-size="12" fill="${V.muted}">${groups.length - hl.length} other areas in grey</text>`,
     );
   }
   out.push('</svg>');
@@ -245,9 +262,9 @@ function map(spec: Spec, data: Row[], opts: StaticOpts): string {
         minY = Math.min(minY, r[i + 1]);
         maxY = Math.max(maxY, r[i + 1]);
       }
-  const W = 440;
+  const W = 320; // drawn close to 1:1 on a phone, so legend text stays readable
   const mapH = Math.round((W - 20) * ((maxY - minY) / (maxX - minX)));
-  const legendH = 96;
+  const legendH = 26 + MAP_BINS * 21 + 24 + 34;
   const H = mapH + 20 + legendH;
   const k = (W - 20) / (maxX - minX);
   const tx = (x: number) => 10 + (x - minX) * k;
@@ -294,25 +311,26 @@ function map(spec: Spec, data: Row[], opts: StaticOpts): string {
       );
       const [cx, cy] = centroid(big);
       labels.push(
-        `<text x="${n1(tx(cx))}" y="${n1(ty(cy))}" text-anchor="middle" font-size="13" font-weight="${hl.has(name) ? 700 : 600}" fill="${V.ink}" stroke="${V.surface}" stroke-width="3.5" paint-order="stroke" pointer-events="none">${esc(formatValue(v, pct))}</text>`,
+        `<text x="${n1(tx(cx))}" y="${n1(ty(cy))}" text-anchor="middle" font-size="14" font-weight="${hl.has(name) ? 700 : 600}" fill="${V.seqInk(bin(v))}" stroke="${V.seq(bin(v))}" stroke-width="3" paint-order="stroke" pointer-events="none">${esc(formatValue(v, pct))}</text>`,
       );
     }
   }
   out.push(...outlines, ...labels);
 
-  // legend: equal-interval bins
-  const ly = mapH + 34;
-  const sw = (W - 20) / MAP_BINS;
+  // legend: equal-interval bins, one per row, highest first ("stronger = higher" on top)
+  let ly = mapH + 34;
   out.push(
-    `<text x="10" y="${ly - 8}" font-size="12" font-weight="700" fill="${V.ink2}">${esc(`${enDash(period)}${spec.yLabel ? `, ${spec.yLabel}` : ''}`)}</text>`,
+    `<text x="10" y="${ly}" font-size="13" font-weight="700" fill="${V.ink2}">${esc(`${enDash(period)}${spec.yLabel ? `, ${spec.yLabel}` : ''}`)}</text>`,
   );
-  for (let i = 0; i < MAP_BINS; i++) {
+  ly += 10;
+  for (let i = MAP_BINS - 1; i >= 0; i--) {
     const a = lo + ((hi - lo) * i) / MAP_BINS;
     const b = lo + ((hi - lo) * (i + 1)) / MAP_BINS;
     out.push(
-      `<rect x="${n1(10 + i * sw)}" y="${ly}" width="${n1(sw - 2)}" height="12" rx="2" fill="${V.seq(i)}"/>`,
-      `<text x="${n1(10 + i * sw)}" y="${ly + 28}" font-size="11" fill="${V.ink2}">${esc(`${formatValue(a, false)}–${formatValue(b, pct)}`)}</text>`,
+      `<rect x="10" y="${ly}" width="22" height="14" rx="2" fill="${V.seq(i)}"/>`,
+      `<text x="40" y="${ly + 11.5}" font-size="13" fill="${V.ink2}">${esc(`${formatValue(a, false)} to ${formatValue(b, pct)}`)}</text>`,
     );
+    ly += 21;
   }
   const hlNames = [...hl].filter((h) => rows.some((r) => String(r[key]) === h));
   const note = [
@@ -321,10 +339,11 @@ function map(spec: Spec, data: Row[], opts: StaticOpts): string {
   ]
     .filter(Boolean)
     .join(' ');
-  if (note)
-    out.push(`<text x="10" y="${ly + 50}" font-size="11" fill="${V.muted}">${esc(note)}</text>`);
+  ly += 12;
+  if (note) out.push(`<text x="10" y="${ly}" font-size="12" fill="${V.muted}">${esc(note)}</text>`);
   out.push(
-    `<text x="10" y="${ly + 68}" font-size="9.5" fill="${V.muted}">${esc('Boundaries: ONS, Open Government Licence v3.0. Contains OS data © Crown copyright 2024.')}</text>`,
+    `<text x="10" y="${ly + 20}" font-size="11" fill="${V.muted}">${esc('Boundaries: ONS, Open Government Licence v3.0.')}</text>`,
+    `<text x="10" y="${ly + 35}" font-size="11" fill="${V.muted}">${esc('Contains OS data © Crown copyright 2024.')}</text>`,
   );
   out.push('</svg>');
   return out.join('');

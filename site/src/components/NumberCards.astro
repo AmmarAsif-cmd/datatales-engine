@@ -1,14 +1,17 @@
 ---
 interface Props {
-  items: { label: string; value: string; note?: string }[];
+  items: { label: string; value: string; note?: string; kind?: 'value' | 'rank' }[];
 }
 const { items } = Astro.props;
+// One row of up to 4 on desktop; on mobile 2 per row, with the first card full width when
+// the count is odd, so no card is ever left alone on a row.
+const count = Math.min(items.length, 4);
 ---
 
 <section class="numbers" aria-label="Key numbers">
-  <ul>
-    {items.map((n) => (
-      <li class="card">
+  <ul class={`n${count}`}>
+    {items.slice(0, 4).map((n) => (
+      <li class={`card ${n.kind === 'rank' ? 'rank' : ''}`}>
         <span class="value">{n.value}</span>
         <span class="label">{n.label}</span>
         {n.note && <span class="note">{n.note}</span>}
@@ -20,32 +23,54 @@ const { items } = Astro.props;
 <style>
   ul {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.75rem;
     list-style: none;
     margin: 1.75rem 0;
     padding: 0;
   }
+  ul.n1 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  ul.n3 > li:first-child {
+    grid-column: 1 / -1;
+  }
+  @media (min-width: 40rem) {
+    ul.n3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    ul.n3 > li:first-child {
+      grid-column: auto;
+    }
+    ul.n4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
   .card {
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
-    padding: 1rem;
+    min-width: 0;
+    padding: 0.9rem;
     background: var(--surface);
     border: 1px solid var(--rule);
     border-top: 3px solid var(--accent);
     border-radius: var(--radius);
   }
+  .card.rank {
+    border-top-color: var(--accent-2);
+  }
   .value {
     font-family: var(--font-sans);
     font-weight: 700;
-    font-size: 1.9rem;
+    font-size: clamp(1.35rem, 4.5vw, 1.7rem);
     line-height: 1.1;
     letter-spacing: -0.02em;
     color: var(--ink);
+    white-space: nowrap;
   }
   .label {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     color: var(--ink-2);
   }
   .note {

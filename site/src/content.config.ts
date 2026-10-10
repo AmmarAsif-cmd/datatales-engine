@@ -40,6 +40,8 @@ const keyNumber = z.object({
   label: z.string(),
   value: z.string(),
   note: z.string().optional(),
+  /** 'rank': a rank change such as "4th → 1st" (from a rank-shift finding). */
+  kind: z.enum(['value', 'rank']).optional(),
 });
 
 /**
@@ -64,7 +66,7 @@ const stories = defineCollection({
     recipeVersion: z.string(),
     datasetChecksum: z.string().optional(),
     period: z.string().optional(),
-    keyNumbers: z.array(keyNumber).min(1).max(5),
+    keyNumbers: z.array(keyNumber).min(1).max(4),
     chart_spec: chartSpec,
     /** Up to two more charts of the same chart_data (e.g. a slope chart and a map). */
     more_charts: z.array(chartSpec).max(2).default([]),
