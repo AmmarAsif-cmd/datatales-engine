@@ -39,247 +39,301 @@ chart_spec:
   annotation: Very low anxiety means a rating of 0 or 1 out of 10 for how anxious people felt the day
     before.
 chart_data:
-- lower: 36.15
+- code: E92000001
+  lower: 36.15
   upper: 36.85
   value: 36.5
   period: 2011-12
   geography: England
-- lower: 37.46
+- code: E92000001
+  lower: 37.46
   upper: 38.18
   value: 37.82
   period: 2012-13
   geography: England
-- lower: 39.02
+- code: E92000001
+  lower: 39.02
   upper: 39.75
   value: 39.38
   period: 2013-14
   geography: England
-- lower: 40.48
+- code: E92000001
+  lower: 40.48
   upper: 41.22
   value: 40.85
   period: 2014-15
   geography: England
-- lower: 40.21
+- code: E92000001
+  lower: 40.21
   upper: 40.97
   value: 40.59
   period: 2015-16
   geography: England
-- lower: 39.47
+- code: E92000001
+  lower: 39.47
   upper: 40.25
   value: 39.86
   period: 2016-17
   geography: England
-- lower: 39.8
+- code: E92000001
+  lower: 39.8
   upper: 40.58
   value: 40.19
   period: 2017-18
   geography: England
-- lower: 40.39
+- code: E92000001
+  lower: 40.39
   upper: 41.2
   value: 40.8
   period: 2018-19
   geography: England
-- lower: 38.06
+- code: E92000001
+  lower: 38.06
   upper: 38.88
   value: 38.47
   period: 2019-20
   geography: England
-- lower: 32.51
+- code: E92000001
+  lower: 32.51
   upper: 33.46
   value: 32.99
   period: 2020-21
   geography: England
-- lower: 35.24
+- code: E92000001
+  lower: 35.24
   upper: 36.22
   value: 35.73
   period: 2021-22
   geography: England
-- lower: 33.7
+- code: E92000001
+  lower: 33.7
   upper: 34.81
   value: 34.26
   period: 2022-23
   geography: England
-- lower: 31.96
+- code: N92000002
+  lower: 31.96
   upper: 36.27
   value: 34.11
   period: 2011-12
   geography: Northern Ireland
-- lower: 36.39
+- code: N92000002
+  lower: 36.39
   upper: 40.59
   value: 38.49
   period: 2012-13
   geography: Northern Ireland
-- lower: 38.3
+- code: N92000002
+  lower: 38.3
   upper: 42.93
   value: 40.61
   period: 2013-14
   geography: Northern Ireland
-- lower: 39.59
+- code: N92000002
+  lower: 39.59
   upper: 44.3
   value: 41.95
   period: 2014-15
   geography: Northern Ireland
-- lower: 41.11
+- code: N92000002
+  lower: 41.11
   upper: 46.12
   value: 43.62
   period: 2015-16
   geography: Northern Ireland
-- lower: 44.08
+- code: N92000002
+  lower: 44.08
   upper: 48.55
   value: 46.31
   period: 2016-17
   geography: Northern Ireland
-- lower: 44.8
+- code: N92000002
+  lower: 44.8
   upper: 49.11
   value: 46.95
   period: 2017-18
   geography: Northern Ireland
-- lower: 39.17
+- code: N92000002
+  lower: 39.17
   upper: 43.03
   value: 41.1
   period: 2018-19
   geography: Northern Ireland
-- lower: 38.9
+- code: N92000002
+  lower: 38.9
   upper: 42.17
   value: 40.54
   period: 2019-20
   geography: Northern Ireland
-- lower: 33.68
+- code: N92000002
+  lower: 33.68
   upper: 38.19
   value: 35.94
   period: 2020-21
   geography: Northern Ireland
-- lower: 37.74
+- code: N92000002
+  lower: 37.74
   upper: 41.68
   value: 39.71
   period: 2021-22
   geography: Northern Ireland
-- lower: 37.74
+- code: N92000002
+  lower: 37.74
   upper: 41.32
   value: 39.53
   period: 2022-23
   geography: Northern Ireland
-- lower: 37.55
+- code: S92000003
+  lower: 37.55
   upper: 39.26
   value: 38.41
   period: 2011-12
   geography: Scotland
-- lower: 39.34
+- code: S92000003
+  lower: 39.34
   upper: 41.09
   value: 40.22
   period: 2012-13
   geography: Scotland
-- lower: 39.99
+- code: S92000003
+  lower: 39.99
   upper: 41.83
   value: 40.91
   period: 2013-14
   geography: Scotland
-- lower: 40.5
+- code: S92000003
+  lower: 40.5
   upper: 42.35
   value: 41.42
   period: 2014-15
   geography: Scotland
-- lower: 40.32
+- code: S92000003
+  lower: 40.32
   upper: 42.32
   value: 41.32
   period: 2015-16
   geography: Scotland
-- lower: 39.85
+- code: S92000003
+  lower: 39.85
   upper: 41.85
   value: 40.85
   period: 2016-17
   geography: Scotland
-- lower: 39.75
+- code: S92000003
+  lower: 39.75
   upper: 41.69
   value: 40.72
   period: 2017-18
   geography: Scotland
-- lower: 40.55
+- code: S92000003
+  lower: 40.55
   upper: 42.55
   value: 41.55
   period: 2018-19
   geography: Scotland
-- lower: 36.27
+- code: S92000003
+  lower: 36.27
   upper: 38.19
   value: 37.23
   period: 2019-20
   geography: Scotland
-- lower: 31.68
+- code: S92000003
+  lower: 31.68
   upper: 34.08
   value: 32.88
   period: 2020-21
   geography: Scotland
-- lower: 35.45
+- code: S92000003
+  lower: 35.45
   upper: 38.33
   value: 36.89
   period: 2021-22
   geography: Scotland
-- lower: 34.33
+- code: S92000003
+  lower: 34.33
   upper: 37.29
   value: 35.81
   period: 2022-23
   geography: Scotland
-- lower: 37.64
+- code: W92000004
+  lower: 37.64
   upper: 39.37
   value: 38.5
   period: 2011-12
   geography: Wales
-- lower: 38.01
+- code: W92000004
+  lower: 38.01
   upper: 39.75
   value: 38.88
   period: 2012-13
   geography: Wales
-- lower: 38.9
+- code: W92000004
+  lower: 38.9
   upper: 40.98
   value: 39.94
   period: 2013-14
   geography: Wales
-- lower: 39.87
+- code: W92000004
+  lower: 39.87
   upper: 41.59
   value: 40.73
   period: 2014-15
   geography: Wales
-- lower: 40.79
+- code: W92000004
+  lower: 40.79
   upper: 42.7
   value: 41.74
   period: 2015-16
   geography: Wales
-- lower: 39.58
+- code: W92000004
+  lower: 39.58
   upper: 41.66
   value: 40.62
   period: 2016-17
   geography: Wales
-- lower: 40.45
+- code: W92000004
+  lower: 40.45
   upper: 42.44
   value: 41.45
   period: 2017-18
   geography: Wales
-- lower: 40.07
+- code: W92000004
+  lower: 40.07
   upper: 42.06
   value: 41.06
   period: 2018-19
   geography: Wales
-- lower: 37.29
+- code: W92000004
+  lower: 37.29
   upper: 39.46
   value: 38.38
   period: 2019-20
   geography: Wales
-- lower: 32.05
+- code: W92000004
+  lower: 32.05
   upper: 34.66
   value: 33.36
   period: 2020-21
   geography: Wales
-- lower: 35.56
+- code: W92000004
+  lower: 35.56
   upper: 38.2
   value: 36.88
   period: 2021-22
   geography: Wales
-- lower: 33.39
+- code: W92000004
+  lower: 33.39
   upper: 36.64
   value: 35.01
   period: 2022-23
   geography: Wales
 numbers:
+  cover:
+    badge: 4th → 1st of 4 UK nations
+    group: Northern Ireland
+    label: Share with very low anxiety, 2022-23
+    value: 39.53%
+    change: Up from 34.11% in 2011-12
   series:
   - peak:
       low_value: 34.11
@@ -941,6 +995,22 @@ numbers:
   data_period:
     last: 2022-23
     first: 2011-12
+more_charts:
+- x: period
+  y: value
+  type: slope
+  title: 'Share with very low anxiety: 2011–12 and 2022–23'
+  series: geography
+  yLabel: '% of people'
+  highlight: Northern Ireland
+- x: period
+  y: value
+  type: map
+  title: Share with very low anxiety by UK nation, 2022–23
+  period: 2022-23
+  series: geography
+  yLabel: '% of people'
+  highlight: Northern Ireland
 period: 2011–12 to 2022–23
 ---
 
