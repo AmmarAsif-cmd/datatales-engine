@@ -11,6 +11,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from datatales.errors import UserError
+from datatales.verify import flatten_numbers
 
 HEADLINE_MAX_CHARS = 70
 SUMMARY_MAX_WORDS = 120
@@ -38,6 +39,12 @@ class ChartSpecOut(BaseModel):
     yLabel: str | None = Field(default=None, max_length=80)  # noqa: N815 - matches the site schema
 
 
+class Claim(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    sentence: str = Field(min_length=5, max_length=600)
+    keys: list[str] = Field(min_length=1, max_length=12)
+
+
 class Narration(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     headline: str = Field(min_length=10, max_length=HEADLINE_MAX_CHARS)
@@ -46,6 +53,7 @@ class Narration(BaseModel):
     body_md: str = Field(min_length=50)
     video_script: str = Field(min_length=10)
     chart_spec: ChartSpecOut
+    claims: list[Claim] = Field(min_length=1, max_length=80)
 
     @field_validator("hook")
     @classmethod
@@ -136,6 +144,13 @@ OUTPUT_SCHEMA = {
         "title": "chart title, at most 120 characters (optional)",
         "yLabel": "label for the values, e.g. the unit (optional)",
     },
+    "claims": [
+        {
+            "sentence": "a sentence copied EXACTLY from headline/hook/summary/body_md/"
+            "video_script that contains a number (other than a year)",
+            "keys": ["the KEYS (from the KEYS table) that each number in it comes from"],
+        }
+    ],
 }
 
 RULES = """\
@@ -160,7 +175,11 @@ Rules (follow every one):
    has every year. If the series peaked or bottomed out in between (for example rose, then
    fell back), say so with those numbers instead of implying a steady trend.
 8. Say where the data comes from (source name) and the period covered.
-9. Return ONLY a JSON object with exactly these keys, no Markdown fences, no comments.
+9. CLAIMS: for EVERY sentence in any field that contains a number other than a year, add
+   one claim {"sentence": <the sentence copied exactly>, "keys": [<KEYS it uses>]}. Each
+   number in the sentence must equal (after rounding) one of its keys. If the same sentence
+   is used in two fields, one claim covers both. Count words like "four" as numbers.
+10. Return ONLY a JSON object with exactly these keys, no Markdown fences, no comments.
 """
 
 
@@ -185,7 +204,10 @@ def build_prompt(
             "Suggested chart_spec (adjust only if a different chart is clearer):",
             json.dumps(chart_spec, ensure_ascii=False),
             "",
-            "## NUMBERS",
+            "## NUMBERS (context and meaning)",
             json.dumps(numbers, indent=1, ensure_ascii=False),
+            "",
+            "## KEYS (use these names in claims[].keys)",
+            *(f"{k} = {v}" for k, v in flatten_numbers(numbers).items()),
         ]
     )

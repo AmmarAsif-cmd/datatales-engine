@@ -7,7 +7,7 @@ from typing import Any
 
 from datatales.candidates import Candidate, shortlist
 from datatales.errors import UserError
-from datatales.narrate import build_prompt, parse_narration
+from datatales.narrate import Claim, build_prompt, parse_narration
 from datatales.repo import Repo
 from datatales.sources import get_source
 from datatales.storydata import build_story_data
@@ -91,7 +91,8 @@ def paste_narration(repo: Repo, story_id: str, reply: str) -> tuple[dict[str, An
         "body_md": narration.body_md,
         "video_script": narration.video_script,
     }
-    report = verify_text(fields, story["numbers"])
+    claims = [c.model_dump() for c in narration.claims]
+    report = verify_text(fields, story["numbers"], claims)
     spec = narration.chart_spec.model_dump(exclude_none=True)
     updated = repo.update_story(
         story_id,
@@ -107,15 +108,31 @@ def paste_narration(repo: Repo, story_id: str, reply: str) -> tuple[dict[str, An
     return updated, report
 
 
+def stored_claims(story: dict[str, Any]) -> list[dict[str, Any]] | None:
+    report = story.get("verify_report") or {}
+    if not report.get("claims_checked"):
+        return None
+    return [{"sentence": c["sentence"], "keys": c["keys"]} for c in report.get("claims", [])]
+
+
 def reverify(
-    repo: Repo, story_id: str, edits: dict[str, str] | None = None
+    repo: Repo,
+    story_id: str,
+    edits: dict[str, str] | None = None,
+    claims: list[dict[str, Any]] | None = None,
 ) -> tuple[dict[str, Any], Report]:
-    """Re-run verification, optionally after editing text fields (dashboard edits)."""
+    """Re-run verification after editing text fields and/or claims (dashboard edits)."""
     story = repo.get_story(story_id)
     _editable(story)
     edits = {k: v for k, v in (edits or {}).items() if k in TEXT_FIELDS}
     fields = {k: edits.get(k, story.get(k)) for k in TEXT_FIELDS}
-    report = verify_text(fields, story["numbers"])
+    if claims is not None:
+        claims = [Claim.model_validate(c).model_dump() for c in claims]
+    else:
+        claims = stored_claims(story)
+    if claims is None:
+        raise StoryError("story has no claims; paste a narration reply that includes claims")
+    report = verify_text(fields, story["numbers"], claims)
     updated = repo.update_story(
         story_id, {**edits, "verify_status": report.status, "verify_report": report.to_json()}
     )

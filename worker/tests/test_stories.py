@@ -107,6 +107,7 @@ def reply(**over: object) -> str:
         "video_script": "North felt better: up from 7.0 to 7.4.",
         "chart_spec": {"type": "line", "x": "period", "y": "value", "series": "geography",
                        "highlight": "North"},
+        "claims": [{"sentence": "North felt better: up from 7.0 to 7.4.", "keys": ["a", "b"]}],
     }  # fmt: skip
     base.update(over)
     return json.dumps(base)
@@ -127,6 +128,8 @@ def test_valid_reply_parses_even_inside_code_fences() -> None:
         ({"video_script": "word " * 91}, "max 90"),
         ({"body_md": "Fine text <script>alert(1)</script> and more words."}, "plain Markdown"),
         ({"extra": 1}, "Extra inputs"),
+        ({"claims": []}, "claims"),
+        ({"claims": [{"sentence": "Up to 7.4.", "keys": []}]}, "claims"),
         ({"chart_spec": {"type": "pie", "x": "period", "y": "value"}}, "chart_spec.type"),
         ({"chart_spec": {"type": "line", "x": "year", "y": "value"}}, "not a chart_data column"),
         ({"chart_spec": {"type": "line", "x": "period", "y": "value", "series": "geography",
@@ -179,6 +182,45 @@ def repo_ct() -> tuple[MemRepo, str]:
     return repo, ct
 
 
+def riser_keys(story: dict) -> dict[str, str]:
+    """Key names for the Riser life-satisfaction numbers, from the story's KEYS table."""
+    j = next(i for i, s in enumerate(story["numbers"]["series"], 1) if s["estimate"] == MEAN)
+    return {
+        "start": f"s{j}.points.2011-12.value",
+        "dip": f"s{j}.points.2013-14.value",
+        "end": f"s{j}.points.2014-15.value",
+    }
+
+
+MEAN = "Average (mean)"
+
+
+def riser_reply(story: dict, **over: object) -> dict:
+    k = riser_keys(story)
+    up = [k["start"], k["end"]]
+    reply = {
+        "headline": "Riser life satisfaction 2011–2015",
+        "hook": "Life satisfaction in Riser rose from 6.0 to 6.9.",
+        "summary": "Average life satisfaction in Riser rose from 6.0 in 2011-12 to 6.9 "
+        "in 2014-15, after a dip to 6.2 in 2013-14.",
+        "body_md": "Riser rose from 6.0 to 6.9 between 2011-12 and 2014-15. "
+        "It dipped to 6.2 in 2013-14 before recovering. Source: ONS.",
+        "video_script": "Riser is up from 6.0 to 6.9.",
+        "chart_spec": {"type": "line", "x": "period", "y": "value", "series": "geography",
+                       "highlight": "Riser"},
+        "claims": [
+            {"sentence": "Life satisfaction in Riser rose from 6.0 to 6.9.", "keys": up},
+            {"sentence": "Average life satisfaction in Riser rose from 6.0 in 2011-12 to 6.9 "
+             "in 2014-15, after a dip to 6.2 in 2013-14.", "keys": [*up, k["dip"]]},
+            {"sentence": "Riser rose from 6.0 to 6.9 between 2011-12 and 2014-15.", "keys": up},
+            {"sentence": "It dipped to 6.2 in 2013-14 before recovering.", "keys": [k["dip"]]},
+            {"sentence": "Riser is up from 6.0 to 6.9.", "keys": up},
+        ],
+    }  # fmt: skip
+    reply.update(over)
+    return reply
+
+
 def test_story_flow_create_prompt_paste_verify(repo_ct: tuple[MemRepo, str]) -> None:
     repo, ct = repo_ct
     picks = stories.candidates_for(repo, ct)
@@ -187,69 +229,73 @@ def test_story_flow_create_prompt_paste_verify(repo_ct: tuple[MemRepo, str]) -> 
     assert story["status"] == "draft" and story["verify_status"] == "pending"
     assert {r["geography"] for r in story["chart_data"]} == {"Riser", "Steady", "Top", "Faller"}
     assert len(story["chart_data"]) == 16  # full yearly series, not just endpoints
-    s = next(x for x in story["numbers"]["series"] if x["estimate"] == "Average (mean)")
+    s = next(x for x in story["numbers"]["series"] if x["estimate"] == MEAN)
     assert [p["value"] for p in s["points"]] == [6.0, 6.4, 6.2, 6.9]
-    assert "NUMBERS" in stories.story_prompt(repo, story["id"])
+    prompt = stories.story_prompt(repo, story["id"])
+    assert "## KEYS" in prompt and f"{riser_keys(story)['dip']} = 6.2" in prompt
 
-    good = json.dumps(
-        {
-            "headline": "Riser life satisfaction 2011–2015",
-            "hook": "Life satisfaction in Riser rose from 6.0 to 6.9.",
-            "summary": "Average life satisfaction in Riser rose from 6.0 in 2011-12 to 6.9 "
-            "in 2014-15, after a dip to 6.2 in 2013-14.",
-            "body_md": "Riser rose from 6.0 to 6.9 between 2011-12 and 2014-15. "
-            "It dipped to 6.2 in 2013-14 before recovering. Source: ONS.",
-            "video_script": "Riser is up from 6.0 to 6.9.",
-            "chart_spec": {
-                "type": "line",
-                "x": "period",
-                "y": "value",
-                "series": "geography",
-                "highlight": "Riser",
-            },
-        }  # fmt: skip
-    )
-    saved, report = stories.paste_narration(repo, story["id"], good)
-    assert report.passed, report.unmatched
+    good = riser_reply(story)
+    saved, report = stories.paste_narration(repo, story["id"], json.dumps(good))
+    assert report.passed, (report.unmatched, report.claims, report.uncovered)
+    assert report.claims_checked and all(c["status"] == "ok" for c in report.claims)
     assert saved["slug"] == "riser-life-satisfaction-2011-2015"
     assert saved["verify_status"] == "passed" and saved["hook"].startswith("Life")
 
-    bad = good.replace("6.9 in 2014-15", "7.3 in 2014-15")
-    saved, report = stories.paste_narration(repo, story["id"], bad)
+    # a made-up number fails both the data check and its claim
+    bad = json.loads(json.dumps(good).replace("6.9 in 2014-15", "7.3 in 2014-15"))
+    saved, report = stories.paste_narration(repo, story["id"], json.dumps(bad))
     assert not report.passed and saved["verify_status"] == "failed"
     assert [u["text"] for u in report.unmatched] == ["7.3"]
+    assert [c["status"] for c in report.claims if c["status"] != "ok"] == ["mismatch"]
     with pytest.raises(ValueError, match="verified_before_approval"):
         repo.update_story(story["id"], {"status": "approved"})
 
-    # fix the text by editing, re-verify, then it can be approved
+    # fix the text by editing, re-verify with the stored (edited) claims, then approve
+    fixed_claims = [{**c, "sentence": c["sentence"].replace("7.3", "6.9")} for c in bad["claims"]]
     fixed, report = stories.reverify(
-        repo, story["id"], {"summary": saved["summary"].replace("7.3", "6.9")}
+        repo,
+        story["id"],
+        {"summary": saved["summary"].replace("7.3", "6.9")},
+        claims=fixed_claims,
     )
     assert report.passed and fixed["verify_status"] == "passed"
+    _, again = stories.reverify(repo, story["id"])  # stored claims are reused
+    assert again.passed
     repo.update_story(story["id"], {"status": "approved"})
     with pytest.raises(stories.StoryError, match="approved"):
-        stories.paste_narration(repo, story["id"], good)
+        stories.paste_narration(repo, story["id"], json.dumps(good))
+
+
+def test_real_number_with_wrong_key_fails_claim_check(repo_ct: tuple[MemRepo, str]) -> None:
+    repo, ct = repo_ct
+    story = stories.create_story(repo, ct, 1)
+    k = riser_keys(story)
+    reply = riser_reply(story)
+    # 6.2 is a real number in the data, but this claim says it comes from the end value
+    reply["claims"][3] = {"sentence": "It dipped to 6.2 in 2013-14 before recovering.",
+                          "keys": [k["end"]]}  # fmt: skip
+    _, report = stories.paste_narration(repo, story["id"], json.dumps(reply))
+    assert not report.passed and report.unmatched == []  # data-level check alone would pass
+    bad = [c for c in report.claims if c["status"] != "ok"]
+    assert bad[0]["status"] == "mismatch" and bad[0]["numbers"] == [{"text": "6.2", "key": None}]
 
 
 def test_slugs_stay_unique(repo_ct: tuple[MemRepo, str]) -> None:
     repo, ct = repo_ct
-    reply_text = json.dumps(
-        {
-            "headline": "Riser wellbeing story here",
-            "hook": "Riser rose from 6.0 to 6.9.",
-            "summary": "Riser rose from 6.0 to 6.9 over the period shown here.",
-            "body_md": "Riser rose from 6.0 to 6.9 over the period in the chart. Source: ONS.",
-            "video_script": "Riser rose from 6.0 to 6.9.",
-            "chart_spec": {"type": "line", "x": "period", "y": "value"},
-        }
-    )
     a = stories.create_story(repo, ct, 1)
     b = stories.create_story(repo, ct, 1)
-    sa, _ = stories.paste_narration(repo, a["id"], reply_text)
-    sb, _ = stories.paste_narration(repo, b["id"], reply_text)
-    assert (
-        sa["slug"] == "riser-wellbeing-story-here" and sb["slug"] == "riser-wellbeing-story-here-2"
-    )
+    reply = json.dumps(riser_reply(a, headline="Riser wellbeing story here"))
+    sa, _ = stories.paste_narration(repo, a["id"], reply)
+    sb, _ = stories.paste_narration(repo, b["id"], reply)
+    assert sa["slug"] == "riser-wellbeing-story-here"
+    assert sb["slug"] == "riser-wellbeing-story-here-2"
+
+
+def test_reverify_without_claims_is_refused(repo_ct: tuple[MemRepo, str]) -> None:
+    repo, ct = repo_ct
+    story = stories.create_story(repo, ct, 1)
+    with pytest.raises(stories.StoryError, match="no claims"):
+        stories.reverify(repo, story["id"])
 
 
 def test_candidate_index_out_of_range(repo_ct: tuple[MemRepo, str]) -> None:

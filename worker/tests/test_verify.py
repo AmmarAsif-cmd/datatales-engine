@@ -1,8 +1,10 @@
 """Number checker tests. NUMBERS are FAKE but shaped like a real story's numbers."""
 
+from decimal import Decimal
+
 import pytest
 
-from datatales.verify import allowed_from_numbers, extract_tokens, verify_text
+from datatales.verify import allowed_from_numbers, extract_tokens, flatten_numbers, verify_text
 
 NUMBERS = {
     "data_period": {"first": "2011-12", "last": "2022-23"},
@@ -112,3 +114,87 @@ def test_booleans_are_not_numbers() -> None:
 def test_report_serialises() -> None:
     report = check(body_md="Up to 99.9%.").to_json()
     assert report["status"] == "failed" and report["unmatched"][0]["text"] == "99.9%"
+
+
+# ---- claim-level verification ----
+
+
+def test_flatten_numbers_gives_readable_keys() -> None:
+    keys = flatten_numbers(NUMBERS)
+    assert keys["f1.start_value"] == Decimal("34.11")
+    assert keys["f1.groups_compared"] == 4
+    assert keys["f1.scale_max"] == 10  # from "average score out of 10"
+    assert keys["s1.points.2020-21.value"] == Decimal("35.94")
+    assert keys["s1.points.2020-21.ci.lower"] == Decimal("34.0")
+    assert "f1.good_news" not in keys  # booleans are not numbers
+
+
+CLAIMED = "The share rose from 34.11% to 39.5%, the most of four areas."
+
+
+def claim_check(text: str, claims: list[dict], field: str = "body_md"):  # noqa: ANN201
+    return verify_text({field: text}, NUMBERS, claims)
+
+
+def test_claim_ok() -> None:
+    r = claim_check(
+        CLAIMED,
+        [{"sentence": CLAIMED, "keys": ["f1.start_value", "f1.end_value", "f1.groups_compared"]}],
+    )
+    assert r.passed and r.claims[0]["status"] == "ok"
+    assert [n["key"] for n in r.claims[0]["numbers"]] == [
+        "f1.start_value",
+        "f1.end_value",
+        "f1.groups_compared",
+    ]
+
+
+def test_claim_number_not_in_its_keys_is_a_mismatch() -> None:
+    # 39.5 is real (end_value) but the claim only names start_value and groups_compared
+    r = claim_check(
+        CLAIMED, [{"sentence": CLAIMED, "keys": ["f1.start_value", "f1.groups_compared"]}]
+    )
+    assert not r.passed and not r.unmatched
+    assert r.claims[0]["status"] == "mismatch"
+    assert {"text": "39.5%", "key": None} in r.claims[0]["numbers"]
+
+
+def test_claim_sentence_must_be_in_text() -> None:
+    r = claim_check(
+        CLAIMED, [{"sentence": "Something else with 34.11.", "keys": ["f1.start_value"]}]
+    )
+    assert r.claims[0]["status"] == "sentence_not_found"
+    assert {u["text"] for u in r.uncovered} == {"34.11%", "39.5%", "four"}
+
+
+def test_claim_unknown_key() -> None:
+    r = claim_check(CLAIMED, [{"sentence": CLAIMED, "keys": ["f9.made_up"]}])
+    assert r.claims[0]["status"] == "unknown_keys" and r.claims[0]["unknown_keys"] == ["f9.made_up"]
+
+
+def test_numbers_outside_any_claim_are_uncovered() -> None:
+    text = CLAIMED + " It dipped to 35.9 in 2020-21."
+    keys = ["f1.start_value", "f1.end_value", "f1.groups_compared"]
+    r = claim_check(text, [{"sentence": CLAIMED, "keys": keys}])
+    assert not r.passed
+    assert r.uncovered == [
+        {"field": "body_md", "text": "35.9", "sentence": "It dipped to 35.9 in 2020-21."}
+    ]
+
+
+def test_claim_matching_ignores_markdown_spacing_and_quotes() -> None:
+    text = "The **share** rose from 34.11%\nto  39.5%, the most of four areas."
+    keys = ["f1.start_value", "f1.end_value", "f1.groups_compared"]
+    assert claim_check(text, [{"sentence": CLAIMED, "keys": keys}]).passed
+
+
+def test_one_claim_covers_the_same_sentence_in_two_fields() -> None:
+    keys = ["f1.start_value", "f1.end_value", "f1.groups_compared"]
+    r = verify_text(
+        {"summary": CLAIMED, "body_md": CLAIMED}, NUMBERS, [{"sentence": CLAIMED, "keys": keys}]
+    )
+    assert r.passed and r.claims[0]["fields"] == ["body_md", "summary"]
+
+
+def test_sentences_with_only_years_need_no_claim() -> None:
+    assert claim_check("Data from 2011-12 to 2022-23.", []).passed

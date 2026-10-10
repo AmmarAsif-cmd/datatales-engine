@@ -1,9 +1,17 @@
-"""Number checker: every number in a story's text must come from the story's `numbers`.
+"""Number checker for story text.
 
-A number in the text passes if it equals a number in `numbers` (sign ignored) after
-rounding that number to the decimal places written in the text. Years (including
-financial years such as 2011-12) must fall within the data period. Anything else fails
-verification, and a failed story cannot be approved (enforced in the database too).
+Two levels:
+
+1. Data-level (always): every number in the text equals some number in the story's
+   `numbers` (sign ignored) after rounding that number to the decimals written. Years and
+   financial years (2011-12) must fall within the data period.
+2. Claim-level (when the narration supplies `claims`): each claim is
+   {sentence, keys}. The sentence must appear in the text; every key must exist in the
+   story's key table (`flatten_numbers`); every number in the sentence must match one of
+   ITS keys; and every number in the text must sit inside a claimed sentence. This catches
+   a real number attached to the wrong thing (e.g. a happiness score called "worthwhile").
+
+A failed story cannot be approved (enforced in the database too).
 """
 
 import re
@@ -32,6 +40,7 @@ TOKEN = re.compile(
 )
 YEAR_PERIOD = re.compile(r"((?:19|20)\d{2})\s*[-–/]\s*(\d{2})(?!\d)")
 OUT_OF = re.compile(r"out of (\d+)")
+YEAR_KINDS = ("year", "financial_year")
 
 
 @dataclass(frozen=True)
@@ -41,6 +50,8 @@ class Token:
     value: Decimal
     decimals: int
     kind: str  # number | percent | money | ordinal | times | word | year | financial_year
+    start: int = 0
+    end: int = 0
 
 
 @dataclass
@@ -51,6 +62,9 @@ class Report:
     years_out_of_range: list[dict[str, Any]] = field(default_factory=list)
     data_years: list[int] = field(default_factory=list)
     allowed_values: int = 0
+    claims_checked: bool = False
+    claims: list[dict[str, Any]] = field(default_factory=list)
+    uncovered: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
@@ -60,16 +74,20 @@ class Report:
         return asdict(self)
 
 
+# ---- tokens ----
+
+
 def extract_tokens(field_name: str, text: str) -> list[Token]:
     tokens: list[Token] = []
     for m in TOKEN.finditer(text):
+        span = (m.start(), m.end())
         if m.group("fy"):
-            start = int(m.group("fy"))
-            tokens.append(Token(field_name, m.group(0), Decimal(start), 0, "financial_year"))
+            value = Decimal(int(m.group("fy")))
+            tokens.append(Token(field_name, m.group(0), value, 0, "financial_year", *span))
             continue
         if m.group("word"):
-            word = m.group("word").lower()
-            tokens.append(Token(field_name, m.group(0), Decimal(WORD_NUMBERS[word]), 0, "word"))
+            value = Decimal(WORD_NUMBERS[m.group("word").lower()])
+            tokens.append(Token(field_name, m.group(0), value, 0, "word", *span))
             continue
         raw = m.group("num").replace(",", "")
         suffix = (m.group("suffix") or "").strip().lower()
@@ -87,8 +105,17 @@ def extract_tokens(field_name: str, text: str) -> list[Token]:
             kind = "year"
         else:
             kind = "number"
-        tokens.append(Token(field_name, m.group(0).strip(), value, decimals, kind))
+        tokens.append(Token(field_name, m.group(0).strip(), value, decimals, kind, *span))
     return tokens
+
+
+def matches(token: Token, allowed: set[Decimal] | list[Decimal]) -> bool:
+    target = abs(token.value)
+    half_step = Decimal(5) * Decimal(10) ** -(token.decimals + 1)
+    return any(abs(a - target) <= half_step for a in allowed)
+
+
+# ---- the numbers a story may use ----
 
 
 def allowed_from_numbers(numbers: Any) -> tuple[set[Decimal], set[int]]:
@@ -117,29 +144,137 @@ def allowed_from_numbers(numbers: Any) -> tuple[set[Decimal], set[int]]:
     return values, years
 
 
-def matches(token: Token, allowed: set[Decimal]) -> bool:
-    target = abs(token.value)
-    half_step = Decimal(5) * Decimal(10) ** -(token.decimals + 1)
-    return any(abs(a - target) <= half_step for a in allowed)
+def flatten_numbers(numbers: dict[str, Any]) -> dict[str, Decimal]:
+    """Readable key -> value for every number in `numbers`.
+
+    findings[i] -> f{i+1}, series[i] -> s{i+1}; list items with a `period` are keyed by
+    that period (s1.points.2020-21.value); confidence intervals are `.ci.lower`/`.ci.upper`.
+    `unit` strings like "out of 10" give `{path}.scale_max`.
+    """
+    out: dict[str, Decimal] = {}
+
+    def seg_for(index: int, item: Any) -> str:
+        if isinstance(item, dict) and isinstance(item.get("period"), str):
+            return item["period"]
+        if isinstance(item, dict) and isinstance(item.get("group"), str):
+            return item["group"]
+        return str(index + 1)
+
+    def walk(obj: Any, path: list[str]) -> None:
+        if isinstance(obj, bool) or obj is None:
+            return
+        if isinstance(obj, int | float):
+            out[".".join(path)] = Decimal(str(obj))
+        elif isinstance(obj, str):
+            for n in OUT_OF.findall(obj):
+                out[".".join([*path[:-1], "scale_max"])] = Decimal(n)
+        elif isinstance(obj, dict):
+            for k, v in obj.items():
+                if k == "source":
+                    continue
+                walk(v, [*path, k])
+        elif isinstance(obj, list | tuple):
+            parent = path[-1] if path else ""
+            if (
+                path
+                and path[-1].endswith("ci")
+                and len(obj) == 2
+                and all(isinstance(x, int | float) for x in obj)
+            ):
+                walk(obj[0], [*path, "lower"])
+                walk(obj[1], [*path, "upper"])
+                return
+            top_level = len(path) == 1 and parent in ("findings", "series")
+            for i, item in enumerate(obj):
+                if top_level:
+                    walk(item, [("f" if parent == "findings" else "s") + str(i + 1)])
+                else:
+                    walk(item, [*path, seg_for(i, item)])
+
+    walk(numbers, [])
+    return out
 
 
-def verify_text(fields: dict[str, str | None], numbers: dict[str, Any]) -> Report:
-    allowed, years = allowed_from_numbers(numbers)
+# ---- text positions (claims are matched ignoring Markdown and whitespace) ----
+
+
+def _normalise(text: str) -> tuple[str, list[int]]:
+    """Lowercased text without Markdown emphasis and with collapsed whitespace, plus a map
+    from each normalised character back to its index in the original."""
+    chars: list[str] = []
+    index: list[int] = []
+    prev_space = True
+    for i, ch in enumerate(text):
+        if ch in "*_`#>":
+            continue
+        ch = {"’": "'", "‘": "'", "“": '"', "”": '"', "–": "-", "—": "-"}.get(ch, ch)
+        if ch.isspace():
+            if prev_space:
+                continue
+            ch = " "
+            prev_space = True
+        else:
+            prev_space = False
+        chars.append(ch.lower())
+        index.append(i)
+    while chars and chars[-1] == " ":
+        chars.pop()
+        index.pop()
+    return "".join(chars), index
+
+
+def _find_spans(text: str, sentence: str) -> list[tuple[int, int]]:
+    norm_text, mapping = _normalise(text)
+    norm_sentence, _ = _normalise(sentence)
+    norm_sentence = norm_sentence.strip()
+    spans: list[tuple[int, int]] = []
+    if not norm_sentence:
+        return spans
+    start = norm_text.find(norm_sentence)
+    while start != -1:
+        end = start + len(norm_sentence) - 1
+        spans.append((mapping[start], mapping[end] + 1))
+        start = norm_text.find(norm_sentence, start + 1)
+    return spans
+
+
+def _sentence_around(text: str, pos: int) -> str:
+    start = max(text.rfind(". ", 0, pos), text.rfind("\n", 0, pos))
+    end_candidates = [i for i in (text.find(". ", pos), text.find("\n", pos)) if i != -1]
+    end = min(end_candidates) + 1 if end_candidates else len(text)
+    return text[start + 1 : end].strip()
+
+
+# ---- main entry ----
+
+
+def _data_years(numbers: dict[str, Any], fallback: set[int]) -> tuple[int | None, int | None]:
     period = numbers.get("data_period") or {}
-    data_years: set[int] = set()
+    years: set[int] = set()
     for label in (period.get("first"), period.get("last")):
         for a, b in YEAR_PERIOD.findall(str(label or "")):
-            data_years.update({int(a), int(a[:2] + b)})
-    data_years = data_years or years
-    lo, hi = (min(data_years), max(data_years)) if data_years else (None, None)
+            years.update({int(a), int(a[:2] + b)})
+    years = years or fallback
+    return (min(years), max(years)) if years else (None, None)
 
+
+def verify_text(
+    fields: dict[str, str | None],
+    numbers: dict[str, Any],
+    claims: list[dict[str, Any]] | None = None,
+) -> Report:
+    allowed, years = allowed_from_numbers(numbers)
+    lo, hi = _data_years(numbers, years)
     report = Report(status="passed", checked=0, data_years=[lo, hi] if lo else [])
     report.allowed_values = len(allowed)
-    for name in TEXT_FIELDS:
-        text = fields.get(name) or ""
-        for tok in extract_tokens(name, text):
+
+    texts = {name: fields.get(name) or "" for name in TEXT_FIELDS}
+    tokens = {name: extract_tokens(name, text) for name, text in texts.items()}
+
+    for name, toks in tokens.items():
+        for tok in toks:
             report.checked += 1
-            if tok.kind in ("year", "financial_year"):
+            if tok.kind in YEAR_KINDS:
                 ys = [int(tok.value)]
                 if tok.kind == "financial_year":
                     m = YEAR_PERIOD.search(tok.text)
@@ -149,11 +284,73 @@ def verify_text(fields: dict[str, str | None], numbers: dict[str, Any]) -> Repor
                     report.years_out_of_range.append(
                         {"field": name, "text": tok.text, "allowed": [lo, hi]}
                     )
-                continue
-            if not matches(tok, allowed):
+            elif not matches(tok, allowed):
                 report.unmatched.append(
                     {"field": name, "text": tok.text, "kind": tok.kind, "value": str(tok.value)}
                 )
-    if report.unmatched or report.years_out_of_range:
-        report.status = "failed"
+
+    if claims is not None:
+        _check_claims(report, texts, tokens, numbers, claims)
+
+    failed = report.unmatched or report.years_out_of_range or report.uncovered
+    failed = failed or any(c["status"] != "ok" for c in report.claims)
+    report.status = "failed" if failed else "passed"
     return report
+
+
+def _check_claims(
+    report: Report,
+    texts: dict[str, str],
+    tokens: dict[str, list[Token]],
+    numbers: dict[str, Any],
+    claims: list[dict[str, Any]],
+) -> None:
+    report.claims_checked = True
+    key_table = flatten_numbers(numbers)
+    covered: dict[str, list[tuple[int, int]]] = {name: [] for name in texts}
+
+    for claim in claims:
+        sentence = str(claim.get("sentence", ""))
+        keys = [str(k) for k in claim.get("keys", [])]
+        result: dict[str, Any] = {"sentence": sentence, "keys": keys, "fields": [], "numbers": []}
+        unknown = [k for k in keys if k not in key_table]
+        found_in: list[tuple[str, tuple[int, int]]] = []
+        for name, text in texts.items():
+            for span in _find_spans(text, sentence):
+                found_in.append((name, span))
+                covered[name].append(span)
+        result["fields"] = sorted({name for name, _ in found_in})
+
+        if not found_in:
+            result["status"] = "sentence_not_found"
+        elif unknown:
+            result["status"] = "unknown_keys"
+            result["unknown_keys"] = unknown
+        else:
+            name, (start, end) = found_in[0]
+            mismatched = False
+            for tok in tokens[name]:
+                if not (start <= tok.start < end) or tok.kind in YEAR_KINDS:
+                    continue
+                hit = next((k for k in keys if matches(tok, [abs(key_table[k])])), None)
+                result["numbers"].append({"text": tok.text, "key": hit})
+                mismatched = mismatched or hit is None
+            if mismatched:
+                result["status"] = "mismatch"
+                result["key_values"] = {k: str(key_table[k]) for k in keys}
+            else:
+                result["status"] = "ok"
+        report.claims.append(result)
+
+    for name, toks in tokens.items():
+        for tok in toks:
+            if tok.kind in YEAR_KINDS:
+                continue
+            if not any(s <= tok.start < e for s, e in covered[name]):
+                report.uncovered.append(
+                    {
+                        "field": name,
+                        "text": tok.text,
+                        "sentence": _sentence_around(texts[name], tok.start),
+                    }
+                )

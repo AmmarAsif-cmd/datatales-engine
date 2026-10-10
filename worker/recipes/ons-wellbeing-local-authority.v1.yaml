@@ -1,0 +1,164 @@
+# Approved by Ammar Asif at 2026-10-10T12:38:56.286228+00:00.
+# Do not edit: approved recipes are immutable. Import a new version instead.
+source: ons-wellbeing-local-authority
+version: 1
+description: 'ONS personal well-being by local authority (API dataset wellbeing-local-authority, v4).
+  Long format already: one row per period x geography x measure x estimate. Renames the ONS column names,
+  keeps labels (drops slug duplicates), turns suppression markers ([c], [u], [w], [x]) into nulls, adds
+  the financial-year start, geography level and an is_reliable flag (false where ONS marks the estimate
+  [u], i.e. 50 or fewer respondents). Band labels are the same for every measure; per the ONS metadata,
+  for anxiety Poor = high, Fair = medium, Good = low and Very good = very low anxiety.'
+steps:
+- op: rename_columns
+  mapping:
+    Time: period
+    v4_3: value
+    Estimate: estimate
+    Geography: geography
+    Lower limit: lower_ci
+    Upper limit: upper_ci
+    Data marking: marking
+    MeasureOfWellbeing: measure
+    administrative-geography: geo_code
+- op: select_columns
+  columns:
+  - period
+  - geo_code
+  - geography
+  - measure
+  - estimate
+  - value
+  - lower_ci
+  - upper_ci
+  - marking
+- op: parse_number
+  columns:
+  - value
+  - lower_ci
+  - upper_ci
+- op: parse_date
+  column: period
+  format: financial_year_start
+  into: year_start
+- op: classify_prefix
+  column: geo_code
+  into: geo_level
+  mapping:
+    E06: local_authority
+    E07: local_authority
+    E08: local_authority
+    E09: local_authority
+    E10: county
+    E11: metropolitan_county
+    E12: region
+    E13: london_inner_outer
+    E92: country
+    K02: uk
+    N09: local_authority
+    N92: country
+    S12: local_authority
+    S92: country
+    W06: local_authority
+    W92: country
+  default: other
+- op: derive_flag
+  into: is_reliable
+  where:
+    column: marking
+    op: ne
+    value: '[u]'
+- op: sort
+  by:
+  - year_start
+  - geo_code
+  - measure
+  - estimate
+checks:
+  expected_columns:
+  - period
+  - geo_code
+  - geography
+  - measure
+  - estimate
+  - value
+  - lower_ci
+  - upper_ci
+  - marking
+  - year_start
+  - geo_level
+  - is_reliable
+  row_count:
+    min: 90288
+    max: 110352
+  not_null:
+  - period
+  - geo_code
+  - geography
+  - measure
+  - estimate
+  - year_start
+  - geo_level
+  - is_reliable
+  unique:
+  - period
+  - geo_code
+  - measure
+  - estimate
+  ranges:
+    year_start:
+      min: 2011.0
+      max: 2030.0
+  ranges_where:
+  - name: mean_0_to_10
+    column: value
+    where:
+      estimate:
+      - Average (mean)
+    min: 0.0
+    max: 10.0
+  - name: band_pct_0_to_100
+    column: value
+    where:
+      estimate:
+      - Poor
+      - Fair
+      - Good
+      - Very good
+    min: 0.0
+    max: 100.0
+  sums:
+  - name: bands_sum_to_100
+    value: value
+    group_by:
+    - period
+    - geo_code
+    - measure
+    where:
+      measure:
+      - Life satisfaction
+      - Worthwhile
+      - Happiness
+      estimate:
+      - Poor
+      - Fair
+      - Good
+      - Very good
+    group_size: 4
+    target: 100.0
+    tolerance: 0.05
+  - name: anxiety_bands_sum_to_100
+    value: value
+    group_by:
+    - period
+    - geo_code
+    where:
+      measure:
+      - Anxiety
+      estimate:
+      - Poor
+      - Fair
+      - Good
+      - Very good
+    group_size: 4
+    target: 100.0
+    tolerance: 0.05
