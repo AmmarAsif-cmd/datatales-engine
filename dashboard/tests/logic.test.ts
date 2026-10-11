@@ -9,7 +9,7 @@ import { test } from "node:test";
 
 import { evaluate, fmtG } from "../lib/logic/chartfacts.ts";
 import { decKey, decToString, parseDec } from "../lib/logic/decimal.ts";
-import { buildPrompt, narrationData, narrationInstructions, NarrationError, parseNarration, STORY_REQUEST, wordCount } from "../lib/logic/narrate.ts";
+import { buildPrompt, narrationData, narrationInstructions, NarrationError, normaliseApiReply, parseNarration, STORY_REQUEST, wordCount } from "../lib/logic/narrate.ts";
 import { shortlist, slugify, type FindingRow } from "../lib/logic/stories.ts";
 import { chartKeys, chartText, extractTokens, flattenNumbers, verifyText, type Claim } from "../lib/logic/verify.ts";
 
@@ -130,4 +130,8 @@ test("chart keys and chart text", () => {
   assert.deepEqual(Object.keys(got).sort(), Object.keys(golden.chart_keys).sort());
   for (const [k, v] of Object.entries(golden.chart_keys as Record<string, string>)) assert.ok(sameNumber(got[k], v), k);
   for (const c of golden.chart_text) assert.equal(chartText(c.spec), c.text);
+});
+
+test("API reply normalisation (\"\" and [] mean not used)", () => {
+  for (const c of golden.normalise) assert.deepEqual(normaliseApiReply(c.reply), c.out);
 });

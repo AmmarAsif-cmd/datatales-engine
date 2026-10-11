@@ -15163,6 +15163,137 @@
    "data": "## Chart\nchart_data columns: ['geography', 'lower', 'period', 'upper', 'value']\ngeography values: ['Area 0', 'Area 1', 'Area 10', 'Area 11', 'Area 12', 'Area 13', 'Area 14', 'Area 15', 'Area 16', 'Area 17', 'Area 18', 'Area 19', 'Area 2', 'Area 20', 'Area 21', 'Area 22', 'Area 23', 'Area 24', 'Area 25', 'Area 26', 'Area 27', 'Area 28', 'Area 29', 'Area 3', 'Area 4', 'Area 5', 'Area 6', 'Area 7', 'Area 8', 'Area 9']\nSuggested chart_spec (adjust only if a different chart is clearer):\n{\"type\": \"line\", \"x\": \"period\", \"y\": \"value\", \"series\": \"geography\", \"highlight\": \"Area 7\"}\n\n## NUMBERS (context and meaning)\n{\n \"data_period\": {\n  \"first\": \"2011-12\",\n  \"last\": \"2022-23\"\n },\n \"caveats\": [\n  \"Paused after April 2022 to March 2023; a review is due in 2026.\"\n ],\n \"findings\": [\n  {\n   \"start_value\": 30.0,\n   \"end_value\": 40.0,\n   \"change\": 10.0,\n   \"groups_compared\": 4\n  }\n ]\n}\n\n## KEYS (use these names in claims[].keys)\nf1.start_value = 30.0\nf1.end_value = 40.0\nf1.change = 10.0\nf1.groups_compared = 4\n\n## CHART DATA (keys: chart.<geography>.<period>.value, .lower, .upper)\n(large chart: first and last period and the highlighted rows only)\ngeography,period,value,lower,upper\nArea 0,2010-11,10.0,,\nArea 0,2019-20,10.9,,\nArea 1,2010-11,11.0,,\nArea 1,2019-20,11.9,,\nArea 2,2010-11,12.0,,\nArea 2,2019-20,12.9,,\nArea 3,2010-11,13.0,,\nArea 3,2019-20,13.9,,\nArea 4,2010-11,14.0,,\nArea 4,2019-20,14.9,,\nArea 5,2010-11,15.0,,\nArea 5,2019-20,15.9,,\nArea 6,2010-11,16.0,,\nArea 6,2019-20,16.9,,\nArea 7,2010-11,17.0,,\nArea 7,2011-12,17.1,,\nArea 7,2012-13,17.2,,\nArea 7,2013-14,17.3,,\nArea 7,2014-15,17.4,,\nArea 7,2015-16,17.5,,\nArea 7,2016-17,17.6,,\nArea 7,2017-18,17.7,,\nArea 7,2018-19,17.8,,\nArea 7,2019-20,17.9,,\nArea 8,2010-11,18.0,,\nArea 8,2019-20,18.9,,\nArea 9,2010-11,19.0,,\nArea 9,2019-20,19.9,,\nArea 10,2010-11,20.0,,\nArea 10,2019-20,20.9,,\nArea 11,2010-11,21.0,,\nArea 11,2019-20,21.9,,\nArea 12,2010-11,22.0,,\nArea 12,2019-20,22.9,,\nArea 13,2010-11,23.0,,\nArea 13,2019-20,23.9,,\nArea 14,2010-11,24.0,,\nArea 14,2019-20,24.9,,\nArea 15,2010-11,25.0,,\nArea 15,2019-20,25.9,,\nArea 16,2010-11,26.0,,\nArea 16,2019-20,26.9,,\nArea 17,2010-11,27.0,,\nArea 17,2019-20,27.9,,\nArea 18,2010-11,28.0,,\nArea 18,2019-20,28.9,,\nArea 19,2010-11,29.0,,\nArea 19,2019-20,29.9,,\nArea 20,2010-11,30.0,,\nArea 20,2019-20,30.9,,\nArea 21,2010-11,31.0,,\nArea 21,2019-20,31.9,,\nArea 22,2010-11,32.0,,\nArea 22,2019-20,32.9,,\nArea 23,2010-11,33.0,,\nArea 23,2019-20,33.9,,\nArea 24,2010-11,34.0,,\nArea 24,2019-20,34.9,,\nArea 25,2010-11,35.0,,\nArea 25,2019-20,35.9,,\nArea 26,2010-11,36.0,,\nArea 26,2019-20,36.9,,\nArea 27,2010-11,37.0,,\nArea 27,2019-20,37.9,,\nArea 28,2010-11,38.0,,\nArea 28,2019-20,38.9,,\nArea 29,2010-11,39.0,,\nArea 29,2019-20,39.9,,"
   }
  ],
+ "normalise": [
+  {
+   "reply": {
+    "headline": "H",
+    "chart_spec": {
+     "type": "line",
+     "x": "period",
+     "highlight": [
+      "North"
+     ],
+     "annotation": "",
+     "title": "T",
+     "yLabel": "",
+     "start": "",
+     "end": "",
+     "period": ""
+    },
+    "more_charts": [
+     {
+      "type": "map",
+      "highlight": [],
+      "annotation": "",
+      "title": "T",
+      "yLabel": "",
+      "start": "",
+      "end": "",
+      "period": ""
+     },
+     {
+      "type": "slope",
+      "highlight": [
+       "A",
+       "B"
+      ],
+      "annotation": "",
+      "title": "T",
+      "yLabel": "",
+      "start": "2011-12",
+      "end": "",
+      "period": ""
+     }
+    ],
+    "claims": [
+     {
+      "sentence": "S",
+      "keys": [],
+      "checks": [
+       {
+        "kind": "all_rise",
+        "group": "",
+        "period": "",
+        "start": "a",
+        "end": "b"
+       }
+      ]
+     },
+     {
+      "sentence": "S2",
+      "keys": [
+       "k"
+      ],
+      "checks": []
+     }
+    ]
+   },
+   "out": {
+    "headline": "H",
+    "chart_spec": {
+     "type": "line",
+     "x": "period",
+     "highlight": "North",
+     "title": "T"
+    },
+    "more_charts": [
+     {
+      "type": "map",
+      "title": "T"
+     },
+     {
+      "type": "slope",
+      "highlight": [
+       "A",
+       "B"
+      ],
+      "title": "T",
+      "start": "2011-12"
+     }
+    ],
+    "claims": [
+     {
+      "sentence": "S",
+      "keys": [],
+      "checks": [
+       {
+        "kind": "all_rise",
+        "start": "a",
+        "end": "b"
+       }
+      ]
+     },
+     {
+      "sentence": "S2",
+      "keys": [
+       "k"
+      ],
+      "checks": []
+     }
+    ]
+   }
+  },
+  {
+   "reply": {
+    "headline": "no charts or claims"
+   },
+   "out": {
+    "headline": "no charts or claims"
+   }
+  },
+  {
+   "reply": [
+    "not",
+    "an",
+    "object"
+   ],
+   "out": [
+    "not",
+    "an",
+    "object"
+   ]
+  }
+ ],
  "chart_keys": {
   "chart.North.2011-12.value": "30.0",
   "chart.North.2011-12.lower": "29.0",

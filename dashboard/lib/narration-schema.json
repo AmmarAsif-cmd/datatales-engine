@@ -9,80 +9,35 @@
       "additionalProperties": false,
       "properties": {
         "annotation": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "short note under the chart, or null"
+          "description": "short note under the chart (\"\" if not used)",
+          "type": "string"
         },
         "end": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "slope only: last period; otherwise null"
+          "description": "slope only: last period (\"\" if not used)",
+          "type": "string"
         },
         "highlight": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "the geography (or list) to highlight"
+          "description": "geographies to highlight ([] for none)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "period": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "map only: the period shown; otherwise null"
+          "description": "map only: the period shown (\"\" if not used)",
+          "type": "string"
         },
         "series": {
           "description": "geography column: 'geography'",
           "type": "string"
         },
         "start": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "slope only: first period; otherwise null"
+          "description": "slope only: first period (\"\" if not used)",
+          "type": "string"
         },
         "title": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "short chart title"
+          "description": "short chart title (\"\" if not used)",
+          "type": "string"
         },
         "type": {
           "enum": [
@@ -103,15 +58,8 @@
           "type": "string"
         },
         "yLabel": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "unit label, e.g. '% of people'"
+          "description": "unit label, e.g. '% of people' (\"\" if not used)",
+          "type": "string"
         }
       },
       "required": [
@@ -138,26 +86,12 @@
               "additionalProperties": false,
               "properties": {
                 "end": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "rise/fall kinds: last period; otherwise null"
+                  "description": "rise/fall kinds only: last period (\"\" if not used)",
+                  "type": "string"
                 },
                 "group": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "geography; null only for all_rise/all_fall"
+                  "description": "geography; not used for all_rise/all_fall (\"\" if not used)",
+                  "type": "string"
                 },
                 "kind": {
                   "enum": [
@@ -173,26 +107,12 @@
                   "type": "string"
                 },
                 "period": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "highest/lowest: the period; otherwise null"
+                  "description": "highest/lowest only: the period (\"\" if not used)",
+                  "type": "string"
                 },
                 "start": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "rise/fall kinds: first period; otherwise null"
+                  "description": "rise/fall kinds only: first period (\"\" if not used)",
+                  "type": "string"
                 }
               },
               "required": [
@@ -240,80 +160,35 @@
         "additionalProperties": false,
         "properties": {
           "annotation": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "short note under the chart, or null"
+            "description": "short note under the chart (\"\" if not used)",
+            "type": "string"
           },
           "end": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "slope only: last period; otherwise null"
+            "description": "slope only: last period (\"\" if not used)",
+            "type": "string"
           },
           "highlight": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "the geography (or list) to highlight"
+            "description": "geographies to highlight ([] for none)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "period": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "map only: the period shown; otherwise null"
+            "description": "map only: the period shown (\"\" if not used)",
+            "type": "string"
           },
           "series": {
             "description": "geography column: 'geography'",
             "type": "string"
           },
           "start": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "slope only: first period; otherwise null"
+            "description": "slope only: first period (\"\" if not used)",
+            "type": "string"
           },
           "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "short chart title"
+            "description": "short chart title (\"\" if not used)",
+            "type": "string"
           },
           "type": {
             "enum": [
@@ -334,15 +209,8 @@
             "type": "string"
           },
           "yLabel": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "unit label, e.g. '% of people'"
+            "description": "unit label, e.g. '% of people' (\"\" if not used)",
+            "type": "string"
           }
         },
         "required": [

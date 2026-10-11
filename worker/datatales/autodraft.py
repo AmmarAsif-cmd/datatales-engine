@@ -23,6 +23,7 @@ from datatales.narrate import (
     narration_data,
     narration_instructions,
     narration_json_schema,
+    normalise_api_reply,
     parse_narration,
 )
 from datatales.repo import Repo
@@ -100,7 +101,9 @@ def draft_story(
                 instructions=instructions,
                 data=data,
                 schema=narration_json_schema(),
-                validate=lambda d: parse_narration(json.dumps(d), story["chart_data"]),
+                validate=lambda d: parse_narration(
+                    json.dumps(normalise_api_reply(d)), story["chart_data"]
+                ),
                 related_id=story_id,
                 request=STORY_REQUEST,
             )

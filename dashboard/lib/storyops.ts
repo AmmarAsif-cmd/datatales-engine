@@ -7,6 +7,7 @@ import {
   NarrationError,
   narrationData,
   narrationInstructions,
+  normaliseApiReply,
   parseChecks,
   parseNarration,
   STORY_REQUEST,
@@ -147,7 +148,7 @@ export async function draftWithClaude(id: string): Promise<DraftOutcome> {
         instructions: narrationInstructions(),
         data: feedback ? `${base}\n\n${feedback}` : base,
         schema: NARRATION_SCHEMA as Record<string, unknown>,
-        validate: (value) => parseNarration(JSON.stringify(value), chartData),
+        validate: (value) => parseNarration(JSON.stringify(normaliseApiReply(value)), chartData),
         relatedId: id,
         request: STORY_REQUEST,
       });

@@ -23,6 +23,7 @@ from datatales.narrate import (
     build_prompt,
     narration_data,
     narration_instructions,
+    normalise_api_reply,
     parse_narration,
     word_count,
 )
@@ -211,6 +212,25 @@ CHART_CHECKS: list[dict[str, Any]] = [
     {"kind": "middle", "group": "North"},
     {"kind": "highest", "group": "Nowhere", "period": "2022-23"},
 ]
+
+_BLANK = {"annotation": "", "title": "T", "yLabel": "", "start": "", "end": "", "period": ""}
+NORMALISE_CASES: list[Any] = [
+    {
+        "headline": "H",
+        "chart_spec": {"type": "line", "x": "period", "highlight": ["North"], **_BLANK},
+        "more_charts": [
+            {"type": "map", "highlight": [], **_BLANK},
+            {"type": "slope", "highlight": ["A", "B"], **_BLANK, "start": "2011-12"},
+        ],
+        "claims": [
+            {"sentence": "S", "keys": [], "checks": [
+                {"kind": "all_rise", "group": "", "period": "", "start": "a", "end": "b"}]},
+            {"sentence": "S2", "keys": ["k"], "checks": []},
+        ],
+    },
+    {"headline": "no charts or claims"},
+    ["not", "an", "object"],
+]  # fmt: skip
 
 # More rows than CHART_ROWS_MAX: the prompt lists first/last period and the highlight only.
 BIG_CHART = [
@@ -780,6 +800,7 @@ def build() -> dict[str, Any]:
                     ),
                 },
             ],  # fmt: skip
+            "normalise": [{"reply": r, "out": normalise_api_reply(r)} for r in NORMALISE_CASES],
             "chart_keys": {k: str(v) for k, v in chart_keys(FAKE_CHART).items()},
             "chart_text": [
                 {"spec": spec, "text": chart_text(spec)}

@@ -398,14 +398,16 @@ def build_prompt(
     return narration_instructions() + "\n\n" + narration_data(numbers, chart_data, chart_spec)
 
 
-def _nullable(description: str) -> dict[str, Any]:
-    return {"anyOf": [{"type": "string"}, {"type": "null"}], "description": description}
+def _optional(description: str) -> dict[str, Any]:
+    """A required plain string where "" means "not used". The API allows at most 16
+    union-typed (nullable/anyOf) fields per schema, so the schema has none at all;
+    `normalise_api_reply` turns "" back into "not set" before validation."""
+    return {"type": "string", "description": f'{description} ("" if not used)'}
 
 
 def _spec_schema() -> dict[str, Any]:
-    """Every field is required (null where it does not apply), so a chart can never come back
-    without, say, its series column: structured output then guarantees the shape."""
-    text = {"type": "string"}
+    """Every field is required, so a chart can never come back without, say, its series
+    column: structured output then guarantees the shape."""
     return {
         "type": "object",
         "properties": {
@@ -414,15 +416,16 @@ def _spec_schema() -> dict[str, Any]:
             "y": {"type": "string", "description": "value column, normally 'value'"},
             "series": {"type": "string", "description": "geography column: 'geography'"},
             "highlight": {
-                "anyOf": [text, {"type": "array", "items": text}, {"type": "null"}],
-                "description": "the geography (or list) to highlight",
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "geographies to highlight ([] for none)",
             },
-            "annotation": _nullable("short note under the chart, or null"),
-            "title": _nullable("short chart title"),
-            "yLabel": _nullable("unit label, e.g. '% of people'"),
-            "start": _nullable("slope only: first period; otherwise null"),
-            "end": _nullable("slope only: last period; otherwise null"),
-            "period": _nullable("map only: the period shown; otherwise null"),
+            "annotation": _optional("short note under the chart"),
+            "title": _optional("short chart title"),
+            "yLabel": _optional("unit label, e.g. '% of people'"),
+            "start": _optional("slope only: first period"),
+            "end": _optional("slope only: last period"),
+            "period": _optional("map only: the period shown"),
         },
         "required": [
             "type", "x", "y", "series", "highlight", "annotation", "title", "yLabel",
@@ -430,6 +433,37 @@ def _spec_schema() -> dict[str, Any]:
         ],
         "additionalProperties": False,
     }  # fmt: skip
+
+
+def normalise_api_reply(reply: Any) -> Any:
+    """Structured-output replies use "" / [] for "not used" (see _optional). Drop those so
+    the reply means the same as a hand-pasted one; a one-item highlight list becomes a
+    string. Everything is then validated by parse_narration as usual."""
+    if not isinstance(reply, dict):
+        return reply
+
+    def spec(s: Any) -> Any:
+        if not isinstance(s, dict):
+            return s
+        out = {k: v for k, v in s.items() if v not in ("", [], None)}
+        if isinstance(out.get("highlight"), list) and len(out["highlight"]) == 1:
+            out["highlight"] = out["highlight"][0]
+        return out
+
+    out = dict(reply)
+    if "chart_spec" in out:
+        out["chart_spec"] = spec(out["chart_spec"])
+    if isinstance(out.get("more_charts"), list):
+        out["more_charts"] = [spec(m) for m in out["more_charts"]]
+    if isinstance(out.get("claims"), list):
+        out["claims"] = [
+            {**c, "checks": [
+                {k: v for k, v in ch.items() if v not in ("", None)} if isinstance(ch, dict) else ch
+                for ch in c.get("checks", [])
+            ]} if isinstance(c, dict) and isinstance(c.get("checks"), list) else c
+            for c in out["claims"]
+        ]  # fmt: skip
+    return out
 
 
 def narration_json_schema() -> dict[str, Any]:
@@ -444,10 +478,10 @@ def narration_json_schema() -> dict[str, Any]:
         "type": "object",
         "properties": {
             "kind": {"type": "string", "enum": list(CHECK_KINDS)},
-            "group": _nullable("geography; null only for all_rise/all_fall"),
-            "period": _nullable("highest/lowest: the period; otherwise null"),
-            "start": _nullable("rise/fall kinds: first period; otherwise null"),
-            "end": _nullable("rise/fall kinds: last period; otherwise null"),
+            "group": _optional("geography; not used for all_rise/all_fall"),
+            "period": _optional("highest/lowest only: the period"),
+            "start": _optional("rise/fall kinds only: first period"),
+            "end": _optional("rise/fall kinds only: last period"),
         },
         "required": ["kind", "group", "period", "start", "end"],
         "additionalProperties": False,

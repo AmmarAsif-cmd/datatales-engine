@@ -467,6 +467,41 @@ export const STORY_REQUEST =
   "the fields its kind uses: group plus start and end for rise/fall kinds, group plus " +
   "period for highest/lowest, start and end for all_rise/all_fall.";
 
+const isEmpty = (v: unknown) => v === "" || v === null || v === undefined || (Array.isArray(v) && v.length === 0);
+
+/**
+ * Structured-output replies use "" / [] for "not used" (the schema has no union types: the
+ * API allows at most 16). Drop those so the reply means the same as a hand-pasted one; a
+ * one-item highlight list becomes a string. Same as narrate.py normalise_api_reply.
+ */
+export function normaliseApiReply(reply: unknown): unknown {
+  if (!reply || typeof reply !== "object" || Array.isArray(reply)) return reply;
+  const spec = (s: unknown) => {
+    if (!s || typeof s !== "object" || Array.isArray(s)) return s;
+    const out = Object.fromEntries(Object.entries(s).filter(([, v]) => !isEmpty(v)));
+    if (Array.isArray(out.highlight) && out.highlight.length === 1) out.highlight = out.highlight[0];
+    return out;
+  };
+  const out: Record<string, unknown> = { ...(reply as Record<string, unknown>) };
+  if ("chart_spec" in out) out.chart_spec = spec(out.chart_spec);
+  if (Array.isArray(out.more_charts)) out.more_charts = out.more_charts.map(spec);
+  if (Array.isArray(out.claims)) {
+    out.claims = out.claims.map((c) => {
+      if (!c || typeof c !== "object" || !Array.isArray((c as { checks?: unknown }).checks)) return c;
+      const claim = c as { checks: unknown[] };
+      return {
+        ...claim,
+        checks: claim.checks.map((ch) =>
+          ch && typeof ch === "object" && !Array.isArray(ch)
+            ? Object.fromEntries(Object.entries(ch).filter(([, v]) => v !== "" && v !== null))
+            : ch,
+        ),
+      };
+    });
+  }
+  return out;
+}
+
 /** The fixed part of the prompt (cached by the API): intro, rules and output shape. */
 export function narrationInstructions(): string {
   return [INTRO, "", RULES, "## Output JSON shape", pyDumps(OUTPUT_SCHEMA, 1)].join("\n");
