@@ -184,6 +184,12 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - A source without `detect` is cleaned but its detectors are skipped (logged), never an error.
 - Exact administrative counts have no CIs: `detect.precision_pct` gives each value a +/- p/2 % band (`prepare`), so smaller changes count as "no change"; stories get an exact-counts caveat and the site hides CI columns (`numbers.exact_counts`).
 
+## Weekly summary (P2.6)
+
+- Top of the dashboard overview (`components/WeeklySummary.tsx`), computed live on each page load from existing tables (no extra table): "Waiting for you" (verified drafts, approved-not-published stories, recipes ready/failed, suggested datasets, accepted datasets that failed to add, failed stories) and "Last 7 days" (published, new drafts, findings, datasets added/found, recipes drafted, files ingested, failed jobs, Claude spend week/month vs budget).
+- Logic is pure and tested: `dashboard/lib/logic/summary.ts` (`buildSummary`, `summaryText` = the same content as plain text).
+- Email: NOT built. The user chose "dashboard only for now" (2026-10-11). Free options proposed: Gmail SMTP with an App Password (stdlib smtplib from Actions), Cloudflare Email Routing `send_email`, Resend free tier. Ask before adding any of them; `summaryText` is the intended body.
+
 ## Database
 
 - Migrations: `supabase/migrations/NNNN_name.sql`, plain SQL, wrapped in `begin; ... commit;`. The user runs them in the Supabase SQL Editor. Never edit an applied migration; add a new one.

@@ -121,3 +121,4 @@ Only `.env.example` files (placeholder names, no values) are committed.
 - [x] P2.3 Automatic recipe drafting with sandbox test runs
 - [x] P2.4 Dataset discovery and backlog (weekly, data.gov.uk + ONS)
 - [x] P2.5 Weekly new-dataset step (accepted backlog item -> source -> recipe + detector drafts)
+- [x] P2.6 Weekly summary on the dashboard overview (email not set up yet)

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { RunPipelineButton } from "@/components/Buttons";
 import ClaudeUsage from "@/components/ClaudeUsage";
+import WeeklySummary from "@/components/WeeklySummary";
 import { db, must } from "@/lib/db";
 import { when } from "@/lib/format";
 import { pageGate } from "@/lib/gate";
@@ -53,6 +54,7 @@ export default async function Home() {
   return (
     <>
       <h1>Overview</h1>
+      <WeeklySummary />
       <ClaudeUsage />
       <div className="grid2">
         <div className="panel">
@@ -74,7 +76,7 @@ export default async function Home() {
           </p>
           <RunPipelineButton />
           <p className="small muted">
-            Runs ingest → profile → clean → detect in GitHub Actions (also every Monday 06:00 UTC).
+            Runs ingest → profile → clean → detect in GitHub Actions. Every Monday at 06:00 UTC it also finds new datasets and adds the next accepted one.
           </p>
         </div>
         <div className="panel">
