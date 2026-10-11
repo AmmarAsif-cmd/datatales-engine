@@ -1,65 +1,81 @@
 {
-  "additionalProperties": false,
+  "type": "object",
   "properties": {
+    "headline": {
+      "type": "string",
+      "description": "10 to 70 characters: the single strongest finding as a statement"
+    },
+    "hook": {
+      "type": "string",
+      "description": "exactly one full sentence"
+    },
+    "summary": {
+      "type": "string",
+      "description": "2 to 4 sentences, at most 120 words"
+    },
     "body_md": {
-      "description": "Markdown, 500 to 700 words, with '## How it compares' and '## What the data can't tell us'",
-      "type": "string"
+      "type": "string",
+      "description": "Markdown, 500 to 700 words, with '## How it compares' and '## What the data can't tell us'"
+    },
+    "video_script": {
+      "type": "string",
+      "description": "at most 90 words, to be read aloud"
     },
     "chart_spec": {
-      "additionalProperties": false,
+      "type": "object",
       "properties": {
-        "annotation": {
-          "description": "short note under the chart (\"\" if not used)",
-          "type": "string"
-        },
-        "end": {
-          "description": "slope only: last period (\"\" if not used)",
-          "type": "string"
-        },
-        "highlight": {
-          "description": "geographies to highlight ([] for none)",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "period": {
-          "description": "map only: the period shown (\"\" if not used)",
-          "type": "string"
-        },
-        "series": {
-          "description": "geography column: 'geography'",
-          "type": "string"
-        },
-        "start": {
-          "description": "slope only: first period (\"\" if not used)",
-          "type": "string"
-        },
-        "title": {
-          "description": "short chart title (\"\" if not used)",
-          "type": "string"
-        },
         "type": {
+          "type": "string",
           "enum": [
             "line",
             "bar",
             "dot",
             "slope",
             "map"
-          ],
-          "type": "string"
+          ]
         },
         "x": {
-          "description": "period column, normally 'period'",
-          "type": "string"
+          "type": "string",
+          "description": "period column, normally 'period'"
         },
         "y": {
-          "description": "value column, normally 'value'",
-          "type": "string"
+          "type": "string",
+          "description": "value column, normally 'value'"
+        },
+        "series": {
+          "type": "string",
+          "description": "geography column: 'geography'"
+        },
+        "highlight": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "geographies to highlight ([] for none)"
+        },
+        "annotation": {
+          "type": "string",
+          "description": "short note under the chart (\"\" if not used)"
+        },
+        "title": {
+          "type": "string",
+          "description": "short chart title (\"\" if not used)"
         },
         "yLabel": {
-          "description": "unit label, e.g. '% of people' (\"\" if not used)",
-          "type": "string"
+          "type": "string",
+          "description": "unit label, e.g. '% of people' (\"\" if not used)"
+        },
+        "start": {
+          "type": "string",
+          "description": "slope only: first period (\"\" if not used)"
+        },
+        "end": {
+          "type": "string",
+          "description": "slope only: last period (\"\" if not used)"
+        },
+        "period": {
+          "type": "string",
+          "description": "map only: the period shown (\"\" if not used)"
         }
       },
       "required": [
@@ -75,142 +91,65 @@
         "end",
         "period"
       ],
-      "type": "object"
-    },
-    "claims": {
-      "items": {
-        "additionalProperties": false,
-        "properties": {
-          "checks": {
-            "items": {
-              "additionalProperties": false,
-              "properties": {
-                "end": {
-                  "description": "rise/fall kinds only: last period (\"\" if not used)",
-                  "type": "string"
-                },
-                "group": {
-                  "description": "geography; not used for all_rise/all_fall (\"\" if not used)",
-                  "type": "string"
-                },
-                "kind": {
-                  "enum": [
-                    "highest",
-                    "lowest",
-                    "only_rise",
-                    "only_fall",
-                    "all_rise",
-                    "all_fall",
-                    "biggest_rise",
-                    "biggest_fall"
-                  ],
-                  "type": "string"
-                },
-                "period": {
-                  "description": "highest/lowest only: the period (\"\" if not used)",
-                  "type": "string"
-                },
-                "start": {
-                  "description": "rise/fall kinds only: first period (\"\" if not used)",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "kind",
-                "group",
-                "period",
-                "start",
-                "end"
-              ],
-              "type": "object"
-            },
-            "type": "array"
-          },
-          "keys": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "sentence": {
-            "description": "a sentence copied exactly from the text fields",
-            "type": "string"
-          }
-        },
-        "required": [
-          "sentence",
-          "keys",
-          "checks"
-        ],
-        "type": "object"
-      },
-      "minItems": 1,
-      "type": "array"
-    },
-    "headline": {
-      "description": "10 to 70 characters: the single strongest finding as a statement",
-      "type": "string"
-    },
-    "hook": {
-      "description": "exactly one full sentence",
-      "type": "string"
+      "additionalProperties": false
     },
     "more_charts": {
+      "type": "array",
       "items": {
-        "additionalProperties": false,
+        "type": "object",
         "properties": {
-          "annotation": {
-            "description": "short note under the chart (\"\" if not used)",
-            "type": "string"
-          },
-          "end": {
-            "description": "slope only: last period (\"\" if not used)",
-            "type": "string"
-          },
-          "highlight": {
-            "description": "geographies to highlight ([] for none)",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "period": {
-            "description": "map only: the period shown (\"\" if not used)",
-            "type": "string"
-          },
-          "series": {
-            "description": "geography column: 'geography'",
-            "type": "string"
-          },
-          "start": {
-            "description": "slope only: first period (\"\" if not used)",
-            "type": "string"
-          },
-          "title": {
-            "description": "short chart title (\"\" if not used)",
-            "type": "string"
-          },
           "type": {
+            "type": "string",
             "enum": [
               "line",
               "bar",
               "dot",
               "slope",
               "map"
-            ],
-            "type": "string"
+            ]
           },
           "x": {
-            "description": "period column, normally 'period'",
-            "type": "string"
+            "type": "string",
+            "description": "period column, normally 'period'"
           },
           "y": {
-            "description": "value column, normally 'value'",
-            "type": "string"
+            "type": "string",
+            "description": "value column, normally 'value'"
+          },
+          "series": {
+            "type": "string",
+            "description": "geography column: 'geography'"
+          },
+          "highlight": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "geographies to highlight ([] for none)"
+          },
+          "annotation": {
+            "type": "string",
+            "description": "short note under the chart (\"\" if not used)"
+          },
+          "title": {
+            "type": "string",
+            "description": "short chart title (\"\" if not used)"
           },
           "yLabel": {
-            "description": "unit label, e.g. '% of people' (\"\" if not used)",
-            "type": "string"
+            "type": "string",
+            "description": "unit label, e.g. '% of people' (\"\" if not used)"
+          },
+          "start": {
+            "type": "string",
+            "description": "slope only: first period (\"\" if not used)"
+          },
+          "end": {
+            "type": "string",
+            "description": "slope only: last period (\"\" if not used)"
+          },
+          "period": {
+            "type": "string",
+            "description": "map only: the period shown (\"\" if not used)"
           }
         },
         "required": [
@@ -226,17 +165,79 @@
           "end",
           "period"
         ],
-        "type": "object"
+        "additionalProperties": false
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sentence": {
+            "type": "string",
+            "description": "a sentence copied exactly from the text fields"
+          },
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "highest",
+                    "lowest",
+                    "only_rise",
+                    "only_fall",
+                    "all_rise",
+                    "all_fall",
+                    "biggest_rise",
+                    "biggest_fall"
+                  ]
+                },
+                "group": {
+                  "type": "string",
+                  "description": "geography; not used for all_rise/all_fall (\"\" if not used)"
+                },
+                "period": {
+                  "type": "string",
+                  "description": "highest/lowest only: the period (\"\" if not used)"
+                },
+                "start": {
+                  "type": "string",
+                  "description": "rise/fall kinds only: first period (\"\" if not used)"
+                },
+                "end": {
+                  "type": "string",
+                  "description": "rise/fall kinds only: last period (\"\" if not used)"
+                }
+              },
+              "required": [
+                "kind",
+                "group",
+                "period",
+                "start",
+                "end"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "sentence",
+          "keys",
+          "checks"
+        ],
+        "additionalProperties": false
       },
-      "type": "array"
-    },
-    "summary": {
-      "description": "2 to 4 sentences, at most 120 words",
-      "type": "string"
-    },
-    "video_script": {
-      "description": "at most 90 words, to be read aloud",
-      "type": "string"
+      "minItems": 1,
+      "description": "one claim for EVERY sentence in any field that contains a number or a rank word, usually 20 to 40 for a full story"
     }
   },
   "required": [
@@ -249,5 +250,5 @@
     "more_charts",
     "claims"
   ],
-  "type": "object"
+  "additionalProperties": false
 }

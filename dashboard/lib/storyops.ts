@@ -62,12 +62,8 @@ function storyFields(story: Story, override: Partial<Record<TextField, string>> 
 }
 
 /** Save a validated narration and verify it. Shared by copy-paste and Claude drafting. */
-async function applyNarration(
-  story: Story,
-  narration: Narration,
-  draftedBy: "manual" | "claude",
-): Promise<{ story: Story; report: Report }> {
-  if (LOCKED.has(story.status)) throw new StoryOpError(`story is ${story.status}; it can no longer be edited`);
+/** Verify a validated narration against a story's data without saving anything. */
+function checkNarration(story: Story, narration: Narration) {
   const fields = {
     headline: narration.headline,
     hook: narration.hook,
@@ -84,6 +80,17 @@ async function applyNarration(
     narration.claims,
     story.chart_data ?? [],
   );
+  return { fields, spec, report };
+}
+
+/** Verify and save. Shared by copy-paste and Claude drafting. */
+async function applyNarration(
+  story: Story,
+  narration: Narration,
+  draftedBy: "manual" | "claude",
+): Promise<{ story: Story; report: Report }> {
+  if (LOCKED.has(story.status)) throw new StoryOpError(`story is ${story.status}; it can no longer be edited`);
+  const { fields, spec, report } = checkNarration(story, narration);
   const saved = await save(story.id, {
     ...fields,
     // set once from the first headline, then fixed: a published URL never changes
@@ -116,11 +123,20 @@ export async function pasteNarration(id: string, reply: string): Promise<{ story
 export const NOTE_BUDGET = "Claude budget reached this month: use Copy prompt / Paste result.";
 export const NOTE_REJECTED =
   "Claude's replies were rejected twice (incomplete or malformed), so nothing was changed. Try Regenerate with Claude again, or use Copy prompt / Paste result.";
+export const NOTE_KEPT =
+  "Claude's new draft failed verification twice, so your verified text was kept unchanged. Try Regenerate with Claude again, or edit by hand.";
 export const NOTE_FAILED =
   "Claude's draft failed verification twice. The report shows what to fix; edit and re-verify, regenerate, or use Copy prompt / Paste result.";
 const MAX_ATTEMPTS = 2;
 
 function reportFeedback(report: Report): string {
+  const lines: string[] = [];
+  if (report.uncovered.length) {
+    const sentences = new Set(report.uncovered.map((u) => u.sentence));
+    lines.push(
+      `${report.uncovered.length} number(s) or rank word(s) in ${sentences.size} sentence(s) have no claim, but you gave only ${report.claims.length} claim(s). Add one claim for EVERY sentence that contains a number or a rank word, copied exactly, in every field (headline, hook, summary, body_md, video_script, chart titles).`,
+    );
+  }
   const keep: Record<string, unknown> = {
     unmatched: report.unmatched,
     years_out_of_range: report.years_out_of_range,
@@ -128,7 +144,8 @@ function reportFeedback(report: Report): string {
     format_issues: report.format_issues,
     failed_claims: report.claims.filter((c) => c.status !== "ok"),
   };
-  return JSON.stringify(Object.fromEntries(Object.entries(keep).filter(([, v]) => (v as unknown[]).length)));
+  lines.push(JSON.stringify(Object.fromEntries(Object.entries(keep).filter(([, v]) => (v as unknown[]).length))));
+  return lines.join("\n");
 }
 
 export type DraftOutcome = { status: "passed" | "failed" | "budget" | "error"; message: string; story?: Story };
@@ -140,6 +157,9 @@ export async function draftWithClaude(id: string): Promise<DraftOutcome> {
   const base = untrusted("story_data", narrationData(story.numbers ?? {}, chartData, story.chart_spec ?? {}));
   let feedback = "";
   let savedText = false; // did Claude's narration get saved on the story in this run?
+  // A redraft must never make a story worse: verified text stays unless the new draft passes.
+  const protect = story.verify_status === "passed" && !!story.body_md;
+  let checked = false;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     let narration: Narration;
     try {
@@ -166,13 +186,22 @@ export async function draftWithClaude(id: string): Promise<DraftOutcome> {
       await save(id, { draft_note: `Claude error: ${message}`.slice(0, 500) });
       return { status: "error", message };
     }
-    const { story: saved, report } = await applyNarration(story, narration, "claude");
-    story = saved;
-    savedText = true;
+    let { report } = checkNarration(story, narration);
+    checked = true;
+    if (report.status === "passed" || !protect) {
+      const applied = await applyNarration(story, narration, "claude");
+      story = applied.story;
+      report = applied.report;
+      savedText = true;
+    }
     if (report.status === "passed") return { status: "passed", message: `Verified (${report.checked} numbers checked).`, story };
     feedback =
       "Your previous draft failed verification. Fix every problem in this report and return the whole reply again (all fields, all claims):\n" +
       untrusted("verify_report", reportFeedback(report));
+  }
+  if (protect && checked) {
+    const saved = await save(id, { draft_note: NOTE_KEPT });
+    return { status: "failed", message: NOTE_KEPT, story: saved };
   }
   if (savedText) {
     const saved = await save(id, { status: "failed", draft_note: NOTE_FAILED });

@@ -463,7 +463,8 @@ export const STORY_REQUEST =
   "(one full sentence), summary (2 to 4 sentences, at most 120 words), body_md (500 to 700 " +
   "words, with the sections ## How it compares and ## What the data can't tell us), " +
   "video_script (at most 90 words), chart_spec, more_charts (may be empty) and claims (one " +
-  "per sentence that has a number or a rank word, copied exactly). Every check needs all " +
+  "per sentence that has a number or a rank word, copied exactly: usually 20 to 40). " +
+  "Every check needs all " +
   "the fields its kind uses: group plus start and end for rise/fall kinds, group plus " +
   "period for highest/lowest, start and end for all_rise/all_fall.";
 

@@ -32,6 +32,7 @@ from datatales.stories import (
     apply_narration,
     candidate_key,
     candidates_for,
+    check_narration,
     create_story_from_candidate,
     refresh_story,
 )
@@ -44,6 +45,10 @@ NOTE_NO_KEY = "Claude is not configured (ANTHROPIC_API_KEY): use Copy prompt / P
 NOTE_REJECTED = (
     "Claude's replies were rejected twice (incomplete or malformed), so nothing was changed. "
     "Try Regenerate with Claude again, or use Copy prompt / Paste result."
+)
+NOTE_KEPT = (
+    "Claude's new draft failed verification twice, so your verified text was kept unchanged. "
+    "Try Regenerate with Claude again, or edit by hand."
 )
 NOTE_FAILED = (
     "Claude's draft failed verification twice. The report shows what to fix; edit and "
@@ -68,8 +73,19 @@ class AutoDraftSummary:
 
 
 def _report_feedback(report: Report) -> str:
-    """The parts of a verify report the model needs to fix its draft (compact JSON)."""
+    """The parts of a verify report the model needs to fix its draft: a plain summary first,
+    then compact JSON."""
     data = report.to_json()
+    lines = []
+    unclaimed = [u for u in data["uncovered"]]
+    if unclaimed:
+        sentences = sorted({u["sentence"] for u in unclaimed})
+        lines.append(
+            f"{len(unclaimed)} number(s) or rank word(s) in {len(sentences)} sentence(s) have no "
+            f"claim, but you gave only {len(data['claims'])} claim(s). Add one claim for EVERY "
+            "sentence that contains a number or a rank word, copied exactly, in every field "
+            "(headline, hook, summary, body_md, video_script, chart titles)."
+        )
     bad_claims = [c for c in data["claims"] if c["status"] != "ok"]
     keep = {
         "unmatched": data["unmatched"],
@@ -78,7 +94,8 @@ def _report_feedback(report: Report) -> str:
         "format_issues": data["format_issues"],
         "failed_claims": bad_claims,
     }
-    return json.dumps({k: v for k, v in keep.items() if v}, ensure_ascii=False)
+    lines.append(json.dumps({k: v for k, v in keep.items() if v}, ensure_ascii=False))
+    return "\n".join(lines)
 
 
 def draft_story(
@@ -93,6 +110,9 @@ def draft_story(
     )
     feedback = ""
     saved_text = False  # did Claude's narration get saved on the story in this run?
+    # A redraft must never make a story worse: verified text stays unless the new draft passes.
+    protect = story.get("verify_status") == "passed" and bool(story.get("body_md"))
+    last_report: Report | None = None
     for attempt in range(1, MAX_ATTEMPTS + 1):
         data = base + (f"\n\n{feedback}" if feedback else "")
         try:
@@ -122,8 +142,11 @@ def draft_story(
             repo.update_story(story_id, {"draft_note": note[:500]})
             return DraftOutcome(story_id, "error", str(exc), attempt - 1)
 
-        _, report = apply_narration(repo, story_id, result.value, drafted_by="claude")
-        saved_text = True
+        _, _, report = check_narration(repo.get_story(story_id), result.value)
+        last_report = report
+        if report.passed or not protect:
+            _, report = apply_narration(repo, story_id, result.value, drafted_by="claude")
+            saved_text = True
         if report.passed:
             log(f"  attempt {attempt}: verified ({report.checked} numbers checked)")
             return DraftOutcome(story_id, "passed", "", attempt)
@@ -134,6 +157,9 @@ def draft_story(
             + untrusted("verify_report", _report_feedback(report))
         )
 
+    if protect and last_report is not None:  # verified text kept; nothing overwritten
+        repo.update_story(story_id, {"draft_note": NOTE_KEPT})
+        return DraftOutcome(story_id, "failed", NOTE_KEPT, MAX_ATTEMPTS)
     if saved_text:  # Claude's text is on the story but failed verification
         repo.update_story(story_id, {"status": "failed", "draft_note": NOTE_FAILED})
         return DraftOutcome(story_id, "failed", NOTE_FAILED, MAX_ATTEMPTS)

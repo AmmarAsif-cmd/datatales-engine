@@ -122,7 +122,9 @@ def dashboard_schema_json() -> str:
     """The structured-output schema for story narration, for the dashboard's Claude button."""
     from datatales.narrate import narration_json_schema
 
-    return json.dumps(narration_json_schema(), indent=2, sort_keys=True) + "\n"
+    # NOT sorted: structured output writes fields in schema order, and claims must come
+    # after every text field (they copy sentences from them).
+    return json.dumps(narration_json_schema(), indent=2) + "\n"
 
 
 # ---- money ----

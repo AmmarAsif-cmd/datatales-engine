@@ -153,13 +153,11 @@ def story_fields(story: dict[str, Any], **override: Any) -> dict[str, str | None
     return fields
 
 
-def apply_narration(
-    repo: Repo, story_id: str, narration: Narration, drafted_by: str = "manual"
-) -> tuple[dict[str, Any], Report]:
-    """Save a validated narration on a story and verify it (numbers, claims, rank words,
-    chart titles). Used by the copy-paste flow and by Claude drafting alike."""
-    story = repo.get_story(story_id)
-    _editable(story)
+def check_narration(
+    story: dict[str, Any], narration: Narration
+) -> tuple[dict[str, str], dict[str, Any], Report]:
+    """Verify a validated narration against a story's data without saving anything.
+    Returns (text fields, chart spec, report)."""
     spec = narration.chart_spec.model_dump(exclude_none=True)
     if narration.more_charts:
         spec["more_charts"] = [m.model_dump(exclude_none=True) for m in narration.more_charts]
@@ -177,6 +175,17 @@ def apply_narration(
         claims,
         story["chart_data"],
     )
+    return fields, spec, report
+
+
+def apply_narration(
+    repo: Repo, story_id: str, narration: Narration, drafted_by: str = "manual"
+) -> tuple[dict[str, Any], Report]:
+    """Verify a validated narration and save it on the story (numbers, claims, rank words,
+    chart titles). Used by the copy-paste flow and by Claude drafting alike."""
+    story = repo.get_story(story_id)
+    _editable(story)
+    fields, spec, report = check_narration(story, narration)
     updated = repo.update_story(
         story_id,
         {

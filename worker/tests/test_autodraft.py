@@ -250,3 +250,87 @@ def test_schema_requires_every_field_and_has_no_unions() -> None:
     }
     n = parse_narration(json.dumps(norm), chart)
     assert n.claims[0].checks[0].group is None and n.more_charts[0].series == "geography"
+
+
+ORDER = [
+    "headline", "hook", "summary", "body_md", "video_script", "chart_spec", "more_charts", "claims",
+]  # fmt: skip
+
+# JSON Schema keywords structured output accepts (anything else is rejected by the API)
+ALLOWED_KEYWORDS = {
+    "type", "properties", "required", "additionalProperties", "items", "enum", "description",
+    "anyOf", "allOf", "const", "minItems", "$ref", "$defs", "format",
+}  # fmt: skip
+
+
+def _keywords(node: Any, inside_properties: bool = False) -> set[str]:
+    out: set[str] = set()
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if not inside_properties:
+                out.add(k)
+            out |= _keywords(v, inside_properties=(k == "properties" and not inside_properties))
+    elif isinstance(node, list):
+        for v in node:
+            out |= _keywords(v)
+    return out
+
+
+def test_schema_order_claims_last_and_dashboard_copy_identical() -> None:
+    from datatales.llm import DASHBOARD_SCHEMA
+    from datatales.narrate import narration_json_schema
+
+    schema = narration_json_schema()
+    # structured output writes fields in schema order: claims copy sentences from the text
+    # fields, so they must come last (an alphabetical order once put claims before headline)
+    assert list(schema["properties"]) == ORDER and schema["required"] == ORDER
+    synced = json.loads(DASHBOARD_SCHEMA.read_text(encoding="utf-8"))
+    assert synced == schema and list(synced["properties"]) == ORDER
+
+
+def test_schema_uses_only_supported_keywords() -> None:
+    from datatales.narrate import narration_json_schema
+
+    schema = narration_json_schema()
+    assert _keywords(schema) <= ALLOWED_KEYWORDS, _keywords(schema) - ALLOWED_KEYWORDS
+    assert _count_unions(schema) <= 16
+    min_items = [n["minItems"] for n in _walk(schema) if "minItems" in n]
+    assert set(min_items) <= {0, 1}  # the API accepts only 0 or 1
+
+
+def _walk(node: Any) -> list[dict[str, Any]]:
+    if isinstance(node, dict):
+        return [node, *[x for v in node.values() for x in _walk(v)]]
+    if isinstance(node, list):
+        return [x for v in node for x in _walk(v)]
+    return []
+
+
+def test_failing_redraft_never_overwrites_verified_text(
+    repo_ct: tuple[MemRepo, str],  # noqa: F811
+) -> None:
+    repo, ct = repo_ct
+    story = stories.create_story(repo, ct, 1)
+    good = riser_reply(story)
+    stories.paste_narration(repo, story["id"], json.dumps(good))  # verified manual text
+    one_claim = {**good, "claims": good["claims"][:1]}  # what the sorted schema produced
+    sdk = FakeSDK(sdk_reply(one_claim))
+    out = autodraft.draft_story(repo, llm(repo, sdk), story["id"], lambda _m: None)
+    assert out.status == "failed" and out.detail == autodraft.NOTE_KEPT
+    saved = repo.get_story(story["id"])
+    assert saved["status"] == "draft" and saved["verify_status"] == "passed"
+    assert saved["drafted_by"] == "manual" and saved["body_md"] == good["body_md"].strip()
+    retry = sdk.requests[1]["messages"][0]["content"]
+    assert "have no claim, but you gave only 1 claim(s)" in retry
+
+
+def test_good_redraft_replaces_verified_text(repo_ct: tuple[MemRepo, str]) -> None:  # noqa: F811
+    repo, ct = repo_ct
+    story = stories.create_story(repo, ct, 1)
+    good = riser_reply(story)
+    stories.paste_narration(repo, story["id"], json.dumps(good))
+    better = {**good, "hook": "Life satisfaction in Riser rose from 6.0 to 6.9."}
+    out = autodraft.draft_story(
+        repo, llm(repo, FakeSDK(sdk_reply(better))), story["id"], lambda _m: None
+    )
+    assert out.status == "passed" and repo.get_story(story["id"])["drafted_by"] == "claude"
