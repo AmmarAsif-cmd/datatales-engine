@@ -150,6 +150,7 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - Structured-output schemas cannot carry minLength/maxLength/minimum etc.: keep those in our validators. Thinking tokens are billed as output: set `effort` per task.
 - `ANTHROPIC_API_KEY`: GitHub Actions secret + Worker secret (`datatales-admin`); locally `worker/.env` / `dashboard/.dev.vars`. Never log it: errors go through `redact()`. Guards: worker `test_no_secrets` (repo scan for `sk-ant-`), dashboard `check-bundle.mjs`, site `check-dist.mjs`.
 - Check the key: `uv run python -m datatales llm-check` or the `llm-check` workflow (Actions tab).
+- Cost: `llm-report [--days N]` (`llmreport.py`) sums `llm_calls` by task and model. Operator docs (weekly flow, settings, budget reached, key rotation) are in README.md "Automation with Claude"; keep them in step with changes.
 
 ## Automatic story drafting (P2.2)
 

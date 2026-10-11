@@ -69,6 +69,25 @@ def cmd_llm_check(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_llm_report(args: argparse.Namespace) -> int:
+    """Actual Claude cost from llm_calls, by task and model."""
+    from datetime import UTC, datetime, timedelta
+
+    from datatales.llm import load_llm_config, month_start
+    from datatales.llmreport import build_report, format_report
+
+    now = datetime.now(UTC)
+    if args.days:
+        since, period = now - timedelta(days=args.days), f"last {args.days} day(s)"
+        budget = None
+    else:
+        since, period = month_start(now), f"{now:%B %Y} so far"
+        budget = load_llm_config().monthly_budget_gbp
+    report = build_report(_repo().list_llm_calls(since))
+    print(format_report(report, period, budget))
+    return 0
+
+
 def cmd_llm_config_sync(_args: argparse.Namespace) -> int:
     from datatales.llm import (
         DASHBOARD_CONFIG,
@@ -498,6 +517,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("story_id")
     p = add("auto-draft", cmd_auto_draft, "Create and Claude-draft stories for a clean table.")
     p.add_argument("clean_table_id")
+    p = add("llm-report", cmd_llm_report, "Claude API cost from llm_calls, by task and model.")
+    p.add_argument("--days", type=int, help="the last N days instead of this calendar month")
     add("llm-config-sync", cmd_llm_config_sync, "Copy config/llm.yaml to the dashboard as JSON.")
     add(
         "sources-sync",

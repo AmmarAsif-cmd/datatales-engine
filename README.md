@@ -94,6 +94,96 @@ and Worker secrets.
 the site), then marks the story published. **Run pipeline now** starts `pipeline.yml`, which also
 runs every Monday at 06:00 UTC.
 
+## Automation with Claude (Phase 2)
+
+### The weekly flow
+
+Every Monday at 06:00 UTC, `.github/workflows/pipeline.yml` runs these steps in order:
+
+1. **Discover** (`discover`). It reads catalogue metadata from data.gov.uk and the ONS, applies
+   hard filters in code (Open Government Licence, machine-readable, nothing personal), and
+   Claude Haiku scores what is left. The best few appear on **Suggested** for you to accept or
+   reject.
+2. **Add a dataset** (`add-datasets`). The highest-scored *accepted* dataset becomes a source.
+   Its data file is found on the publisher's page, then downloaded, stored untouched and
+   profiled. Claude Sonnet drafts a cleaning recipe and the detector settings, and both are
+   test-run in memory. If any step fails, the error is shown on the item and the next accepted
+   item is tried.
+3. **Pipeline** (`run-pipeline`). For every source with an approved recipe, it fetches the
+   latest file, cleans it, runs the detectors, and Claude Opus drafts stories for the best new
+   findings. Code checks every number in a draft against the data before you see it.
+4. **Commit.** New source files (`worker/sources.d/`) are committed to the repository.
+
+**Nothing publishes without you.** Recipes are approved on **Recipes**, and stories are
+approved (which publishes them) on **Stories**. The **Overview** page starts with a weekly
+summary of what is waiting for you.
+
+To run the whole flow now: GitHub → Actions → **pipeline** → *Run workflow*, and tick
+`new_datasets`. The dashboard's **Run pipeline now** button runs step 3 only.
+
+### Settings
+
+| File | Setting | Default |
+|---|---|---|
+| `worker/config/llm.yaml` | `monthly_budget_gbp` | 5 |
+| | model, `max_tokens` and `effort` per task (`story`, `recipe`, `discovery`, `check`) | Opus / Sonnet / Haiku / Haiku |
+| | `pricing` (USD per million tokens), `usd_to_gbp` | as published 2026-10-11 |
+| `worker/config/discovery.yaml` | `suggestions_per_week`, `min_score`, `max_to_score` | 5, 55, 40 |
+| | `new_datasets_per_week` (0 turns the add step off) | 1 |
+| | search topics, excluded keywords | |
+
+**Changing a model or the budget:** edit `worker/config/llm.yaml`. If you change a model, also
+add its prices under `pricing`. Then run:
+
+```sh
+cd worker
+uv run python -m datatales llm-config-sync   # copies the settings to the dashboard
+uv run pytest                                 # a test fails if the two copies differ
+```
+
+Commit both files and redeploy the dashboard (`cd dashboard && npm run deploy`).
+
+### Cost
+
+```sh
+cd worker
+uv run python -m datatales llm-report            # this month, by task and model
+uv run python -m datatales llm-report --days 7   # the last 7 days
+```
+
+Costs are estimates calculated from the token counts logged in `llm_calls`. Compare them now and
+then with the usage page in the Anthropic Console. A typical week (one discovery run, one
+recipe with detector settings, a few story drafts) should cost well under £1.
+
+### When the monthly budget is reached
+
+Before each call, the budget guard adds the worst-case cost of that call to this month's
+spend. If the total would go over the budget, the call is not sent, a `budget_blocked` row is
+logged, and work carries on without Claude:
+
+- Discovery falls back to a keyword score, and the add step falls back to a keyword file choice.
+- Recipes are not drafted. Use `recipe-prompt` and copy-paste instead, or wait until next month.
+- Stories are still created, but wait for **Copy prompt / Paste result** on the dashboard.
+
+The dashboard shows a red banner. You can wait for the 1st of the month (UTC), or raise
+`monthly_budget_gbp` as described above. To be safe, also set a hard spending limit in the
+Anthropic Console.
+
+### Rotating `ANTHROPIC_API_KEY`
+
+1. In the Anthropic Console → API keys, create a new key.
+2. GitHub → repository Settings → Secrets and variables → Actions → `ANTHROPIC_API_KEY` →
+   *Update secret*.
+3. Dashboard Worker: `cd dashboard && npx wrangler secret put ANTHROPIC_API_KEY` (paste the key
+   when asked), or Cloudflare dashboard → Workers → `datatales-admin` → Settings → Variables and
+   Secrets.
+4. Update `worker/.env` and `dashboard/.dev.vars` if you keep the key locally.
+5. Check it: GitHub → Actions → **llm-check** → *Run workflow*.
+6. Delete the old key in the Console.
+
+The key is never written to code, logs, error messages, Supabase or the site bundle. The repo
+scan test and `dashboard/scripts/check-bundle.mjs` both fail if a key-shaped string appears.
+
 
 ## Secrets
 
@@ -122,3 +212,4 @@ Only `.env.example` files (placeholder names, no values) are committed.
 - [x] P2.4 Dataset discovery and backlog (weekly, data.gov.uk + ONS)
 - [x] P2.5 Weekly new-dataset step (accepted backlog item -> source -> recipe + detector drafts)
 - [x] P2.6 Weekly summary on the dashboard overview (email not set up yet)
+- [x] P2.7 End-to-end test, Phase 2 docs, `llm-report`

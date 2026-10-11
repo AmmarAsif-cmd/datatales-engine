@@ -258,6 +258,9 @@ class MemRepo:
         spent = sum(float(r.get("estimated_cost") or 0) for r in rows)
         return spent, sum(1 for r in rows if r["status"] in ("ok", "invalid_output"))
 
+    def list_llm_calls(self, since: datetime) -> list[dict[str, Any]]:
+        return [dict(r) for r in self.llm_calls.values() if r["created_at"] >= since]
+
     # ---- dataset backlog ----
 
     def list_backlog(self, status: str | None = None) -> list[dict[str, Any]]:

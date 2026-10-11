@@ -109,6 +109,7 @@ class Repo(Protocol):
     def insert_llm_call(self, row: dict[str, Any]) -> str: ...
     def update_llm_call(self, call_id: str, fields: dict[str, Any]) -> None: ...
     def llm_spend_since(self, since: datetime) -> tuple[float, int]: ...
+    def list_llm_calls(self, since: datetime) -> list[dict[str, Any]]: ...
     def list_backlog(self, status: str | None = None) -> list[dict[str, Any]]: ...
     def insert_backlog(self, rows: list[dict[str, Any]]) -> None: ...
     def update_backlog(self, item_id: str, fields: dict[str, Any]) -> dict[str, Any]: ...
@@ -434,6 +435,19 @@ class SupabaseRepo:
         spent = sum(float(r["estimated_cost"] or 0) for r in rows)
         calls = sum(1 for r in rows if r["status"] in ("ok", "invalid_output"))
         return spent, calls
+
+    def list_llm_calls(self, since: datetime) -> list[dict[str, Any]]:
+        res = (
+            self.db.table("llm_calls")
+            .select(
+                "task, model, status, input_tokens, output_tokens, cached_tokens, "
+                "cache_write_tokens, estimated_cost, created_at"
+            )
+            .gte("created_at", since.isoformat())
+            .order("created_at")
+            .execute()
+        )
+        return res.data or []
 
     # ---- dataset backlog ----
 

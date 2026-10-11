@@ -40,6 +40,7 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest
 | `story-draft <story_id>` | Draft (or redraft) one story with Claude, verify it, retry once on failure |
 | `auto-draft <clean_table_id>` | Create and Claude-draft stories for a clean table's shortlist (the pipeline does this after `detect`) |
 | `llm-check` | One tiny Claude API call (logged to `llm_calls`) to confirm `ANTHROPIC_API_KEY` and show this month's spend |
+| `llm-report [--days N]` | Claude cost from `llm_calls` by task and model (this month vs the budget, or the last N days) |
 | `llm-config-sync` | Copy `config/llm.yaml` to the dashboard (`dashboard/lib/llm-config.json`) after editing it |
 
 Every `ingest`, `profile`, `clean` and `detect` run writes a row to the `jobs` table.
