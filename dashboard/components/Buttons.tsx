@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import { type ActionState, createStory, runPipeline } from "@/app/actions";
+import { type ActionState, createStory, runDiscovery, runPipeline } from "@/app/actions";
 
 const initial: ActionState = { ok: true, message: "" };
 
@@ -18,6 +18,18 @@ export function CreateStoryButton({ cleanTableId, candidate }: { cleanTableId: s
       <input type="hidden" name="candidate" value={candidate} />
       <button type="submit" className="secondary" disabled={pending}>
         {pending ? "Queuing…" : "Create story"}
+      </button>
+      <Msg s={state} />
+    </form>
+  );
+}
+
+export function RunDiscoveryButton() {
+  const [state, action, pending] = useActionState(runDiscovery, initial);
+  return (
+    <form action={action}>
+      <button type="submit" className="secondary" disabled={pending}>
+        {pending ? "Starting…" : "Find new datasets now"}
       </button>
       <Msg s={state} />
     </form>

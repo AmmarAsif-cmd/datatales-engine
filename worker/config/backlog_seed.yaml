@@ -1,0 +1,257 @@
+# One-off seed for the dataset backlog: strong UK public sources for DataTales, ranked by how
+# often they update and how many place-by-place stories they can carry. Loaded with
+# `python -m datatales backlog-seed` (idempotent: existing source_urls are skipped).
+# All Open Government Licence v3.0; every URL checked to resolve on 2026-10-11.
+# Scores and pitches were written by hand, not by a model.
+
+licence: Open Government Licence v3.0
+datasets:
+  - title: Vehicle licensing statistics (VEH tables)
+    publisher: Department for Transport
+    source_url: https://www.gov.uk/government/statistical-data-sets/vehicle-licensing-statistics-data-tables
+    formats: [ODS, CSV]
+    update_frequency: quarterly
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 96
+    pitch: How fast electric and hybrid cars are replacing petrol and diesel, place by place, from licensing and new registrations by fuel type.
+
+  - title: Electric vehicle public charging infrastructure
+    publisher: Department for Transport
+    source_url: https://www.gov.uk/government/collections/electric-vehicle-charging-infrastructure-statistics
+    formats: [ODS, CSV]
+    update_frequency: quarterly
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 90
+    pitch: Which areas have the most and fewest public charging points per person, and where the gap is closing.
+
+  - title: Price Index of Private Rents
+    publisher: Office for National Statistics
+    source_url: https://www.ons.gov.uk/economy/inflationandpriceindices/datasets/priceindexofprivaterentsukmonthlypricestatistics
+    formats: [XLSX, CSV]
+    update_frequency: monthly
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 92
+    pitch: Where rents are rising fastest, monthly, with average rents for every local authority.
+
+  - title: UK House Price Index
+    publisher: HM Land Registry
+    source_url: https://www.gov.uk/government/collections/uk-house-price-index-reports
+    formats: [CSV]
+    update_frequency: monthly
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 91
+    pitch: Monthly house prices for every area, and where prices have fallen in real terms.
+
+  - title: Claimant count by local authority
+    publisher: Office for National Statistics (Nomis)
+    source_url: https://www.nomisweb.co.uk/sources/cc
+    formats: [CSV, API]
+    update_frequency: monthly
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 88
+    pitch: Monthly out-of-work benefit claimants by area, showing which places are recovering and which are not.
+
+  - title: A&E attendances and emergency admissions
+    publisher: NHS England
+    source_url: https://www.england.nhs.uk/statistics/statistical-work-areas/ae-waiting-times-and-activity/
+    formats: [CSV, XLSX]
+    update_frequency: monthly
+    geography_levels: [country, region]
+    has_time_series: true
+    score: 85
+    pitch: How many patients wait more than four hours in A&E, month by month, against the target.
+
+  - title: Referral to treatment waiting times
+    publisher: NHS England
+    source_url: https://www.england.nhs.uk/statistics/statistical-work-areas/rtt-waiting-times/
+    formats: [CSV, XLSX]
+    update_frequency: monthly
+    geography_levels: [country, region]
+    has_time_series: true
+    score: 84
+    pitch: The hospital waiting list over time, and how long patients wait for planned treatment.
+
+  - title: Recorded crime by Community Safety Partnership area
+    publisher: Office for National Statistics
+    source_url: https://www.ons.gov.uk/peoplepopulationandcommunity/crimeandjustice/datasets/recordedcrimedatabycommunitysafetypartnershiparea
+    formats: [XLSX]
+    update_frequency: quarterly
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 83
+    pitch: Police-recorded crime rates by area and offence type, and where they are changing.
+
+  - title: Statutory homelessness
+    publisher: Ministry of Housing, Communities and Local Government
+    source_url: https://www.gov.uk/government/collections/homelessness-statistics
+    formats: [ODS, CSV]
+    update_frequency: quarterly
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 82
+    pitch: Households in temporary accommodation by council, and the places where numbers are climbing fastest.
+
+  - title: House price to workplace-based earnings ratio
+    publisher: Office for National Statistics
+    source_url: https://www.ons.gov.uk/peoplepopulationandcommunity/housing/datasets/ratioofhousepricetoworkplacebasedearningslowerquartileandmedian
+    formats: [XLSX]
+    update_frequency: annual
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 86
+    pitch: How many years of earnings a typical home costs in each area, and how affordability has changed since 1997.
+
+  - title: Earnings by place of residence (ASHE table 8)
+    publisher: Office for National Statistics
+    source_url: https://www.ons.gov.uk/employmentandlabourmarket/peopleinwork/earningsandworkinghours/datasets/placeofresidencebylocalauthorityashetable8
+    formats: [XLSX]
+    update_frequency: annual
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 80
+    pitch: Typical full-time pay where people live, and the areas where pay has grown fastest or fallen behind.
+
+  - title: Road traffic statistics (TRA tables)
+    publisher: Department for Transport
+    source_url: https://www.gov.uk/government/statistical-data-sets/road-traffic-statistics-tra
+    formats: [ODS, CSV]
+    update_frequency: annual
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 78
+    pitch: Miles driven on local roads by area and vehicle type, and whether traffic is back above pre-pandemic levels.
+
+  - title: Reported road casualties Great Britain (RAS tables)
+    publisher: Department for Transport
+    source_url: https://www.gov.uk/government/statistical-data-sets/reported-road-accidents-vehicles-and-casualties-tables-for-great-britain
+    formats: [ODS, CSV]
+    update_frequency: annual
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 79
+    pitch: Deaths and serious injuries on the roads by area, and the places bucking the national trend.
+
+  - title: Local authority and regional greenhouse gas emissions
+    publisher: Department for Energy Security and Net Zero
+    source_url: https://www.gov.uk/government/collections/uk-local-authority-and-regional-greenhouse-gas-emissions-national-statistics
+    formats: [XLSX, CSV]
+    update_frequency: annual
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 81
+    pitch: Emissions per person in every local authority since 2005, and which areas have cut them most.
+
+  - title: Sub-national electricity consumption
+    publisher: Department for Energy Security and Net Zero
+    source_url: https://www.gov.uk/government/collections/sub-national-electricity-consumption-data
+    formats: [XLSX]
+    update_frequency: annual
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 70
+    pitch: Average household electricity use by area, and how much it has fallen as homes became more efficient.
+
+  - title: Sub-regional fuel poverty
+    publisher: Department for Energy Security and Net Zero
+    source_url: https://www.gov.uk/government/collections/fuel-poverty-sub-regional-statistics
+    formats: [XLSX]
+    update_frequency: annual
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 77
+    pitch: The share of households in fuel poverty in each local authority, and where it is highest.
+
+  - title: Key stage 4 performance
+    publisher: Department for Education
+    source_url: https://explore-education-statistics.service.gov.uk/find-statistics/key-stage-4-performance
+    formats: [CSV, API]
+    update_frequency: annual
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 82
+    pitch: GCSE results by local authority, and the gaps between areas and between disadvantaged pupils and others.
+
+  - title: School workforce in England
+    publisher: Department for Education
+    source_url: https://explore-education-statistics.service.gov.uk/find-statistics/school-workforce-in-england
+    formats: [CSV, API]
+    update_frequency: annual
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 72
+    pitch: Teacher numbers, vacancies and pupil-to-teacher ratios by area, and where shortages are worst.
+
+  - title: Mid-year population estimates
+    publisher: Office for National Statistics
+    source_url: https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationestimates/datasets/populationestimatesforukenglandandwalesscotlandandnorthernireland
+    formats: [XLSX, CSV]
+    update_frequency: annual
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 74
+    pitch: Which places are growing, shrinking and ageing fastest, from the official population estimates.
+
+  - title: Gross disposable household income by local authority
+    publisher: Office for National Statistics
+    source_url: https://www.ons.gov.uk/economy/regionalaccounts/grossdisposablehouseholdincome/datasets/regionalgrossdisposablehouseholdincomegdhibylocalauthorityintheuk
+    formats: [XLSX]
+    update_frequency: annual
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 76
+    pitch: Household income per person after tax and benefits in every area, and the widening gap between richest and poorest places.
+
+  - title: Life expectancy for local areas
+    publisher: Office for National Statistics
+    source_url: https://www.ons.gov.uk/peoplepopulationandcommunity/healthandsocialcare/healthandlifeexpectancies/datasets/lifeexpectancyestimatesallagesuk
+    formats: [XLSX]
+    update_frequency: annual
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 80
+    pitch: How long people can expect to live in each area, and where life expectancy has stalled or fallen.
+
+  - title: Business demography
+    publisher: Office for National Statistics
+    source_url: https://www.ons.gov.uk/businessindustryandtrade/business/activitysizeandlocation/datasets/businessdemographyreferencetable
+    formats: [XLSX]
+    update_frequency: annual
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 73
+    pitch: Business births and deaths by area, and which places are seeing more firms close than open.
+
+  - title: Net supply of housing
+    publisher: Ministry of Housing, Communities and Local Government
+    source_url: https://www.gov.uk/government/statistical-data-sets/live-tables-on-net-supply-of-housing
+    formats: [ODS, XLSX]
+    update_frequency: annual
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 79
+    pitch: New homes added in each local authority, and which areas are building most against their population.
+
+  - title: Fire statistics data tables
+    publisher: Home Office
+    source_url: https://www.gov.uk/government/statistical-data-sets/fire-statistics-data-tables
+    formats: [ODS]
+    update_frequency: quarterly
+    geography_levels: [country, region]
+    has_time_series: true
+    score: 68
+    pitch: Fires attended, response times and fire-related deaths by fire and rescue service over time.
+
+  - title: Local authority collected waste (ENV18)
+    publisher: Department for Environment, Food and Rural Affairs
+    source_url: https://www.gov.uk/government/statistical-data-sets/env18-local-authority-collected-waste-annual-results-tables
+    formats: [ODS, CSV]
+    update_frequency: annual
+    geography_levels: [country, region, local_authority]
+    has_time_series: true
+    score: 75
+    pitch: Household recycling rates for every council, and which ones recycle the most and least.

@@ -189,6 +189,41 @@ export async function draftRecipe(_prev: ActionState, form: FormData): Promise<A
   });
 }
 
+export async function decideBacklog(_prev: ActionState, form: FormData): Promise<ActionState> {
+  return guarded(async () => {
+    const itemId = id(form, "item_id");
+    const decision = str(form, "decision");
+    if (decision !== "accepted" && decision !== "rejected") throw new StoryOpError("bad decision");
+    const reason = str(form, "reason").trim().slice(0, 500);
+    const fields =
+      decision === "rejected" ? { status: "rejected", reject_reason: reason || null } : { status: "accepted" };
+    const { data, error } = await db()
+      .from("dataset_backlog")
+      .update(fields)
+      .eq("id", itemId)
+      .in("status", ["suggested", "accepted", "rejected"]) // never undo an ingested item
+      .select("id");
+    if (error) throw new StoryOpError(error.message);
+    if (!data?.length) throw new StoryOpError("this dataset has already been added to the pipeline");
+    revalidatePath("/datasets/suggested");
+    revalidatePath("/");
+    return {
+      ok: true,
+      message:
+        decision === "accepted"
+          ? "Accepted. The weekly run adds the highest-scored accepted dataset to the pipeline."
+          : "Rejected. It will never be suggested again.",
+    };
+  });
+}
+
+export async function runDiscovery(): Promise<ActionState> {
+  return guarded(async () => {
+    await dispatch(WORKFLOWS.discovery);
+    return { ok: true, message: "Discovery started: new suggestions appear here in a few minutes." };
+  });
+}
+
 export async function runPipeline(): Promise<ActionState> {
   return guarded(async () => {
     await dispatch(WORKFLOWS.pipeline);

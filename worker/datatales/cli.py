@@ -120,6 +120,48 @@ def cmd_recipe_draft(args: argparse.Namespace) -> int:
     return 0 if outcome.status == "ready" else 1
 
 
+def cmd_discover(_args: argparse.Namespace) -> int:
+    """Weekly discovery: new UK datasets -> hard filters -> Claude scores -> suggestions."""
+    from datatales.discovery import run_discovery, seed_backlog
+    from datatales.llm import LLMClient, load_api_key
+    from datatales.pipeline import run_job
+
+    repo = _repo()
+    llm = LLMClient(repo) if load_api_key() else None
+
+    def job(log):  # noqa: ANN001, ANN202
+        if not repo.list_backlog():  # first run: start from the curated seed list
+            log(f"Backlog empty: added {seed_backlog(repo)} seed dataset(s)")
+        summary = run_discovery(repo, log, llm)
+        log(
+            f"Fetched {summary.fetched}, {summary.passed_filters} passed the filters, "
+            f"scored by {summary.scored_by}, {len(summary.added)} suggested"
+        )
+        for reason, n in sorted(summary.dropped.items(), key=lambda kv: -kv[1]):
+            log(f"  dropped {n}: {reason}")
+        if summary.errors:
+            raise RuntimeError("; ".join(summary.errors))
+        return summary
+
+    run_job(repo, "discover", job)
+    return 0
+
+
+def cmd_backlog_seed(_args: argparse.Namespace) -> int:
+    from datatales.discovery import seed_backlog
+
+    print(f"Added {seed_backlog(_repo())} seed dataset(s) to the backlog.")
+    return 0
+
+
+def cmd_backlog(args: argparse.Namespace) -> int:
+    for b in _repo().list_backlog(args.status):
+        print(
+            f"{b['score'] or 0:>3}  {b['status']:<9}  {b['title'][:60]:<60}  {b['publisher'][:30]}"
+        )
+    return 0
+
+
 def cmd_db_check(_args: argparse.Namespace) -> int:
     from datatales.db import get_client, run_db_check
 
@@ -417,6 +459,10 @@ def build_parser() -> argparse.ArgumentParser:
         cmd_llm_check,
         "Make one tiny Claude API call (logged) to confirm the key works.",
     )
+    add("discover", cmd_discover, "Find new UK datasets and suggest the best few (backlog).")
+    add("backlog-seed", cmd_backlog_seed, "Add the curated seed list to the dataset backlog.")
+    p = add("backlog", cmd_backlog, "List the dataset backlog.")
+    p.add_argument("--status", choices=["suggested", "accepted", "rejected", "ingested"])
     p = add(
         "recipe-draft",
         cmd_recipe_draft,

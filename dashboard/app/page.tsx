@@ -33,6 +33,12 @@ export default async function Home() {
     count("stories", ["status", "published"]),
     count("jobs", ["status", "failed"]),
   ]);
+  let suggested = 0;
+  try {
+    suggested = await count("dataset_backlog", ["status", "suggested"]);
+  } catch {
+    // dataset_backlog arrives with migration 0005
+  }
   const jobs = await must<{ type: string; status: string; started_at: string }[]>(
     db().from("jobs").select("type, status, started_at").order("started_at", { ascending: false }).limit(6),
   );
@@ -61,6 +67,10 @@ export default async function Home() {
           <p>
             <Link href="/datasets">Jobs</Link>:{" "}
             {failedJobs ? <span className="badge bad">{failedJobs} failed</span> : "none failed"}
+          </p>
+          <p>
+            <Link href="/datasets/suggested">Suggested datasets</Link>:{" "}
+            {suggested ? <span className="badge warn">{suggested} to review</span> : "none waiting"}
           </p>
           <RunPipelineButton />
           <p className="small muted">

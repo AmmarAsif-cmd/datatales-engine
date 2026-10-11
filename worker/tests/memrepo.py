@@ -18,6 +18,7 @@ class MemRepo:
         self.objects: dict[tuple[str, str], tuple[bytes, str]] = {}
         self.jobs: dict[str, dict[str, Any]] = {}
         self.llm_calls: dict[str, dict[str, Any]] = {}
+        self.backlog: dict[str, dict[str, Any]] = {}
         self.findings: dict[str, dict[str, Any]] = {}
         self.stories: dict[str, dict[str, Any]] = {}
 
@@ -256,3 +257,23 @@ class MemRepo:
         rows = [r for r in self.llm_calls.values() if r["created_at"] >= since]
         spent = sum(float(r.get("estimated_cost") or 0) for r in rows)
         return spent, sum(1 for r in rows if r["status"] in ("ok", "invalid_output"))
+
+    # ---- dataset backlog ----
+
+    def list_backlog(self, status: str | None = None) -> list[dict[str, Any]]:
+        rows = [r for r in self.backlog.values() if status is None or r["status"] == status]
+        return sorted(rows, key=lambda r: -(r.get("score") or 0))
+
+    def insert_backlog(self, rows: list[dict[str, Any]]) -> None:
+        urls = {r["source_url"] for r in self.backlog.values()}
+        for row in rows:
+            if row["source_url"] in urls:
+                continue  # unique source_url: never re-added
+            item_id = str(uuid.uuid4())
+            self.backlog[item_id] = {"id": item_id, "reject_reason": None, "error": None,
+                                     "source_slug": None, **row}  # fmt: skip
+            urls.add(row["source_url"])
+
+    def update_backlog(self, item_id: str, fields: dict[str, Any]) -> dict[str, Any]:
+        self.backlog[item_id].update(fields)
+        return dict(self.backlog[item_id])

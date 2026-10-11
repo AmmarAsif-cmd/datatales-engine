@@ -17,6 +17,7 @@ export const WORKFLOWS = {
   recipeApprove: "recipe-approve.yml",
   recipeDraft: "recipe-draft.yml",
   pipeline: "pipeline.yml",
+  discovery: "discovery.yml",
 } as const;
 
 function settings(): { repo: string; token: string } {

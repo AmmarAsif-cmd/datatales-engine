@@ -108,6 +108,9 @@ class Repo(Protocol):
     def insert_llm_call(self, row: dict[str, Any]) -> str: ...
     def update_llm_call(self, call_id: str, fields: dict[str, Any]) -> None: ...
     def llm_spend_since(self, since: datetime) -> tuple[float, int]: ...
+    def list_backlog(self, status: str | None = None) -> list[dict[str, Any]]: ...
+    def insert_backlog(self, rows: list[dict[str, Any]]) -> None: ...
+    def update_backlog(self, item_id: str, fields: dict[str, Any]) -> dict[str, Any]: ...
 
 
 def now_utc() -> datetime:
@@ -429,3 +432,21 @@ class SupabaseRepo:
         spent = sum(float(r["estimated_cost"] or 0) for r in rows)
         calls = sum(1 for r in rows if r["status"] in ("ok", "invalid_output"))
         return spent, calls
+
+    # ---- dataset backlog ----
+
+    def list_backlog(self, status: str | None = None) -> list[dict[str, Any]]:
+        q = self.db.table("dataset_backlog").select("*")
+        if status:
+            q = q.eq("status", status)
+        return q.order("score", desc=True).execute().data or []
+
+    def insert_backlog(self, rows: list[dict[str, Any]]) -> None:
+        # source_url is unique: an existing (e.g. rejected) item is never re-added
+        self.db.table("dataset_backlog").upsert(
+            rows, on_conflict="source_url", ignore_duplicates=True
+        ).execute()
+
+    def update_backlog(self, item_id: str, fields: dict[str, Any]) -> dict[str, Any]:
+        res = self.db.table("dataset_backlog").update(fields).eq("id", item_id).execute()
+        return res.data[0]

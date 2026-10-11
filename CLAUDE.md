@@ -165,6 +165,14 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - Sandbox: `test_recipe` runs cleaning + checks in memory against the raw file and writes nothing; the report holds checks, row count, columns, a plain-English `summary` (`describe_recipe`, generated from the steps, never by the model) and the first 20 rows. Failed -> one retry with the failures -> else status `failed`.
 - `recipes` (migration 0004): `status` draft|ready|failed|rejected, `drafted_by`, `dataset_id`, `test_report`, `reject_note`. DB rule: approval only when `status = 'ready'`. `approve_recipe` test-runs a hand-imported (draft) recipe first and refuses one that fails. Rejected drafts are not redrafted for the same dataset. Manual drafts are never overwritten by Claude.
 
+## Dataset discovery (P2.4)
+
+- `worker/datatales/discovery.py`, config `worker/config/discovery.yaml`, seed `worker/config/backlog_seed.yaml` (25 hand-picked OGL sources, DfT VEH first; `backlog-seed`, or automatically on the first `discover`).
+- `discover` (workflow `discovery.yml`, Mondays 05:30 UTC + dashboard button): catalogue METADATA only from data.gov.uk (CKAN at `ckan.publishing.service.gov.uk`; `data.gov.uk/api` now returns HTML) and the ONS dataset API; host allowlist, size cap, no redirects.
+- Hard filters in code: OGL only; CSV/XLSX/XLS/ODS/JSON/API; time series and/or geography (heuristic from metadata); `exclude_keywords` (organograms, salaries, individual/record-level data, spend-over lists...); nothing already a source or in the backlog (any status, so rejected items never come back; `source_url` is unique).
+- Scoring: Claude (`task: discovery`, Haiku) with a small structured-output schema (no unions), validated (`Rating`: score 0-100, pitch length, known ids). Budget/key/invalid reply -> `heuristic_score`. Top `suggestions_per_week` at or above `min_score` become `suggested`.
+- `dataset_backlog` (migration 0005): statuses suggested/accepted/rejected/ingested, `catalogue` data_gov_uk|ons|seed. Dashboard: Datasets -> Suggested (Accept / Reject with reason).
+
 ## Database
 
 - Migrations: `supabase/migrations/NNNN_name.sql`, plain SQL, wrapped in `begin; ... commit;`. The user runs them in the Supabase SQL Editor. Never edit an applied migration; add a new one.

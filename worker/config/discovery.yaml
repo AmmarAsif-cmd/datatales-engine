@@ -1,0 +1,58 @@
+# Weekly dataset discovery (python -m datatales discover; workflow discovery.yml, Mondays
+# before the pipeline). Only catalogue metadata is used: nothing is downloaded at this step.
+
+suggestions_per_week: 5   # top N new candidates added as `suggested`
+min_score: 55             # never suggest below this score (0-100)
+max_to_score: 40          # candidates sent to Claude per run, after the hard filters
+recent_days: 180          # data.gov.uk: only datasets updated within this many days
+
+ckan:
+  rows_per_query: 50
+  # Topics searched on data.gov.uk (OGL, machine-readable formats only).
+  queries:
+    - transport
+    - vehicles
+    - housing
+    - rents
+    - health
+    - hospital
+    - education
+    - schools
+    - crime
+    - energy
+    - emissions
+    - environment
+    - employment
+    - earnings
+    - population
+    - economy
+    - benefits
+    - local authority statistics
+
+ons:
+  max_datasets: 400
+
+# Hard filters (all in code, before any model sees a candidate).
+machine_readable_formats: [CSV, XLSX, XLS, ODS, JSON, API]
+# Titles/descriptions with these words are excluded: personal or individual-level data, or
+# administrative lists that make no public story.
+exclude_keywords:
+  - organogram
+  - salaries
+  - salary of
+  - staff names
+  - named individual
+  - personal data
+  - individual-level
+  - record-level
+  - patient-level
+  - pupil-level
+  - microdata
+  - spend over
+  - expenditure over
+  - transparency data
+  - foi request
+  - freedom of information
+  - contracts finder
+  - payments to suppliers
+  - withdrawn

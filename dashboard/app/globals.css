@@ -465,3 +465,14 @@ table.preview td {
 .table-scroll {
   overflow-x: auto;
 }
+
+/* suggested datasets */
+.badge.score {
+  font-variant-numeric: tabular-nums;
+  min-width: 2.2rem;
+  text-align: center;
+}
+.backlog-actions input[type="text"] {
+  flex: 1 1 10rem;
+  max-width: 18rem;
+}

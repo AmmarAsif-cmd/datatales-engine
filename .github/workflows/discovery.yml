@@ -1,0 +1,37 @@
+name: discovery
+
+# Weekly dataset discovery, before the main pipeline: data.gov.uk + ONS catalogue metadata ->
+# hard filters -> Claude scores (Haiku) -> the best few added to the backlog as `suggested`.
+# Also from the dashboard's "Find new datasets now" button.
+on:
+  schedule:
+    - cron: "30 5 * * 1" # Monday 05:30 UTC (pipeline runs at 06:00)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: discovery
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "worker/uv.lock"
+
+      - name: Discover datasets
+        working-directory: worker
+        run: |
+          uv sync --locked
+          uv run python -m datatales discover

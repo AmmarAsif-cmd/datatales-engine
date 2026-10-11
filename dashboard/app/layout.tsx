@@ -22,6 +22,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Link href="/findings">Findings</Link>
           <Link href="/stories">Stories</Link>
           <Link href="/datasets">Datasets &amp; jobs</Link>
+          <Link href="/datasets/suggested">Suggested</Link>
           <Link href="/recipes">Recipes</Link>
           <span className="local" title="Protected by Cloudflare Access">
             {user?.local ? "LOCAL DEV" : "ADMIN"}
