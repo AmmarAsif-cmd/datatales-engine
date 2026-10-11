@@ -1,7 +1,7 @@
 import { claudeBudget, claudeConfigured } from "@/lib/llm";
 
 /** This month's Claude API spend vs budget (from llm_calls), with a banner when reached. */
-export default async function ClaudeUsage() {
+export default async function ClaudeUsage({ compact = false }: { compact?: boolean }) {
   let status;
   try {
     status = await claudeBudget();
@@ -19,6 +19,20 @@ export default async function ClaudeUsage() {
     );
   }
   const pct = status.budget ? Math.min(100, (status.spent / status.budget) * 100) : 100;
+  if (compact) {
+    // story pages: only speak up when Claude cannot draft
+    if (status.reached) {
+      return (
+        <p className="msg bad" role="alert">
+          Monthly Claude budget reached (£{status.spent.toFixed(2)} of £{status.budget.toFixed(2)}). Use Copy prompt /
+          Paste result until next month.
+        </p>
+      );
+    }
+    return claudeConfigured() ? null : (
+      <p className="msg bad">ANTHROPIC_API_KEY is not set on this Worker: use Copy prompt / Paste result.</p>
+    );
+  }
   return (
     <div className="panel">
       <h2 className="first">Claude API</h2>

@@ -19,7 +19,9 @@ from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from typing import Any
 
-TEXT_FIELDS = ("headline", "hook", "summary", "body_md", "video_script")
+TEXT_FIELDS = ("headline", "hook", "summary", "body_md", "video_script", "chart_text")
+# chart_text: every chart title and annotation, one per line (see chart_text()).
+PERCENT_DECIMALS = 2  # percentages are always written with 2 decimals: 38.50%
 
 WORD_NUMBERS = {
     "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
@@ -77,6 +79,7 @@ class Report:
     claims_checked: bool = False
     claims: list[dict[str, Any]] = field(default_factory=list)
     uncovered: list[dict[str, Any]] = field(default_factory=list)
+    format_issues: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
@@ -207,6 +210,26 @@ def flatten_numbers(numbers: dict[str, Any]) -> dict[str, Decimal]:
     return out
 
 
+def chart_keys(chart_data: list[dict[str, Any]] | None) -> dict[str, Decimal]:
+    """Every value in chart_data as a claim key: chart.<geography>.<period>.value|lower|upper.
+    Lets a story cite any charted figure (e.g. England's value in a Northern Ireland story)."""
+    out: dict[str, Decimal] = {}
+    for row in chart_data or []:
+        for col in ("value", "lower", "upper"):
+            v = row.get(col)
+            if isinstance(v, int | float) and not isinstance(v, bool):
+                out[f"chart.{row.get('geography')}.{row.get('period')}.{col}"] = Decimal(str(v))
+    return out
+
+
+def chart_text(chart_spec: dict[str, Any] | None) -> str:
+    """All chart titles and annotations (main chart, then more_charts), one per line."""
+    if not chart_spec:
+        return ""
+    specs = [chart_spec, *(chart_spec.get("more_charts") or [])]
+    return "\n".join(str(s[k]) for s in specs for k in ("title", "annotation") if s.get(k))
+
+
 # ---- text positions (claims are matched ignoring Markdown and whitespace) ----
 
 
@@ -287,6 +310,7 @@ def verify_text(
     chart_data: list[dict[str, Any]] | None = None,
 ) -> Report:
     allowed, years = allowed_from_numbers(numbers)
+    allowed |= {abs(v) for v in chart_keys(chart_data).values()}
     lo, hi = _data_years(numbers, years)
     extra_years = caveat_years(numbers)
     report = Report(status="passed", checked=0, data_years=[lo, hi] if lo else [])
@@ -311,6 +335,14 @@ def verify_text(
                     report.years_out_of_range.append(
                         {"field": name, "text": tok.text, "allowed": [lo, hi]}
                     )
+            elif tok.kind == "percent" and tok.decimals != PERCENT_DECIMALS:
+                report.format_issues.append(
+                    {"field": name, "text": tok.text, "problem": "percentages need 2 decimals"}
+                )
+                if not matches(tok, allowed):
+                    report.unmatched.append(
+                        {"field": name, "text": tok.text, "kind": tok.kind, "value": str(tok.value)}
+                    )
             elif not matches(tok, allowed):
                 report.unmatched.append(
                     {"field": name, "text": tok.text, "kind": tok.kind, "value": str(tok.value)}
@@ -320,6 +352,7 @@ def verify_text(
         _check_claims(report, texts, tokens, numbers, claims, chart_data or [])
 
     failed = report.unmatched or report.years_out_of_range or report.uncovered
+    failed = failed or report.format_issues
     failed = failed or any(c["status"] != "ok" for c in report.claims)
     report.status = "failed" if failed else "passed"
     return report
@@ -336,7 +369,7 @@ def _check_claims(
     from datatales.chartfacts import evaluate
 
     report.claims_checked = True
-    key_table = flatten_numbers(numbers)
+    key_table = flatten_numbers(numbers) | chart_keys(chart_data)
     covered: dict[str, list[tuple[int, int]]] = {name: [] for name in texts}
 
     for claim in claims:

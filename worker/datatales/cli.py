@@ -70,10 +70,40 @@ def cmd_llm_check(_args: argparse.Namespace) -> int:
 
 
 def cmd_llm_config_sync(_args: argparse.Namespace) -> int:
-    from datatales.llm import DASHBOARD_CONFIG, dashboard_config_json
+    from datatales.llm import (
+        DASHBOARD_CONFIG,
+        DASHBOARD_SCHEMA,
+        dashboard_config_json,
+        dashboard_schema_json,
+    )
 
-    DASHBOARD_CONFIG.write_text(dashboard_config_json(), encoding="utf-8", newline="\n")
-    print(f"Wrote {DASHBOARD_CONFIG}")
+    for path, text in ((DASHBOARD_CONFIG, dashboard_config_json()),
+                       (DASHBOARD_SCHEMA, dashboard_schema_json())):  # fmt: skip
+        path.write_text(text, encoding="utf-8", newline="\n")
+        print(f"Wrote {path}")
+    return 0
+
+
+def cmd_story_draft(args: argparse.Namespace) -> int:
+    """Draft (or redraft) one story with Claude, then verify it."""
+    from datatales.autodraft import draft_story
+    from datatales.llm import LLMClient
+
+    repo = _repo()
+    outcome = draft_story(repo, LLMClient(repo), args.story_id)
+    print(f"{outcome.status}: {outcome.detail}".rstrip(": "))
+    return 0 if outcome.status == "passed" else 1
+
+
+def cmd_auto_draft(args: argparse.Namespace) -> int:
+    """Create and Claude-draft stories for a clean table's shortlist."""
+    from datatales.autodraft import auto_draft_clean_table
+    from datatales.llm import LLMClient, load_api_key
+
+    repo = _repo()
+    llm = LLMClient(repo) if load_api_key() else None
+    summary = auto_draft_clean_table(repo, args.clean_table_id, print, llm)
+    print(f"{summary.count('passed')} verified, {summary.count('failed')} failed")
     return 0
 
 
@@ -374,6 +404,10 @@ def build_parser() -> argparse.ArgumentParser:
         cmd_llm_check,
         "Make one tiny Claude API call (logged) to confirm the key works.",
     )
+    p = add("story-draft", cmd_story_draft, "Draft or redraft one story with Claude, then verify.")
+    p.add_argument("story_id")
+    p = add("auto-draft", cmd_auto_draft, "Create and Claude-draft stories for a clean table.")
+    p.add_argument("clean_table_id")
     add("llm-config-sync", cmd_llm_config_sync, "Copy config/llm.yaml to the dashboard as JSON.")
     add("sources-sync", cmd_sources_sync, "Upsert worker/sources.yaml into the sources table.")
 

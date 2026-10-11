@@ -138,7 +138,7 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - No Python on Workers. Pure text logic is ported to TypeScript in `dashboard/lib/logic/` (verify, narrate/prompt, shortlist, slug). **Change Python first**, regenerate `uv run python -m tests.golden_cases --write`, then mirror in TS until `npm test` passes. Never let them diverge.
 - Heavy/repo-writing work runs in GitHub Actions via **workflow_dispatch** (token: fine-grained, this repo, Actions read/write only): `story-new.yml`, `publish.yml` (write file, build site, commit, push, then `publish --mark`), `recipe-approve.yml`, `pipeline.yml`. Workflow inputs go through env vars and are validated; never interpolate `${{ inputs.* }}` into scripts.
 - `datatales/api.py` (JSON bridge) remains for local scripting; the deployed dashboard doesn't use it.
-- Story status transitions: draft -> approved (verify passed only) | rejected; rejected -> draft; approved -> draft; published -> draft ("Revise": clears published_at; the live page stays until republished); approved -> published only by `publish.yml`.
+- Story status transitions: draft -> approved (verify passed only) | rejected; failed -> draft | rejected (or any paste/redraft); rejected -> draft; approved -> draft; published -> draft ("Revise": clears published_at; the live page stays until republished); approved -> published only by `publish.yml`.
 
 ## Claude API (Phase 2)
 
@@ -149,11 +149,21 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - `ANTHROPIC_API_KEY`: GitHub Actions secret + Worker secret (`datatales-admin`); locally `worker/.env` / `dashboard/.dev.vars`. Never log it: errors go through `redact()`. Guards: worker `test_no_secrets` (repo scan for `sk-ant-`), dashboard `check-bundle.mjs`, site `check-dist.mjs`.
 - Check the key: `uv run python -m datatales llm-check` or the `llm-check` workflow (Actions tab).
 
+## Automatic story drafting (P2.2)
+
+- `worker/datatales/autodraft.py`: after `detect` in the weekly pipeline (`pipeline.draft_new_stories`), each shortlisted candidate gets a story. Skip when a story for the same `candidate_key` (`<source>|<geo_level>|<place>|good|bad`) has the same data (`data_version` = clean table id, or shared findings); rejected/approved stories are never redrafted; changed data -> point the story at the new findings, `refresh_story`, redraft.
+- `draft_story`: Claude (`task: story`) gets `narration_instructions()` (cached system block) + `untrusted("story_data", narration_data(...))`, structured output `narration_json_schema()`, validated by `parse_narration`; then `apply_narration(..., drafted_by="claude")` runs the full verifier. Failed verification or a rejected reply -> one retry with the report/reason as delimited data -> else status `failed` + `draft_note`. Budget reached / no key -> `draft_note`, draft waits for copy-paste. Never fails the pipeline.
+- Dashboard: "Regenerate with Claude" (`lib/storyops.ts draftWithClaude`, same flow, Worker secret). Copy prompt / Paste result always remains.
+- CLI: `story-draft <story_id>`, `auto-draft <clean_table_id>`.
+- Verification now also: any `chart_data` value is allowed and citable as `chart.<geography>.<period>.value|lower|upper`; `chart_text` (all chart titles/annotations, `verify.chart_text`) is a verified field; percentages must have exactly 2 decimals (`format_issues`). Site/cards/covers/charts format percentages with 2 decimals (`publish.format_value`, `graphics/alt.ts formatValue`).
+- The narration schema for the dashboard is synced by `llm-config-sync` (`dashboard/lib/narration-schema.json`).
+
 ## Database
 
 - Migrations: `supabase/migrations/NNNN_name.sql`, plain SQL, wrapped in `begin; ... commit;`. The user runs them in the Supabase SQL Editor. Never edit an applied migration; add a new one.
 - Every new table must: `enable row level security`, have **no** policies, `revoke all ... from anon, authenticated`, `grant all ... to service_role`. `db-check` fails on any public table that breaks this.
 - Functions: `set search_path = ''` and fully qualified names; revoke execute from `public, anon, authenticated`.
+- `stories` gained (migration 0003) status `failed`, `drafted_by` (claude|manual), `candidate_key`, `data_version`, `draft_note`.
 - `llm_calls` (migration 0002): one row per Claude call or blocked attempt; statuses reserved/ok/error/invalid_output/budget_blocked; `estimated_cost` in GBP.
 - DB-level rule: a story cannot be `approved`/`published` unless `verify_status = 'passed'`.
 - Config is read by `datatales.config.load_settings()` (env vars override `worker/.env`). The key is a `SecretStr`, so never call `get_secret_value()` except when creating the client.

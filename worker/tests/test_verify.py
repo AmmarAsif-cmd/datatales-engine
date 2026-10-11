@@ -36,8 +36,8 @@ def check(**fields: str):  # noqa: ANN201
 def test_real_numbers_pass_with_rounding_sign_and_formats() -> None:
     r = check(
         headline="Fakeshire wellbeing 2011–2023",
-        hook="The share in Fakeshire rose from 34.1% to 39.5% between 2011-12 and 2022-23.",
-        summary="That is 5.42 percentage points, a 16% rise, from 4th to 1st of four areas.",
+        hook="The share in Fakeshire rose from 34.11% to 39.53% between 2011-12 and 2022-23.",
+        summary="That is 5.42 percentage points, a 15.89% rise, from 4th to 1st of four areas.",
         body_md="It dipped to 35.9 in 2020-21. The median fell by 0.24. Scores are out of 10.",
         video_script="Up 5.4 points since 2011.",
     )
@@ -129,7 +129,7 @@ def test_flatten_numbers_gives_readable_keys() -> None:
     assert "f1.good_news" not in keys  # booleans are not numbers
 
 
-CLAIMED = "The share rose from 34.11% to 39.5%, the most of four areas."
+CLAIMED = "The share rose from 34.11% to 39.53%, the most of four areas."
 
 
 def claim_check(text: str, claims: list[dict], field: str = "body_md"):  # noqa: ANN201
@@ -150,13 +150,13 @@ def test_claim_ok() -> None:
 
 
 def test_claim_number_not_in_its_keys_is_a_mismatch() -> None:
-    # 39.5 is real (end_value) but the claim only names start_value and groups_compared
+    # 39.53 is real (end_value) but the claim only names start_value and groups_compared
     r = claim_check(
         CLAIMED, [{"sentence": CLAIMED, "keys": ["f1.start_value", "f1.groups_compared"]}]
     )
     assert not r.passed and not r.unmatched
     assert r.claims[0]["status"] == "mismatch"
-    assert {"text": "39.5%", "key": None} in r.claims[0]["numbers"]
+    assert {"text": "39.53%", "key": None} in r.claims[0]["numbers"]
 
 
 def test_claim_sentence_must_be_in_text() -> None:
@@ -164,7 +164,7 @@ def test_claim_sentence_must_be_in_text() -> None:
         CLAIMED, [{"sentence": "Something else with 34.11.", "keys": ["f1.start_value"]}]
     )
     assert r.claims[0]["status"] == "sentence_not_found"
-    assert {u["text"] for u in r.uncovered} == {"34.11%", "39.5%", "four"}
+    assert {u["text"] for u in r.uncovered} == {"34.11%", "39.53%", "four"}
 
 
 def test_claim_unknown_key() -> None:
@@ -183,7 +183,7 @@ def test_numbers_outside_any_claim_are_uncovered() -> None:
 
 
 def test_claim_matching_ignores_markdown_spacing_and_quotes() -> None:
-    text = "The **share** rose from 34.11%\nto  39.5%, the most of four areas."
+    text = "The **share** rose from 34.11%\nto  39.53%, the most of four areas."
     keys = ["f1.start_value", "f1.end_value", "f1.groups_compared"]
     assert claim_check(text, [{"sentence": CLAIMED, "keys": keys}]).passed
 
@@ -198,3 +198,61 @@ def test_one_claim_covers_the_same_sentence_in_two_fields() -> None:
 
 def test_sentences_with_only_years_need_no_claim() -> None:
     assert claim_check("Data from 2011-12 to 2022-23.", []).passed
+
+
+@pytest.mark.parametrize(
+    ("text", "ok"),
+    [
+        ("Up to 39.53%.", True),
+        ("Up to 39.50%.", True),
+        ("Up to 39.5%.", False),
+        ("Up to 40%.", False),
+    ],
+)
+def test_percentages_need_two_decimals(text: str, ok: bool) -> None:
+    nums = {**NUMBERS, "extra": [39.5, 40]}
+    r = verify_text({"body_md": text}, nums)
+    assert r.passed is ok
+    if not ok:
+        assert r.format_issues == [
+            {"field": "body_md", "text": text[6:-1], "problem": "percentages need 2 decimals"}
+        ]
+
+
+def test_chart_values_are_allowed_and_usable_as_keys() -> None:
+    chart = [
+        {"period": "2022-23", "geography": "England", "value": 34.26, "lower": 33.5, "upper": 35.0},
+        {
+            "period": "2022-23",
+            "geography": "Fakeshire",
+            "value": 39.53,
+            "lower": None,
+            "upper": None,
+        },
+    ]
+    text = "In England the share was 34.26% (33.50% to 35.00%)."
+    no_chart = verify_text({"body_md": text}, NUMBERS)
+    assert {u["text"] for u in no_chart.unmatched} == {"34.26%", "33.50%", "35.00%"}
+    keys = [
+        "chart.England.2022-23.value",
+        "chart.England.2022-23.lower",
+        "chart.England.2022-23.upper",
+    ]
+    r = verify_text({"body_md": text}, NUMBERS, [{"sentence": text, "keys": keys}], chart)
+    assert r.passed, (r.unmatched, r.claims)
+
+
+def test_chart_titles_and_annotations_are_checked() -> None:
+    from datatales.verify import chart_text
+
+    spec = {
+        "title": "Share in Fakeshire, 2011-12 to 2022-23",
+        "annotation": "Scores of 0 or 1 out of 10.",
+        "more_charts": [{"title": "The only area to rise"}],
+    }
+    text = chart_text(spec)
+    assert text.splitlines() == [spec["title"], spec["annotation"], "The only area to rise"]
+    r = verify_text({"chart_text": text}, NUMBERS, [], [])
+    assert not r.passed
+    assert {u["field"] for u in r.uncovered} == {"chart_text"}
+    assert {u["text"] for u in r.uncovered} == {"0", "1", "10", "only"}  # numbers, rank word

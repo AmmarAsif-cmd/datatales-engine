@@ -167,6 +167,10 @@ class MemRepo:
             "video_script": None,
             "verify_report": None,
             "published_at": None,
+            "drafted_by": None,
+            "candidate_key": None,
+            "data_version": None,
+            "draft_note": None,
             **row,
         }
         return dict(self.stories[sid])

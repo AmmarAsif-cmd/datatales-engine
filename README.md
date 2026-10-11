@@ -54,7 +54,8 @@ in number order, in the Supabase **SQL Editor**.
 
 1. Open your project at [supabase.com/dashboard](https://supabase.com/dashboard) → **SQL Editor** → **New query**.
 2. Paste the whole of `supabase/migrations/0001_init.sql` and click **Run**. Then do the same
-   for each later migration in order (`0002_llm_calls.sql`: Claude API usage log).
+   for each later migration in order (`0002_llm_calls.sql`: Claude API usage log;
+   `0003_story_drafting.sql`: automatic story drafting).
    It should end with "Success. No rows returned". It runs in a transaction, so on error nothing is applied.
 3. Check from the worker:
    ```sh
@@ -114,3 +115,4 @@ Only `.env.example` files (placeholder names, no values) are committed.
 - [x] M6 Review dashboard
 - [x] M7 Publish + weekly pipeline + deployed dashboard
 - [x] P2.1 Claude API foundation (`llm_calls`, budget guard, `llm-check`)
+- [x] P2.2 Automatic story drafting (pipeline + "Regenerate with Claude")

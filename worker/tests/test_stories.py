@@ -253,7 +253,8 @@ def test_story_flow_create_prompt_paste_verify(repo_ct: tuple[MemRepo, str]) -> 
     bad = json.loads(json.dumps(good).replace("6.9 in 2014-15", "7.3 in 2014-15"))
     saved, report = stories.paste_narration(repo, story["id"], json.dumps(bad))
     assert not report.passed and saved["verify_status"] == "failed"
-    assert [u["text"] for u in report.unmatched] == ["7.3"]
+    assert report.unmatched == []  # 7.3 is a real chart value (Faller, 2013-14) ...
+    assert any(n["text"] == "7.3" and n["key"] is None for c in report.claims for n in c["numbers"])
     assert [c["status"] for c in report.claims if c["status"] != "ok"] == ["mismatch"]
     with pytest.raises(ValueError, match="verified_before_approval"):
         repo.update_story(story["id"], {"status": "approved"})

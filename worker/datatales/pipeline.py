@@ -342,10 +342,32 @@ def run_scheduled(repo: Repo, log: Callable[[str], None]) -> bool:
                 log(f"[{slug}] findings already exist for clean table {ct.id}")
             else:
                 detect_clean_table(repo, ct.id, log)
+                draft_new_stories(repo, ct.id, log)
         except Exception as exc:  # noqa: BLE001 - one source failing must not stop the others
             log(f"[{slug}] FAILED: {type(exc).__name__}: {exc}")
             ok = False
     return ok
+
+
+def draft_new_stories(repo: Repo, clean_table_id: str, log: Callable[[str], None]) -> None:
+    """Auto-draft stories for the new findings (Claude API). Without a key, or once the
+    monthly budget is reached, drafts are still created and wait for copy-paste. A drafting
+    problem never fails the pipeline run."""
+    from datatales.autodraft import auto_draft_clean_table
+    from datatales.llm import LLMClient, load_api_key
+
+    try:
+        llm = LLMClient(repo) if load_api_key() else None
+        if llm is None:
+            log("Claude key not set: story drafts are created for copy-paste only")
+        summary = auto_draft_clean_table(repo, clean_table_id, log, llm)
+        log(
+            f"Story drafting: {summary.count('passed')} verified, {summary.count('failed')} "
+            f"failed, {summary.count('skipped')} skipped, {summary.count('budget')} waiting "
+            "(budget)"
+        )
+    except Exception as exc:  # noqa: BLE001
+        log(f"Story drafting stopped: {type(exc).__name__}: {exc}")
 
 
 def read_parquet(data: bytes):  # noqa: ANN201 - pandas DataFrame

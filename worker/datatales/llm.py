@@ -35,6 +35,7 @@ from datatales.repo import Repo, now_utc
 
 CONFIG_PATH = WORKER_DIR / "config" / "llm.yaml"
 DASHBOARD_CONFIG = WORKER_DIR.parent / "dashboard" / "lib" / "llm-config.json"
+DASHBOARD_SCHEMA = WORKER_DIR.parent / "dashboard" / "lib" / "narration-schema.json"
 KEY_VAR = "ANTHROPIC_API_KEY"
 MAX_RETRIES = 3
 KEY_PATTERN = re.compile(r"sk-ant-[A-Za-z0-9_\-]{8,}")
@@ -115,6 +116,13 @@ def dashboard_config_json(config: LLMConfig | None = None) -> str:
     """The dashboard's copy of config/llm.yaml (it has no YAML parser on Workers)."""
     data = (config or load_llm_config()).model_dump(exclude_none=True)
     return json.dumps(data, indent=2, sort_keys=True) + "\n"
+
+
+def dashboard_schema_json() -> str:
+    """The structured-output schema for story narration, for the dashboard's Claude button."""
+    from datatales.narrate import narration_json_schema
+
+    return json.dumps(narration_json_schema(), indent=2, sort_keys=True) + "\n"
 
 
 # ---- money ----

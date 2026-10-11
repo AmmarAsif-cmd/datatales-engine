@@ -7,7 +7,9 @@
 import { type CheckInput, evaluate } from "./chartfacts.ts";
 import { type Dec, decAbs, decFromNumber, decKey, decToString, parseDec, roundsTo } from "./decimal.ts";
 
-export const TEXT_FIELDS = ["headline", "hook", "summary", "body_md", "video_script"] as const;
+export const TEXT_FIELDS = ["headline", "hook", "summary", "body_md", "video_script", "chart_text"] as const;
+/** chart_text: every chart title and annotation, one per line (see chartText()). */
+export const PERCENT_DECIMALS = 2; // percentages are always written with 2 decimals: 38.50%
 export type TextField = (typeof TEXT_FIELDS)[number];
 
 const WORD_NUMBERS: Record<string, number> = {
@@ -83,6 +85,7 @@ export type Report = {
   claims_checked: boolean;
   claims: ClaimResult[];
   uncovered: { field: string; text: string; sentence: string }[];
+  format_issues: { field: string; text: string; problem: string }[];
 };
 
 // ---- tokens ----
@@ -159,6 +162,32 @@ export function allowedFromNumbers(numbers: JsonValue): { values: Map<string, De
 }
 
 /** Readable key -> value for every number (see verify.py flatten_numbers). */
+type ChartRow = Record<string, string | number | null | undefined>;
+
+/** Every value in chart_data as a claim key: chart.<geography>.<period>.value|lower|upper. */
+export function chartKeys(chartData: ChartRow[] | null | undefined): Map<string, Dec> {
+  const out = new Map<string, Dec>();
+  for (const row of chartData ?? []) {
+    for (const col of ["value", "lower", "upper"]) {
+      const v = row[col];
+      if (typeof v === "number") out.set(`chart.${pyStr(row.geography)}.${pyStr(row.period)}.${col}`, decFromNumber(v));
+    }
+  }
+  return out;
+}
+
+const pyStr = (v: unknown) => (v === null || v === undefined ? "None" : String(v));
+
+/** All chart titles and annotations (main chart, then more_charts), one per line. */
+export function chartText(spec: Record<string, unknown> | null | undefined): string {
+  if (!spec) return "";
+  const specs = [spec, ...((spec.more_charts as Record<string, unknown>[] | undefined) ?? [])];
+  return specs
+    .flatMap((s) => ["title", "annotation"].map((k) => s[k]).filter((v) => v !== undefined && v !== null && v !== ""))
+    .map(String)
+    .join("\n");
+}
+
 export function flattenNumbers(numbers: { [k: string]: JsonValue }): Map<string, Dec> {
   const out = new Map<string, Dec>();
   const segFor = (index: number, item: JsonValue): string => {
@@ -280,6 +309,10 @@ export function verifyText(
   chartData: Record<string, string | number | null>[] | null = null,
 ): Report {
   const { values, years } = allowedFromNumbers(numbers);
+  for (const v of chartKeys(chartData).values()) {
+    const a = decAbs(v);
+    values.set(decKey(a), a);
+  }
   const allowed = [...values.values()];
   const [lo, hi] = dataYears(numbers, years);
   const extraYears = caveatYears(numbers);
@@ -293,6 +326,7 @@ export function verifyText(
     claims_checked: false,
     claims: [],
     uncovered: [],
+    format_issues: [],
   };
   const texts = Object.fromEntries(TEXT_FIELDS.map((f) => [f, fields[f] ?? ""])) as Record<TextField, string>;
   const tokens = Object.fromEntries(TEXT_FIELDS.map((f) => [f, extractTokens(f, texts[f])])) as Record<TextField, Token[]>;
@@ -310,6 +344,11 @@ export function verifyText(
         if (outside.length) {
           report.years_out_of_range.push({ field: name, text: tok.text, allowed: [lo, hi] });
         }
+      } else if (tok.kind === "percent" && tok.decimals !== PERCENT_DECIMALS) {
+        report.format_issues.push({ field: name, text: tok.text, problem: "percentages need 2 decimals" });
+        if (!matches(tok, allowed)) {
+          report.unmatched.push({ field: name, text: tok.text, kind: tok.kind, value: decToString(tok.value) });
+        }
       } else if (!matches(tok, allowed)) {
         report.unmatched.push({ field: name, text: tok.text, kind: tok.kind, value: decToString(tok.value) });
       }
@@ -322,6 +361,7 @@ export function verifyText(
     report.unmatched.length > 0 ||
     report.years_out_of_range.length > 0 ||
     report.uncovered.length > 0 ||
+    report.format_issues.length > 0 ||
     report.claims.some((c) => c.status !== "ok");
   report.status = failed ? "failed" : "passed";
   return report;
@@ -336,7 +376,7 @@ function checkClaims(
   chartData: Record<string, string | number | null>[],
 ): void {
   report.claims_checked = true;
-  const keyTable = flattenNumbers(numbers);
+  const keyTable = new Map([...flattenNumbers(numbers), ...chartKeys(chartData)]);
   const covered = Object.fromEntries(TEXT_FIELDS.map((f) => [f, [] as [number, number][]])) as Record<
     TextField,
     [number, number][]

@@ -17,9 +17,16 @@ from typing import Any
 
 from datatales.candidates import shortlist
 from datatales.chartfacts import evaluate, facts_for
-from datatales.narrate import NarrationError, build_prompt, parse_narration, word_count
+from datatales.narrate import (
+    NarrationError,
+    build_prompt,
+    narration_data,
+    narration_instructions,
+    parse_narration,
+    word_count,
+)
 from datatales.stories import slugify
-from datatales.verify import extract_tokens, flatten_numbers, verify_text
+from datatales.verify import chart_keys, chart_text, extract_tokens, flatten_numbers, verify_text
 from tests.textkit import padded_body
 
 GOLDEN = Path(__file__).parent / "golden"
@@ -204,6 +211,13 @@ CHART_CHECKS: list[dict[str, Any]] = [
     {"kind": "highest", "group": "Nowhere", "period": "2022-23"},
 ]
 
+# More rows than CHART_ROWS_MAX: the prompt lists first/last period and the highlight only.
+BIG_CHART = [
+    {"period": f"20{10 + y}-{11 + y}", "geography": f"Area {a}", "value": 10.0 + a + y / 10,
+     "lower": None, "upper": None}
+    for a in range(30) for y in range(10)
+]  # fmt: skip
+
 CAVEAT_NUMBERS: dict[str, Any] = {
     "data_period": {"first": "2011-12", "last": "2022-23"},
     "caveats": ["Paused after April 2022 to March 2023; a review is due in 2026."],
@@ -274,6 +288,42 @@ RANK_CASES: list[dict[str, Any]] = [
         "name": "caveat_years",
         "fields": {"body_md": "Paused after 2022-23; a review is due in 2026, not 2027."},
         "claims": [],
+    },
+    {
+        "name": "chart_key_ok",
+        "fields": {"body_md": "In 2022-23 East was 34.00% (33.00% to 35.00%)."},
+        "claims": [
+            {
+                "sentence": "In 2022-23 East was 34.00% (33.00% to 35.00%).",
+                "keys": [
+                    "chart.East.2022-23.value",
+                    "chart.East.2022-23.lower",
+                    "chart.East.2022-23.upper",
+                ],
+            }
+        ],
+    },
+    {
+        "name": "chart_value_wrong_key",
+        "fields": {"body_md": "In 2022-23 East was 34.00%."},
+        "claims": [
+            {"sentence": "In 2022-23 East was 34.00%.", "keys": ["chart.West.2022-23.value"]}
+        ],
+    },
+    {
+        "name": "percent_decimals",
+        "fields": {"body_md": "North 40% and 40.0% and 40.00%; East 34.000%."},
+        "claims": [],
+    },
+    {
+        "name": "chart_text_checked",
+        "fields": {"chart_text": "The only area to rise\nScores 0 to 10, North 40.00%"},
+        "claims": [
+            {
+                "sentence": "Scores 0 to 10, North 40.00%",
+                "keys": ["chart.North.2022-23.value"],
+            }
+        ],
     },
 ]
 
@@ -635,7 +685,52 @@ def build() -> dict[str, Any]:
                     "chart_data": real["chart_data"],
                     "chart_spec": real["chart_spec"],
                     "prompt": build_prompt(real["numbers"], real["chart_data"], real["chart_spec"]),
-                }
+                    "instructions": narration_instructions(),
+                    "data": narration_data(real["numbers"], real["chart_data"], real["chart_spec"]),
+                },
+                {
+                    "numbers": CAVEAT_NUMBERS,
+                    "chart_data": BIG_CHART,
+                    "chart_spec": {
+                        "type": "line",
+                        "x": "period",
+                        "y": "value",
+                        "series": "geography",
+                        "highlight": "Area 7",
+                    },
+                    "prompt": build_prompt(
+                        CAVEAT_NUMBERS,
+                        BIG_CHART,
+                        {
+                            "type": "line",
+                            "x": "period",
+                            "y": "value",
+                            "series": "geography",
+                            "highlight": "Area 7",
+                        },
+                    ),
+                    "instructions": narration_instructions(),
+                    "data": narration_data(
+                        CAVEAT_NUMBERS,
+                        BIG_CHART,
+                        {
+                            "type": "line",
+                            "x": "period",
+                            "y": "value",
+                            "series": "geography",
+                            "highlight": "Area 7",
+                        },
+                    ),
+                },
+            ],  # fmt: skip
+            "chart_keys": {k: str(v) for k, v in chart_keys(FAKE_CHART).items()},
+            "chart_text": [
+                {"spec": spec, "text": chart_text(spec)}
+                for spec in (
+                    {"title": "A", "annotation": "B", "more_charts": [{"title": "C"}, {}]},
+                    {"type": "line"},
+                    {},
+                )
             ],
         }
     )

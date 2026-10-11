@@ -6,6 +6,7 @@ import { AccessDenied, requireUser } from "@/lib/access";
 import { dispatch, WORKFLOWS } from "@/lib/github";
 import type { VerifyReport } from "@/lib/types";
 import {
+  draftWithClaude,
   loadStory,
   pasteNarration,
   reverifyStory,
@@ -68,6 +69,23 @@ export async function pasteReply(_prev: ActionState, form: FormData): Promise<Ac
       message: passed ? "Saved. Verification passed." : "Saved, but verification FAILED. See the report.",
       report: report as unknown as VerifyReport,
     };
+  });
+}
+
+export async function regenerateWithClaude(_prev: ActionState, form: FormData): Promise<ActionState> {
+  return guarded(async () => {
+    const storyId = id(form, "story_id");
+    const outcome = await draftWithClaude(storyId);
+    revalidatePath(`/stories/${storyId}`);
+    revalidatePath("/stories");
+    revalidatePath("/");
+    const messages = {
+      passed: `Drafted by Claude and verified. ${outcome.message}`,
+      failed: outcome.message,
+      budget: `${outcome.message}. Use Copy prompt / Paste result instead.`,
+      error: `Claude could not draft this story: ${outcome.message}`,
+    };
+    return { ok: outcome.status === "passed", message: messages[outcome.status] };
   });
 }
 

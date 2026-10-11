@@ -352,6 +352,7 @@ export function pyDumps(obj: unknown, indent?: number, level = 0): string {
 
 /** Generated from narrate.py OUTPUT_SCHEMA (golden-tested). */
 /** Generated from narrate.py OUTPUT_SCHEMA (golden-tested). */
+/** Generated from narrate.py OUTPUT_SCHEMA (golden-tested). */
 export const OUTPUT_SCHEMA = {
   "headline": "string, at most 70 characters: the single strongest finding as a statement, e.g. \"Northern Ireland is the only UK nation where low anxiety rose\"",
   "hook": "string, exactly one sentence",
@@ -394,10 +395,10 @@ export const OUTPUT_SCHEMA = {
 };
 
 export const RULES = `Rules (follow every one):
-1. Use ONLY numbers that appear in NUMBERS below. Do not calculate new numbers (no new
-   differences, ratios, averages or percentages) and do not round to a different figure
-   than one you could get by rounding a number given. Years must be within the data period
-   (years mentioned in \`caveats\` are also allowed).
+1. Use ONLY numbers that appear in NUMBERS or CHART DATA below. Do not calculate new
+   numbers (no new differences, ratios, averages or percentages) and do not round to a
+   different figure than one you could get by rounding a number given. Years must be within
+   the data period (years mentioned in \`caveats\` are also allowed).
 2. UK English. Plain, calm language for a general reader. No hype words ("shocking",
    "soaring", "plummeting", "crisis"). Write financial years with an en dash: 2011–12.
 3. HEADLINE: state the single strongest finding as a statement with its key fact, e.g.
@@ -414,7 +415,8 @@ export const RULES = `Rules (follow every one):
    Fair = medium, Good = low, Very good = very low anxiety. Never write "very good anxiety";
    write "very low anxiety".
 7. When \`unit\` starts with "%", a change in \`change\` is in percentage points: write
-   "5.4 percentage points", never "5.4%". \`pct_change\` is a relative change.
+   "5.42 percentage points", never "5.42%". \`pct_change\` is a relative change. Write every
+   percentage with exactly 2 decimals: 38.50%, 5.00% (never 38.5% or 39%).
 8. SHAPE: \`series[].points\` has every year and \`series[].peak\` the peak and low point. If
    \`latest_well_below_peak\` is true, say plainly that the latest value is well below the
    peak, with both numbers and years. Mention notable dips or rises from \`notable_moves\` and
@@ -435,7 +437,10 @@ export const RULES = `Rules (follow every one):
    highest; lowest -> lowest; biggest/largest -> biggest_rise/biggest_fall. Copy checks from
    \`chart_facts.supported_checks\` (without "detail"), or write one with other periods; every
    check is re-tested against chart_data. If the same sentence is used in two fields, one
-   claim covers both. Count words like "four" as numbers.
+   claim covers both. Count words like "four" as numbers. For a value from CHART DATA use
+   the key chart.<geography>.<period>.value (or .lower / .upper for its confidence interval).
+   Chart titles and annotations are checked like the other text: keep numbers out of them
+   unless they come from the data, and give any such sentence a claim.
 12. CHARTS: chart_spec is the main chart (a line chart of every year suits most stories).
    \`more_charts\` may add up to 2 more from the same chart_data: "slope" (first vs last period,
    good for showing who rose and who fell) and "map" (one period by area; only for nations,
@@ -444,7 +449,30 @@ export const RULES = `Rules (follow every one):
 13. Return ONLY a JSON object with exactly these keys, no Markdown fences, no comments.
 `;
 
-export function buildPrompt(
+const INTRO = [
+  "You are writing a short data story for DataTales (datatales.co.uk), a UK site",
+  "that turns public data into plain, accurate stories. Python has already done all",
+  "the maths; your job is only the words around the numbers below.",
+].join("\n");
+export const CHART_ROWS_MAX = 240; // chart rows listed in the prompt; larger charts list key rows only
+
+/** The fixed part of the prompt (cached by the API): intro, rules and output shape. */
+export function narrationInstructions(): string {
+  return [INTRO, "", RULES, "## Output JSON shape", pyDumps(OUTPUT_SCHEMA, 1)].join("\n");
+}
+
+const num = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+
+export function chartRowsForPrompt(chartData: Row[], highlight: unknown): { rows: Row[]; cut: boolean } {
+  if (chartData.length <= CHART_ROWS_MAX) return { rows: chartData, cut: false };
+  const periods = [...new Set(chartData.map((r) => pyStr(r.period)))].sort();
+  const keep = new Set([periods[0], periods[periods.length - 1]]);
+  const wanted = new Set(Array.isArray(highlight) ? highlight : highlight ? [highlight] : []);
+  return { rows: chartData.filter((r) => keep.has(pyStr(r.period)) || wanted.has(r.geography)), cut: true };
+}
+
+/** The per-story part of the prompt: chart, numbers, keys and chart data. */
+export function narrationData(
   numbers: Record<string, unknown>,
   chartData: Row[],
   chartSpec: Record<string, unknown>,
@@ -452,15 +480,8 @@ export function buildPrompt(
   const columns = [...new Set(chartData.flatMap((r) => Object.keys(r)))].sort();
   const seriesValues = [...new Set(chartData.map((r) => pyStr(r.geography)))].sort();
   const keys = flattenNumbers(numbers as never);
+  const { rows, cut } = chartRowsForPrompt(chartData, chartSpec.highlight);
   return [
-    "You are writing a short data story for DataTales (datatales.co.uk), a UK site",
-    "that turns public data into plain, accurate stories. Python has already done all",
-    "the maths; your job is only the words around the numbers below.",
-    "",
-    RULES,
-    "## Output JSON shape",
-    pyDumps(OUTPUT_SCHEMA, 1),
-    "",
     "## Chart",
     `chart_data columns: ${pyList(columns)}`,
     `geography values: ${pyList(seriesValues)}`,
@@ -475,5 +496,19 @@ export function buildPrompt(
     "",
     "## KEYS (use these names in claims[].keys)",
     ...[...keys.entries()].map(([k, v]) => `${k} = ${decToString(v)}`),
+    "",
+    "## CHART DATA (keys: chart.<geography>.<period>.value, .lower, .upper)",
+    ...(cut ? ["(large chart: first and last period and the highlighted rows only)"] : []),
+    "geography,period,value,lower,upper",
+    ...rows.map((r) => `${pyStr(r.geography)},${pyStr(r.period)},${num(r.value)},${num(r.lower)},${num(r.upper)}`),
   ].join("\n");
+}
+
+/** The whole prompt, for the copy-paste flow. */
+export function buildPrompt(
+  numbers: Record<string, unknown>,
+  chartData: Row[],
+  chartSpec: Record<string, unknown>,
+): string {
+  return `${narrationInstructions()}\n\n${narrationData(numbers, chartData, chartSpec)}`;
 }

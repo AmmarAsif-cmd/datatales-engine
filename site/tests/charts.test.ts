@@ -101,8 +101,8 @@ test('slope: name and value on both sides, highlighted drawn in colour', () => {
   })!;
   for (const name of ['A', 'B', 'C'])
     assert.equal((svg.match(new RegExp(`>${name}<`, 'g')) ?? []).length, 2);
-  assert.match(svg, />15%</);
-  assert.match(svg, />10%</);
+  assert.match(svg, />15.00%</);
+  assert.match(svg, />10.00%</);
   assert.match(svg, /var\(--series-1/);
   assert.equal((svg.match(/<title>/g) ?? []).length, 3);
   assert.equal(renderStaticChart({ ...spec, type: 'line' }, data, { title: 'T' }), null);

@@ -40,8 +40,10 @@ def label_for(config: DetectConfig, numbers: dict[str, Any]) -> str:
 
 
 def format_value(value: float, unit: str) -> str:
-    text = f"{value:,.2f}".rstrip("0").rstrip(".")
-    return f"{text}%" if unit.startswith("%") else text
+    """Percentages always with 2 decimals (38.50%); other values up to 2 (7.5, 7.93)."""
+    if unit.startswith("%"):
+        return f"{value:,.2f}%"
+    return f"{value:,.2f}".rstrip("0").rstrip(".")
 
 
 def rank_card(numbers: dict[str, Any]) -> dict[str, str] | None:

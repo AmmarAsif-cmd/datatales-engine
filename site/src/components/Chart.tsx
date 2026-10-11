@@ -11,6 +11,7 @@ import {
   type ChartSpec,
   type Row,
 } from '../lib/chart';
+import { formatValue, isPercent, type Spec } from '../lib/graphics/alt.ts';
 
 type Props = { spec: ChartSpec; data: Row[]; label: string; describedBy?: string };
 
@@ -42,6 +43,9 @@ const numFmt = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 2 });
 
 function build(spec: ChartSpec, data: Row[], width: number): SVGSVGElement | HTMLElement {
   const t = theme();
+  // percentages always with 2 decimals (38.50%), like the text, cards and tables
+  const pct = isPercent(spec as Spec);
+  const fmt = (v: number) => (pct ? formatValue(v, true) : numFmt.format(v));
   const highlight = highlightList(spec);
   const sKey = spec.series;
   const coloured = colouredSeries(spec, data);
@@ -75,7 +79,7 @@ function build(spec: ChartSpec, data: Row[], width: number): SVGSVGElement | HTM
     // Narrow screens: names only (values are in the tooltip and the table) to keep plot room.
     const narrow = width < 560;
     const labelText = (r: Row) =>
-      narrow ? String(r[sKey!]) : `${r[sKey!]} ${numFmt.format(Number(r[spec.y]))}`;
+      narrow ? String(r[sKey!]) : `${r[sKey!]} ${fmt(Number(r[spec.y]))}`;
     const longest = Math.max(0, ...ends.map((r) => labelText(r).length));
     const rightRoom = ends.length ? Math.min(190, longest * (narrow ? 6.4 : 7) + 16) : 16;
     const height = Math.max(260, Math.min(420, width * 0.6));
@@ -180,7 +184,7 @@ function build(spec: ChartSpec, data: Row[], width: number): SVGSVGElement | HTM
             channels: sKey ? { [sKey]: sKey } : {},
             format: {
               x: (v: unknown) => enDash(String(v)),
-              y: (v: number) => numFmt.format(v),
+              y: (v: number) => fmt(v),
             },
           }),
         ),
@@ -213,7 +217,7 @@ function build(spec: ChartSpec, data: Row[], width: number): SVGSVGElement | HTM
           Plot.text(rows, {
             y: catKey,
             x: spec.y,
-            text: (r: Row) => numFmt.format(Number(r[spec.y])),
+            text: (r: Row) => fmt(Number(r[spec.y])),
             dx: 6,
             textAnchor: 'start',
             fill: t.ink2,
@@ -252,7 +256,7 @@ function build(spec: ChartSpec, data: Row[], width: number): SVGSVGElement | HTM
           y: catKey,
           x: spec.y,
           ...tipStyle,
-          format: { x: (v: number) => numFmt.format(v) },
+          format: { x: (v: number) => fmt(v) },
         }),
       ),
     ],

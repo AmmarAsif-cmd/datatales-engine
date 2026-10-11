@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import { type ActionState, pasteReply, republish, saveEdits, setStatus } from "@/app/actions";
+import { type ActionState, pasteReply, regenerateWithClaude, republish, saveEdits, setStatus } from "@/app/actions";
 import type { Story } from "@/lib/types";
 
 const initial: ActionState = { ok: true, message: "" };
@@ -10,6 +10,24 @@ const initial: ActionState = { ok: true, message: "" };
 function Message({ state }: { state: ActionState }) {
   if (!state.message) return null;
   return <p className={`msg ${state.ok ? "ok" : "bad"}`}>{state.message}</p>;
+}
+
+export function ClaudeDraftForm({ storyId, locked }: { storyId: string; locked: boolean }) {
+  const [state, action, pending] = useActionState(regenerateWithClaude, initial);
+  return (
+    <form action={action}>
+      <input type="hidden" name="story_id" value={storyId} />
+      <div className="row">
+        <button type="submit" disabled={pending || locked}>
+          {pending ? "Claude is writing and verifying… (up to 2 minutes)" : "Regenerate with Claude"}
+        </button>
+        <span className="small muted">
+          Writes a new draft from the numbers, verifies it, and retries once if verification fails.
+        </span>
+      </div>
+      <Message state={state} />
+    </form>
+  );
 }
 
 export function PasteForm({ storyId, locked }: { storyId: string; locked: boolean }) {
@@ -41,7 +59,7 @@ const FIELDS: { name: keyof Story; label: string; rows: number }[] = [
   { name: "headline", label: "Headline (max 70 characters)", rows: 1 },
   { name: "hook", label: "Hook (one sentence)", rows: 2 },
   { name: "summary", label: "Summary (max 120 words)", rows: 5 },
-  { name: "body_md", label: "Body, Markdown (max 400 words)", rows: 14 },
+  { name: "body_md", label: "Body, Markdown (500 to 700 words)", rows: 14 },
   { name: "video_script", label: "Video script (max 90 words)", rows: 4 },
 ];
 

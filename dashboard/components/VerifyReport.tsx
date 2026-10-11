@@ -1,5 +1,7 @@
 import type { VerifyReport as Report } from "@/lib/types";
 
+const FIELD_LABEL: Record<string, string> = { chart_text: "chart titles/annotations" };
+
 const CLAIM_LABEL: Record<string, string> = {
   ok: "ok",
   mismatch: "number not from its keys",
@@ -53,6 +55,19 @@ export default function VerifyReport({ report }: { report: Report | null }) {
             {report.years_out_of_range.map((y, i) => (
               <li key={i}>
                 <code>{y.text}</code> in <b>{y.field}</b> (data covers {y.allowed.join("–")})
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {(report.format_issues ?? []).length > 0 && (
+        <>
+          <h3>Formatting</h3>
+          <ul>
+            {(report.format_issues ?? []).map((f, i) => (
+              <li key={i}>
+                <code>{f.text}</code> in <b>{FIELD_LABEL[f.field] ?? f.field}</b>: {f.problem}
               </li>
             ))}
           </ul>

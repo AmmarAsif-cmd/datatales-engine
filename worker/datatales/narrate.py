@@ -10,6 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
+from datatales.chartfacts import CHECK_KINDS
 from datatales.errors import UserError
 from datatales.verify import flatten_numbers
 
@@ -238,10 +239,10 @@ OUTPUT_SCHEMA = {
 
 RULES = """\
 Rules (follow every one):
-1. Use ONLY numbers that appear in NUMBERS below. Do not calculate new numbers (no new
-   differences, ratios, averages or percentages) and do not round to a different figure
-   than one you could get by rounding a number given. Years must be within the data period
-   (years mentioned in `caveats` are also allowed).
+1. Use ONLY numbers that appear in NUMBERS or CHART DATA below. Do not calculate new
+   numbers (no new differences, ratios, averages or percentages) and do not round to a
+   different figure than one you could get by rounding a number given. Years must be within
+   the data period (years mentioned in `caveats` are also allowed).
 2. UK English. Plain, calm language for a general reader. No hype words ("shocking",
    "soaring", "plummeting", "crisis"). Write financial years with an en dash: 2011–12.
 3. HEADLINE: state the single strongest finding as a statement with its key fact, e.g.
@@ -258,7 +259,8 @@ Rules (follow every one):
    Fair = medium, Good = low, Very good = very low anxiety. Never write "very good anxiety";
    write "very low anxiety".
 7. When `unit` starts with "%", a change in `change` is in percentage points: write
-   "5.4 percentage points", never "5.4%". `pct_change` is a relative change.
+   "5.42 percentage points", never "5.42%". `pct_change` is a relative change. Write every
+   percentage with exactly 2 decimals: 38.50%, 5.00% (never 38.5% or 39%).
 8. SHAPE: `series[].points` has every year and `series[].peak` the peak and low point. If
    `latest_well_below_peak` is true, say plainly that the latest value is well below the
    peak, with both numbers and years. Mention notable dips or rises from `notable_moves` and
@@ -279,7 +281,10 @@ Rules (follow every one):
    highest; lowest -> lowest; biggest/largest -> biggest_rise/biggest_fall. Copy checks from
    `chart_facts.supported_checks` (without "detail"), or write one with other periods; every
    check is re-tested against chart_data. If the same sentence is used in two fields, one
-   claim covers both. Count words like "four" as numbers.
+   claim covers both. Count words like "four" as numbers. For a value from CHART DATA use
+   the key chart.<geography>.<period>.value (or .lower / .upper for its confidence interval).
+   Chart titles and annotations are checked like the other text: keep numbers out of them
+   unless they come from the data, and give any such sentence a claim.
 12. CHARTS: chart_spec is the main chart (a line chart of every year suits most stories).
    `more_charts` may add up to 2 more from the same chart_data: "slope" (first vs last period,
    good for showing who rose and who fell) and "map" (one period by area; only for nations,
@@ -289,23 +294,56 @@ Rules (follow every one):
 """
 
 
-def build_prompt(
-    numbers: dict[str, Any], chart_data: list[dict[str, Any]], chart_spec: dict[str, Any]
-) -> str:
-    columns = sorted(set().union(*(row.keys() for row in chart_data))) if chart_data else []
-    main = {k: v for k, v in chart_spec.items() if k != "more_charts"}
-    more = chart_spec.get("more_charts") or []
-    series_values = sorted({str(row.get("geography")) for row in chart_data})
+INTRO = (
+    "You are writing a short data story for DataTales (datatales.co.uk), a UK site\n"
+    "that turns public data into plain, accurate stories. Python has already done all\n"
+    "the maths; your job is only the words around the numbers below."
+)
+CHART_ROWS_MAX = 240  # chart rows listed in the prompt; larger charts list the key rows only
+
+
+def narration_instructions() -> str:
+    """The fixed part of the prompt (cached by the API): intro, rules and output shape."""
     return "\n".join(
         [
-            "You are writing a short data story for DataTales (datatales.co.uk), a UK site",
-            "that turns public data into plain, accurate stories. Python has already done all",
-            "the maths; your job is only the words around the numbers below.",
+            INTRO,
             "",
             RULES,
             "## Output JSON shape",
             json.dumps(OUTPUT_SCHEMA, indent=1, ensure_ascii=False),
-            "",
+        ]
+    )
+
+
+def _num(v: Any) -> str:
+    return "" if v is None else str(v)
+
+
+def chart_rows_for_prompt(
+    chart_data: list[dict[str, Any]], highlight: Any
+) -> tuple[list[dict[str, Any]], bool]:
+    """Every chart row, or (for big charts) the first and last period plus the highlighted
+    group's rows. Returns (rows, cut)."""
+    if len(chart_data) <= CHART_ROWS_MAX:
+        return chart_data, False
+    periods = sorted({str(r.get("period")) for r in chart_data})
+    keep = {periods[0], periods[-1]}
+    wanted = set(highlight if isinstance(highlight, list) else [highlight] if highlight else [])
+    rows = [r for r in chart_data if str(r.get("period")) in keep or r.get("geography") in wanted]
+    return rows, True
+
+
+def narration_data(
+    numbers: dict[str, Any], chart_data: list[dict[str, Any]], chart_spec: dict[str, Any]
+) -> str:
+    """The per-story part of the prompt: chart, numbers, keys and chart data."""
+    columns = sorted(set().union(*(row.keys() for row in chart_data))) if chart_data else []
+    main = {k: v for k, v in chart_spec.items() if k != "more_charts"}
+    more = chart_spec.get("more_charts") or []
+    series_values = sorted({str(row.get("geography")) for row in chart_data})
+    rows, cut = chart_rows_for_prompt(chart_data, chart_spec.get("highlight"))
+    return "\n".join(
+        [
             "## Chart",
             f"chart_data columns: {columns}",
             f"geography values: {series_values}",
@@ -322,5 +360,93 @@ def build_prompt(
             "",
             "## KEYS (use these names in claims[].keys)",
             *(f"{k} = {v}" for k, v in flatten_numbers(numbers).items()),
+            "",
+            "## CHART DATA (keys: chart.<geography>.<period>.value, .lower, .upper)",
+            *(
+                ["(large chart: first and last period and the highlighted rows only)"]
+                if cut
+                else []
+            ),
+            "geography,period,value,lower,upper",
+            *(
+                f"{r.get('geography')},{r.get('period')},{_num(r.get('value'))},"
+                f"{_num(r.get('lower'))},{_num(r.get('upper'))}"
+                for r in rows
+            ),
         ]
     )
+
+
+def build_prompt(
+    numbers: dict[str, Any], chart_data: list[dict[str, Any]], chart_spec: dict[str, Any]
+) -> str:
+    """The whole prompt, for the copy-paste flow."""
+    return narration_instructions() + "\n\n" + narration_data(numbers, chart_data, chart_spec)
+
+
+def _spec_schema() -> dict[str, Any]:
+    text = {"type": "string"}
+    return {
+        "type": "object",
+        "properties": {
+            "type": {"type": "string", "enum": list(CHART_TYPES)},
+            "x": text,
+            "y": text,
+            "series": text,
+            "highlight": {"anyOf": [text, {"type": "array", "items": text}]},
+            "annotation": text,
+            "title": text,
+            "yLabel": text,
+            "start": text,
+            "end": text,
+            "period": text,
+        },
+        "required": ["type", "x", "y"],
+        "additionalProperties": False,
+    }
+
+
+def narration_json_schema() -> dict[str, Any]:
+    """JSON schema for structured output. Length limits are not expressible there; the
+    Narration model (parse_narration) still enforces every rule after the reply arrives."""
+    text = {"type": "string"}
+    check = {
+        "type": "object",
+        "properties": {
+            "kind": {"type": "string", "enum": list(CHECK_KINDS)},
+            "group": text,
+            "period": text,
+            "start": text,
+            "end": text,
+        },
+        "required": ["kind"],
+        "additionalProperties": False,
+    }
+    claim = {
+        "type": "object",
+        "properties": {
+            "sentence": text,
+            "keys": {"type": "array", "items": text},
+            "checks": {"type": "array", "items": check},
+        },
+        "required": ["sentence", "keys", "checks"],
+        "additionalProperties": False,
+    }
+    return {
+        "type": "object",
+        "properties": {
+            "headline": text,
+            "hook": text,
+            "summary": text,
+            "body_md": text,
+            "video_script": text,
+            "chart_spec": _spec_schema(),
+            "more_charts": {"type": "array", "items": _spec_schema()},
+            "claims": {"type": "array", "items": claim, "minItems": 1},
+        },
+        "required": [
+            "headline", "hook", "summary", "body_md", "video_script", "chart_spec",
+            "more_charts", "claims",
+        ],
+        "additionalProperties": False,
+    }  # fmt: skip

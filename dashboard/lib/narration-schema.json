@@ -1,0 +1,217 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "body_md": {
+      "type": "string"
+    },
+    "chart_spec": {
+      "additionalProperties": false,
+      "properties": {
+        "annotation": {
+          "type": "string"
+        },
+        "end": {
+          "type": "string"
+        },
+        "highlight": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ]
+        },
+        "period": {
+          "type": "string"
+        },
+        "series": {
+          "type": "string"
+        },
+        "start": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "line",
+            "bar",
+            "dot",
+            "slope",
+            "map"
+          ],
+          "type": "string"
+        },
+        "x": {
+          "type": "string"
+        },
+        "y": {
+          "type": "string"
+        },
+        "yLabel": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "claims": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "checks": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "end": {
+                  "type": "string"
+                },
+                "group": {
+                  "type": "string"
+                },
+                "kind": {
+                  "enum": [
+                    "highest",
+                    "lowest",
+                    "only_rise",
+                    "only_fall",
+                    "all_rise",
+                    "all_fall",
+                    "biggest_rise",
+                    "biggest_fall"
+                  ],
+                  "type": "string"
+                },
+                "period": {
+                  "type": "string"
+                },
+                "start": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sentence": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sentence",
+          "keys",
+          "checks"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "headline": {
+      "type": "string"
+    },
+    "hook": {
+      "type": "string"
+    },
+    "more_charts": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "annotation": {
+            "type": "string"
+          },
+          "end": {
+            "type": "string"
+          },
+          "highlight": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ]
+          },
+          "period": {
+            "type": "string"
+          },
+          "series": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "line",
+              "bar",
+              "dot",
+              "slope",
+              "map"
+            ],
+            "type": "string"
+          },
+          "x": {
+            "type": "string"
+          },
+          "y": {
+            "type": "string"
+          },
+          "yLabel": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "x",
+          "y"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "video_script": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "headline",
+    "hook",
+    "summary",
+    "body_md",
+    "video_script",
+    "chart_spec",
+    "more_charts",
+    "claims"
+  ],
+  "type": "object"
+}

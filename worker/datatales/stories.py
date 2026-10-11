@@ -7,11 +7,11 @@ from typing import Any
 
 from datatales.candidates import Candidate, shortlist
 from datatales.errors import UserError
-from datatales.narrate import Claim, build_prompt, parse_narration
+from datatales.narrate import Claim, Narration, build_prompt, parse_narration
 from datatales.repo import Repo
 from datatales.sources import get_source
 from datatales.storydata import build_story_data
-from datatales.verify import TEXT_FIELDS, Report, verify_text
+from datatales.verify import TEXT_FIELDS, Report, chart_text, verify_text
 
 LOCKED = ("approved", "published")
 
@@ -43,12 +43,23 @@ def candidates_for(repo: Repo, clean_table_id: str) -> list[Candidate]:
 
 def create_story(repo: Repo, clean_table_id: str, index: int) -> dict[str, Any]:
     """Draft a story from shortlist candidate number `index` (1-based)."""
-    from datatales.pipeline import read_parquet
 
     picks = candidates_for(repo, clean_table_id)
     if not 1 <= index <= len(picks):
         raise StoryError(f"candidate must be 1 to {len(picks)}")
-    cand = picks[index - 1]
+    return create_story_from_candidate(repo, clean_table_id, picks[index - 1])
+
+
+def candidate_key(source_slug: str, cand: Candidate) -> str:
+    """What a story is about: one place, at one level, in one direction, from one source.
+    Used to avoid drafting the same story twice."""
+    direction = "good" if cand.good_news else "bad"
+    return f"{source_slug}|{cand.geo_level}|{cand.geography}|{direction}"
+
+
+def create_story_from_candidate(repo: Repo, clean_table_id: str, cand: Candidate) -> dict[str, Any]:
+    from datatales.pipeline import read_parquet
+
     ct = repo.get_clean_table(clean_table_id)
     source = get_source(repo.get_dataset(ct.dataset_id).source_slug)
     if source.detect is None:
@@ -66,6 +77,8 @@ def create_story(repo: Repo, clean_table_id: str, index: int) -> dict[str, Any]:
             "chart_data": chart_data,
             "status": "draft",
             "verify_status": "pending",
+            "candidate_key": candidate_key(source.slug, cand),
+            "data_version": clean_table_id,
         }
     )
 
@@ -132,10 +145,24 @@ def _editable(story: dict[str, Any]) -> None:
         raise StoryError(f"story is {story['status']}; it can no longer be edited")
 
 
-def paste_narration(repo: Repo, story_id: str, reply: str) -> tuple[dict[str, Any], Report]:
+def story_fields(story: dict[str, Any], **override: Any) -> dict[str, str | None]:
+    """The verified text fields of a story, including all chart titles and annotations."""
+    fields = {k: story.get(k) for k in TEXT_FIELDS if k != "chart_text"}
+    fields["chart_text"] = chart_text(story.get("chart_spec"))
+    fields.update(override)
+    return fields
+
+
+def apply_narration(
+    repo: Repo, story_id: str, narration: Narration, drafted_by: str = "manual"
+) -> tuple[dict[str, Any], Report]:
+    """Save a validated narration on a story and verify it (numbers, claims, rank words,
+    chart titles). Used by the copy-paste flow and by Claude drafting alike."""
     story = repo.get_story(story_id)
     _editable(story)
-    narration = parse_narration(reply, story["chart_data"])
+    spec = narration.chart_spec.model_dump(exclude_none=True)
+    if narration.more_charts:
+        spec["more_charts"] = [m.model_dump(exclude_none=True) for m in narration.more_charts]
     fields = {
         "headline": narration.headline,
         "hook": narration.hook,
@@ -144,10 +171,12 @@ def paste_narration(repo: Repo, story_id: str, reply: str) -> tuple[dict[str, An
         "video_script": narration.video_script,
     }
     claims = [c.model_dump() for c in narration.claims]
-    report = verify_text(fields, story["numbers"], claims, story["chart_data"])
-    spec = narration.chart_spec.model_dump(exclude_none=True)
-    if narration.more_charts:
-        spec["more_charts"] = [m.model_dump(exclude_none=True) for m in narration.more_charts]
+    report = verify_text(
+        story_fields(story, **fields, chart_text=chart_text(spec)),
+        story["numbers"],
+        claims,
+        story["chart_data"],
+    )
     updated = repo.update_story(
         story_id,
         {
@@ -157,9 +186,17 @@ def paste_narration(repo: Repo, story_id: str, reply: str) -> tuple[dict[str, An
             "verify_status": report.status,
             "verify_report": report.to_json(),
             "status": "draft",
+            "drafted_by": drafted_by,
+            "draft_note": None,
         },
     )
     return updated, report
+
+
+def paste_narration(repo: Repo, story_id: str, reply: str) -> tuple[dict[str, Any], Report]:
+    story = repo.get_story(story_id)
+    _editable(story)
+    return apply_narration(repo, story_id, parse_narration(reply, story["chart_data"]))
 
 
 def stored_claims(story: dict[str, Any]) -> list[dict[str, Any]] | None:
@@ -188,8 +225,8 @@ def reverify(
     """Re-run verification after editing text fields and/or claims (dashboard edits)."""
     story = repo.get_story(story_id)
     _editable(story)
-    edits = {k: v for k, v in (edits or {}).items() if k in TEXT_FIELDS}
-    fields = {k: edits.get(k, story.get(k)) for k in TEXT_FIELDS}
+    edits = {k: v for k, v in (edits or {}).items() if k in TEXT_FIELDS and k != "chart_text"}
+    fields = story_fields(story, **edits)
     if claims is not None:
         claims = [Claim.model_validate(c).model_dump() for c in claims]
     else:
@@ -205,6 +242,7 @@ def reverify(
 
 TRANSITIONS = {
     "draft": {"approved", "rejected"},
+    "failed": {"draft", "rejected"},  # Claude's draft failed verification; fix by hand
     "rejected": {"draft"},
     "approved": {"draft"},
     "published": {"draft"},  # "Revise": the page stays live until it is republished

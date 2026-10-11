@@ -14,6 +14,7 @@ type Row = {
   verify_status: string;
   updated_at: string;
   finding_ids: string[];
+  drafted_by: string | null;
 };
 
 const STATUS_BADGE: Record<string, string> = {
@@ -21,6 +22,7 @@ const STATUS_BADGE: Record<string, string> = {
   approved: "ok",
   rejected: "bad",
   published: "ok",
+  failed: "bad",
 };
 
 export default async function StoriesPage() {
@@ -29,7 +31,7 @@ export default async function StoriesPage() {
   const stories = await must<Row[]>(
     db()
       .from("stories")
-      .select("id, slug, headline, status, verify_status, updated_at, finding_ids")
+      .select("id, slug, headline, status, verify_status, updated_at, finding_ids, drafted_by")
       .order("updated_at", { ascending: false }),
   );
   return (
@@ -61,6 +63,7 @@ export default async function StoriesPage() {
                   </td>
                   <td data-label="Status">
                     <span className={`badge ${STATUS_BADGE[s.status] ?? "plain"}`}>{s.status}</span>
+                    {s.drafted_by === "claude" && <span className="badge claude">Claude</span>}
                   </td>
                   <td data-label="Verification">
                     <span

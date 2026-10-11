@@ -9,9 +9,9 @@ import { test } from "node:test";
 
 import { evaluate, fmtG } from "../lib/logic/chartfacts.ts";
 import { decKey, decToString, parseDec } from "../lib/logic/decimal.ts";
-import { buildPrompt, NarrationError, parseNarration, wordCount } from "../lib/logic/narrate.ts";
+import { buildPrompt, narrationData, narrationInstructions, NarrationError, parseNarration, wordCount } from "../lib/logic/narrate.ts";
 import { shortlist, slugify, type FindingRow } from "../lib/logic/stories.ts";
-import { extractTokens, flattenNumbers, verifyText, type Claim } from "../lib/logic/verify.ts";
+import { chartKeys, chartText, extractTokens, flattenNumbers, verifyText, type Claim } from "../lib/logic/verify.ts";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const golden: any = JSON.parse(
@@ -50,7 +50,7 @@ test("verification reports", () => {
     const want = c.report;
     for (const field of [
       "status", "checked", "unmatched", "years_out_of_range", "data_years", "allowed_values",
-      "claims_checked", "uncovered",
+      "claims_checked", "uncovered", "format_issues",
     ]) {
       assert.deepEqual(got[field as keyof typeof got], want[field], `${c.name}.${field}`);
     } // prettier-ignore
@@ -105,6 +105,8 @@ test("prompt (numbers compared by value: 7.0 and 7 are the same)", () => {
   const norm = (s: string) => s.replace(/-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/gi, (m) => String(Number(m)));
   for (const c of golden.prompt) {
     assert.equal(norm(buildPrompt(c.numbers, c.chart_data, c.chart_spec)), norm(c.prompt));
+    assert.equal(norm(narrationInstructions()), norm(c.instructions));
+    assert.equal(norm(narrationData(c.numbers, c.chart_data, c.chart_spec)), norm(c.data));
   }
 });
 
@@ -120,4 +122,11 @@ test("Python %g formatting", () => {
     [0.00001, "1e-05"], [0.0001, "0.0001"], [123456, "123456"], [-2, "-2"], [0, "0"],
   ]; // prettier-ignore
   for (const [x, want] of cases) assert.equal(fmtG(x), want, String(x));
+});
+
+test("chart keys and chart text", () => {
+  const got = Object.fromEntries([...chartKeys(golden.chartfacts.chart_data)].map(([k, v]) => [k, decToString(v)]));
+  assert.deepEqual(Object.keys(got).sort(), Object.keys(golden.chart_keys).sort());
+  for (const [k, v] of Object.entries(golden.chart_keys as Record<string, string>)) assert.ok(sameNumber(got[k], v), k);
+  for (const c of golden.chart_text) assert.equal(chartText(c.spec), c.text);
 });

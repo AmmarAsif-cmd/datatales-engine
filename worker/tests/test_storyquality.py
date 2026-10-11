@@ -226,9 +226,9 @@ def test_cover_facts_prefers_rank_change_then_verified_framing() -> None:
     assert c.pop("measure_label") == "Share"
     assert c == {
         "group": "A",
-        "value": "8%",
+        "value": "8.00%",
         "label": "Share, 2014-15",
-        "change": "Up from 5% in 2011-12",
+        "change": "Up from 5.00% in 2011-12",
         "badge": "3rd → 1st of 3 UK nations",
     }
     c = cover_facts(CHART, "A", "region", "Share", "%", None, facts)

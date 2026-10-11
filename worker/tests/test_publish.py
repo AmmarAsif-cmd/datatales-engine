@@ -49,8 +49,8 @@ def test_write_story_file_matches_site_schema(
     } in fm["keyNumbers"]
     assert {
         "label": "Share with low life satisfaction, 2014–15",
-        "value": "20%",
-        "note": "From 30% in 2011–12",
+        "value": "20.00%",
+        "note": "From 30.00% in 2011–12",
     } in fm["keyNumbers"]
     assert fm["chart_data"] == story["chart_data"] and fm["numbers"] == story["numbers"]
     assert body.strip() == publish.en_dash(story["body_md"].strip())

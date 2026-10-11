@@ -447,3 +447,11 @@ label.inline {
 .meter span.full {
   background: var(--bad, #e34948);
 }
+
+.badge.claude {
+  background: #ece8fc;
+  color: #4a3aa7;
+}
+.msg.warn {
+  border-left: 3px solid var(--warn, #eda100);
+}

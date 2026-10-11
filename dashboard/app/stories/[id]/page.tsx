@@ -5,7 +5,8 @@ import ChartPreview from "@/components/ChartPreview";
 import CopyButton from "@/components/CopyButton";
 import CoverGraphics from "@/components/CoverGraphics";
 import type { ChartFacts, Cover, Row, Spec } from "@/lib/graphics/alt.ts";
-import { EditForm, PasteForm, StatusButtons } from "@/components/StoryForms";
+import ClaudeUsage from "@/components/ClaudeUsage";
+import { ClaudeDraftForm, EditForm, PasteForm, StatusButtons } from "@/components/StoryForms";
 import VerifyReport from "@/components/VerifyReport";
 import { db } from "@/lib/db";
 import { when } from "@/lib/format";
@@ -64,11 +65,25 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
         <span className={`badge ${passed ? "ok" : story.verify_status === "failed" ? "bad" : "warn"}`}>
           verification {story.verify_status}
         </span>
+        {story.drafted_by === "claude" && <span className="badge claude">Drafted by Claude</span>}
         <span className="small muted">
           slug <code>{story.slug}</code> · {story.finding_ids.length} findings · updated{" "}
           {when(story.updated_at)}
         </span>
       </p>
+
+      {story.draft_note && (
+        <p className={`msg ${story.status === "failed" ? "bad" : "warn"}`} role="status">
+          {story.draft_note}
+        </p>
+      )}
+      <ClaudeUsage compact />
+
+      <div className="panel">
+        <h2 style={{ marginTop: 0 }}>Draft with Claude</h2>
+        <ClaudeDraftForm storyId={story.id} locked={locked} />
+        <p className="small muted">Or use the copy-paste flow below as a backup.</p>
+      </div>
 
       <div className="panel">
         <h2 style={{ marginTop: 0 }}>Review decision</h2>

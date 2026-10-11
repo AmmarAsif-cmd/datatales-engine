@@ -57,12 +57,12 @@ test("alt text is built from the data", () => {
     groups_compared: 2,
     supported_checks: [{ kind: "only_rise", group: "North", start: "2011-12", end: "2013-14" }],
   });
-  assert.match(alt, /North, highlighted, rose from 30% in 2011–12 to 38% in 2013–14/);
+  assert.match(alt, /North, highlighted, rose from 30.00% in 2011–12 to 38.00% in 2013–14/);
   assert.match(alt, /only one of the 2 to rise/);
-  assert.match(alt, /Shown in grey: South fell from 35% in 2011–12 to 33% in 2013–14/);
+  assert.match(alt, /Shown in grey: South fell from 35.00% in 2011–12 to 33.00% in 2013–14/);
   assert.match(coverAlt("Headline", cover, spec, data), /^Headline\. 38%: Share, 2013–14\./);
   const map = chartAlt({ ...spec, type: "map" }, data, "Map title");
-  assert.match(map, /Values range from 33% in South to 38% in North/);
+  assert.match(map, /Values range from 33.00% in South to 38.00% in North/);
 });
 
 test("cover text always fits its column, however long the headline", async () => {

@@ -41,6 +41,7 @@ export type VerifyReport = {
   claims_checked: boolean;
   claims: ClaimResult[];
   uncovered: { field: string; text: string; sentence: string }[];
+  format_issues?: { field: string; text: string; problem: string }[];
 };
 
 export type Story = {
@@ -57,7 +58,11 @@ export type Story = {
   numbers: Record<string, Json> | null;
   verify_status: "pending" | "passed" | "failed";
   verify_report: VerifyReport | null;
-  status: "draft" | "approved" | "rejected" | "published";
+  status: "draft" | "approved" | "rejected" | "published" | "failed";
+  drafted_by: "claude" | "manual" | null;
+  candidate_key: string | null;
+  data_version: string | null;
+  draft_note: string | null;
   published_at: string | null;
   created_at: string;
   updated_at: string;

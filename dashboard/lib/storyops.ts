@@ -1,9 +1,12 @@
 import "server-only";
 
 import { db } from "./db";
-import { NarrationError, parseChecks, parseNarration } from "./logic/narrate.ts";
+import { claude } from "./llm";
+import { BudgetReached, InvalidOutput, untrusted } from "./logic/llm.ts";
+import { NarrationError, narrationData, narrationInstructions, parseChecks, parseNarration } from "./logic/narrate.ts";
+import NARRATION_SCHEMA from "./narration-schema.json" with { type: "json" };
 import { slugify } from "./logic/stories.ts";
-import { type Claim, type Report, TEXT_FIELDS, type TextField, verifyText } from "./logic/verify.ts";
+import { chartText, type Claim, type Report, TEXT_FIELDS, type TextField, verifyText } from "./logic/verify.ts";
 import type { Story } from "./types";
 
 /**
@@ -40,6 +43,53 @@ async function save(id: string, fields: Record<string, unknown>): Promise<Story>
   return data;
 }
 
+type Narration = ReturnType<typeof parseNarration>;
+
+/** Text fields that are verified, including every chart title and annotation. */
+function storyFields(story: Story, override: Partial<Record<TextField, string>> = {}): Record<TextField, string> {
+  const base = Object.fromEntries(
+    TEXT_FIELDS.map((f) => [f, f === "chart_text" ? chartText(story.chart_spec) : ((story[f as keyof Story] as string | null) ?? "")]),
+  ) as Record<TextField, string>;
+  return { ...base, ...override };
+}
+
+/** Save a validated narration and verify it. Shared by copy-paste and Claude drafting. */
+async function applyNarration(
+  story: Story,
+  narration: Narration,
+  draftedBy: "manual" | "claude",
+): Promise<{ story: Story; report: Report }> {
+  if (LOCKED.has(story.status)) throw new StoryOpError(`story is ${story.status}; it can no longer be edited`);
+  const fields = {
+    headline: narration.headline,
+    hook: narration.hook,
+    summary: narration.summary,
+    body_md: narration.body_md,
+    video_script: narration.video_script,
+  };
+  const clean = (c: object) => Object.fromEntries(Object.entries(c).filter(([, v]) => v !== null && v !== undefined));
+  const spec: Record<string, unknown> = clean(narration.chart_spec);
+  if (narration.more_charts.length) spec.more_charts = narration.more_charts.map(clean);
+  const report = verifyText(
+    storyFields(story, { ...fields, chart_text: chartText(spec) }),
+    story.numbers as never,
+    narration.claims,
+    story.chart_data ?? [],
+  );
+  const saved = await save(story.id, {
+    ...fields,
+    // set once from the first headline, then fixed: a published URL never changes
+    slug: story.slug.startsWith("draft-") ? await uniqueSlug(slugify(narration.headline), story.id) : story.slug,
+    chart_spec: spec,
+    verify_status: report.status,
+    verify_report: report,
+    status: "draft",
+    drafted_by: draftedBy,
+    draft_note: null,
+  });
+  return { story: saved, report };
+}
+
 export async function pasteNarration(id: string, reply: string): Promise<{ story: Story; report: Report }> {
   const story = await loadStory(id);
   if (LOCKED.has(story.status)) throw new StoryOpError(`story is ${story.status}; it can no longer be edited`);
@@ -50,27 +100,70 @@ export async function pasteNarration(id: string, reply: string): Promise<{ story
     if (e instanceof NarrationError) throw new StoryOpError(e.message);
     throw e;
   }
-  const fields = {
-    headline: narration.headline,
-    hook: narration.hook,
-    summary: narration.summary,
-    body_md: narration.body_md,
-    video_script: narration.video_script,
+  return applyNarration(story, narration, "manual");
+}
+
+// ---- Claude drafting (same flow as worker/datatales/autodraft.py) ----
+
+export const NOTE_BUDGET = "Claude budget reached this month: use Copy prompt / Paste result.";
+export const NOTE_FAILED =
+  "Claude's draft failed verification twice. The report shows what to fix; edit and re-verify, regenerate, or use Copy prompt / Paste result.";
+const MAX_ATTEMPTS = 2;
+
+function reportFeedback(report: Report): string {
+  const keep: Record<string, unknown> = {
+    unmatched: report.unmatched,
+    years_out_of_range: report.years_out_of_range,
+    uncovered: report.uncovered,
+    format_issues: report.format_issues,
+    failed_claims: report.claims.filter((c) => c.status !== "ok"),
   };
-  const report = verifyText(fields, story.numbers as never, narration.claims, story.chart_data ?? []);
-  const clean = (c: object) => Object.fromEntries(Object.entries(c).filter(([, v]) => v !== null && v !== undefined));
-  const spec: Record<string, unknown> = clean(narration.chart_spec);
-  if (narration.more_charts.length) spec.more_charts = narration.more_charts.map(clean);
-  const saved = await save(id, {
-    ...fields,
-    // set once from the first headline, then fixed: a published URL never changes
-    slug: story.slug.startsWith("draft-") ? await uniqueSlug(slugify(narration.headline), id) : story.slug,
-    chart_spec: spec,
-    verify_status: report.status,
-    verify_report: report,
-    status: "draft",
-  });
-  return { story: saved, report };
+  return JSON.stringify(Object.fromEntries(Object.entries(keep).filter(([, v]) => (v as unknown[]).length)));
+}
+
+export type DraftOutcome = { status: "passed" | "failed" | "budget" | "error"; message: string; story?: Story };
+
+export async function draftWithClaude(id: string): Promise<DraftOutcome> {
+  let story = await loadStory(id);
+  if (LOCKED.has(story.status)) throw new StoryOpError(`story is ${story.status}; it can no longer be edited`);
+  const chartData = story.chart_data ?? [];
+  const base = untrusted("story_data", narrationData(story.numbers ?? {}, chartData, story.chart_spec ?? {}));
+  let feedback = "";
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    let narration: Narration;
+    try {
+      const res = await claude({
+        task: "story",
+        instructions: narrationInstructions(),
+        data: feedback ? `${base}\n\n${feedback}` : base,
+        schema: NARRATION_SCHEMA as Record<string, unknown>,
+        validate: (value) => parseNarration(JSON.stringify(value), chartData),
+        relatedId: id,
+      });
+      narration = res.value;
+    } catch (e) {
+      if (e instanceof BudgetReached) {
+        await save(id, { draft_note: NOTE_BUDGET });
+        return { status: "budget", message: e.message };
+      }
+      if (e instanceof InvalidOutput) {
+        feedback = `Your previous reply was rejected for this reason; return the whole reply again, fixed:\n${untrusted("rejection", e.message)}`;
+        continue;
+      }
+      const message = (e as Error).message;
+      await save(id, { draft_note: `Claude error: ${message}`.slice(0, 500) });
+      return { status: "error", message };
+    }
+    const { story: saved, report } = await applyNarration(story, narration, "claude");
+    story = saved;
+    if (report.status === "passed") return { status: "passed", message: `Verified (${report.checked} numbers checked).`, story };
+    feedback =
+      "Your previous draft failed verification. Fix every problem in this report and return the whole reply again (all fields, all claims):\n" +
+      untrusted("verify_report", reportFeedback(report));
+  }
+  story = await loadStory(id);
+  const saved = await save(id, story.verify_report ? { status: "failed", draft_note: NOTE_FAILED } : { draft_note: NOTE_FAILED });
+  return { status: "failed", message: NOTE_FAILED, story: saved };
 }
 
 export function validateClaims(raw: unknown): Claim[] {
@@ -102,15 +195,17 @@ export async function reverifyStory(
 ): Promise<{ story: Story; report: Report }> {
   const story = await loadStory(id);
   if (LOCKED.has(story.status)) throw new StoryOpError(`story is ${story.status}; it can no longer be edited`);
-  const clean = Object.fromEntries(TEXT_FIELDS.filter((f) => f in edits).map((f) => [f, edits[f]!.trim()]));
-  const fields = Object.fromEntries(TEXT_FIELDS.map((f) => [f, (clean[f] ?? story[f] ?? "") as string]));
-  const report = verifyText(fields, story.numbers as never, claims, story.chart_data ?? []);
+  const clean = Object.fromEntries(
+    TEXT_FIELDS.filter((f) => f !== "chart_text" && f in edits).map((f) => [f, edits[f]!.trim()]),
+  );
+  const report = verifyText(storyFields(story, clean), story.numbers as never, claims, story.chart_data ?? []);
   const saved = await save(id, { ...clean, verify_status: report.status, verify_report: report });
   return { story: saved, report };
 }
 
 const TRANSITIONS: Record<string, string[]> = {
   draft: ["approved", "rejected"],
+  failed: ["draft", "rejected"], // Claude's draft failed verification; fix by hand
   rejected: ["draft"],
   approved: ["draft"],
   published: ["draft"], // "Revise": the live page stays up until the story is republished

@@ -44,10 +44,13 @@ export function enDash(text: string): string {
 
 export const isPercent = (spec: Spec) => (spec.yLabel ?? '').trim().startsWith('%');
 
-/** Like the worker's format_value: up to 2 decimals, "%" for percentage units. */
+/** Like the worker's format_value: percentages always with 2 decimals (38.50%), other
+ * values with up to 2 (7.5, 7.93). */
 export function formatValue(v: number, percent: boolean): string {
-  const text = (Math.round(v * 100) / 100).toLocaleString('en-GB', { maximumFractionDigits: 2 });
-  return percent ? `${text}%` : text;
+  const r = Math.round(v * 100) / 100;
+  if (percent)
+    return `${r.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+  return r.toLocaleString('en-GB', { maximumFractionDigits: 2 });
 }
 
 export function highlights(spec: Spec): string[] {
