@@ -398,26 +398,38 @@ def build_prompt(
     return narration_instructions() + "\n\n" + narration_data(numbers, chart_data, chart_spec)
 
 
+def _nullable(description: str) -> dict[str, Any]:
+    return {"anyOf": [{"type": "string"}, {"type": "null"}], "description": description}
+
+
 def _spec_schema() -> dict[str, Any]:
+    """Every field is required (null where it does not apply), so a chart can never come back
+    without, say, its series column: structured output then guarantees the shape."""
     text = {"type": "string"}
     return {
         "type": "object",
         "properties": {
             "type": {"type": "string", "enum": list(CHART_TYPES)},
-            "x": text,
-            "y": text,
-            "series": text,
-            "highlight": {"anyOf": [text, {"type": "array", "items": text}]},
-            "annotation": text,
-            "title": text,
-            "yLabel": text,
-            "start": text,
-            "end": text,
-            "period": text,
+            "x": {"type": "string", "description": "period column, normally 'period'"},
+            "y": {"type": "string", "description": "value column, normally 'value'"},
+            "series": {"type": "string", "description": "geography column: 'geography'"},
+            "highlight": {
+                "anyOf": [text, {"type": "array", "items": text}, {"type": "null"}],
+                "description": "the geography (or list) to highlight",
+            },
+            "annotation": _nullable("short note under the chart, or null"),
+            "title": _nullable("short chart title"),
+            "yLabel": _nullable("unit label, e.g. '% of people'"),
+            "start": _nullable("slope only: first period; otherwise null"),
+            "end": _nullable("slope only: last period; otherwise null"),
+            "period": _nullable("map only: the period shown; otherwise null"),
         },
-        "required": ["type", "x", "y"],
+        "required": [
+            "type", "x", "y", "series", "highlight", "annotation", "title", "yLabel",
+            "start", "end", "period",
+        ],
         "additionalProperties": False,
-    }
+    }  # fmt: skip
 
 
 def narration_json_schema() -> dict[str, Any]:
@@ -432,12 +444,12 @@ def narration_json_schema() -> dict[str, Any]:
         "type": "object",
         "properties": {
             "kind": {"type": "string", "enum": list(CHECK_KINDS)},
-            "group": text,
-            "period": text,
-            "start": text,
-            "end": text,
+            "group": _nullable("geography; null only for all_rise/all_fall"),
+            "period": _nullable("highest/lowest: the period; otherwise null"),
+            "start": _nullable("rise/fall kinds: first period; otherwise null"),
+            "end": _nullable("rise/fall kinds: last period; otherwise null"),
         },
-        "required": ["kind"],
+        "required": ["kind", "group", "period", "start", "end"],
         "additionalProperties": False,
     }
     claim = {

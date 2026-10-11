@@ -11020,6 +11020,92 @@
    ]
   },
   {
+   "name": "explicit_nulls",
+   "reply": "{\"headline\": \"North wellbeing 2011–2013\", \"hook\": \"People in North reported higher wellbeing.\", \"summary\": \"Average scores rose from 7.0 to 7.4 between 2011-12 and 2012-13.\", \"body_md\": \"Average scores in North rose from 7.0 to 7.4 between 2011-12 and 2012-13. The data comes from the ONS.\\n\\n## How it compares\\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. These figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. These figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. These figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\n## What the data can't tell us\\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. These figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. These figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. These figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \", \"video_script\": \"North felt better: up from 7.0 to 7.4.\", \"chart_spec\": {\"type\": \"line\", \"x\": \"period\", \"y\": \"value\", \"series\": \"geography\", \"highlight\": \"North\", \"annotation\": null, \"title\": null, \"yLabel\": null, \"start\": null, \"end\": null, \"period\": null}, \"claims\": [{\"sentence\": \"North felt better: up from 7.0 to 7.4.\", \"keys\": [\"a\"], \"checks\": [{\"kind\": \"all_rise\", \"group\": null, \"period\": null, \"start\": \"2011-12\", \"end\": \"2013-14\"}]}], \"more_charts\": [{\"type\": \"slope\", \"x\": \"period\", \"y\": \"value\", \"series\": \"geography\", \"highlight\": \"North\", \"title\": \"First vs last\", \"start\": \"2011-12\", \"end\": \"2013-14\", \"annotation\": null, \"yLabel\": null, \"period\": null}]}",
+   "chart_data": [
+    {
+     "period": "2011-12",
+     "geography": "North",
+     "code": "E12000001",
+     "value": 7.0
+    },
+    {
+     "period": "2011-12",
+     "geography": "South",
+     "code": "E12000008",
+     "value": 6.0
+    },
+    {
+     "period": "2012-13",
+     "geography": "North",
+     "code": "E12000001",
+     "value": 7.4
+    },
+    {
+     "period": "2012-13",
+     "geography": "South",
+     "code": "E12000008",
+     "value": 6.1
+    },
+    {
+     "period": "2013-14",
+     "geography": "North",
+     "code": "E12000001",
+     "value": 7.2
+    },
+    {
+     "period": "2013-14",
+     "geography": "South",
+     "code": "E12000008",
+     "value": 5.9
+    }
+   ],
+   "error": null
+  },
+  {
+   "name": "null_check_field_still_needed",
+   "reply": "{\"headline\": \"North wellbeing 2011–2013\", \"hook\": \"People in North reported higher wellbeing.\", \"summary\": \"Average scores rose from 7.0 to 7.4 between 2011-12 and 2012-13.\", \"body_md\": \"Average scores in North rose from 7.0 to 7.4 between 2011-12 and 2012-13. The data comes from the ONS.\\n\\n## How it compares\\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. These figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. These figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. These figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\n## What the data can't tell us\\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. These figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. These figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. These figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \", \"video_script\": \"North felt better: up from 7.0 to 7.4.\", \"chart_spec\": {\"type\": \"line\", \"x\": \"period\", \"y\": \"value\", \"series\": \"geography\", \"highlight\": \"North\"}, \"claims\": [{\"sentence\": \"North felt better: up from 7.0 to 7.4.\", \"keys\": [\"a\"], \"checks\": [{\"kind\": \"only_rise\", \"group\": \"North\", \"period\": null, \"start\": null, \"end\": \"2013-14\"}]}]}",
+   "chart_data": [
+    {
+     "period": "2011-12",
+     "geography": "North",
+     "code": "E12000001",
+     "value": 7.0
+    },
+    {
+     "period": "2011-12",
+     "geography": "South",
+     "code": "E12000008",
+     "value": 6.0
+    },
+    {
+     "period": "2012-13",
+     "geography": "North",
+     "code": "E12000001",
+     "value": 7.4
+    },
+    {
+     "period": "2012-13",
+     "geography": "South",
+     "code": "E12000008",
+     "value": 6.1
+    },
+    {
+     "period": "2013-14",
+     "geography": "North",
+     "code": "E12000001",
+     "value": 7.2
+    },
+    {
+     "period": "2013-14",
+     "geography": "South",
+     "code": "E12000008",
+     "value": 5.9
+    }
+   ],
+   "error": "only_rise needs start"
+  },
+  {
    "name": "three_charts",
    "reply": "{\"headline\": \"North wellbeing 2011–2013\", \"hook\": \"People in North reported higher wellbeing.\", \"summary\": \"Average scores rose from 7.0 to 7.4 between 2011-12 and 2012-13.\", \"body_md\": \"Average scores in North rose from 7.0 to 7.4 between 2011-12 and 2012-13. The data comes from the ONS.\\n\\n## How it compares\\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. These figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. These figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. These figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\n## What the data can't tell us\\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. These figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. These figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. These figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \\n\\nThese figures come from a large household survey and describe how people rated their own lives. They are estimates, so each one sits inside a range of likely values. \", \"video_script\": \"North felt better: up from 7.0 to 7.4.\", \"chart_spec\": {\"type\": \"line\", \"x\": \"period\", \"y\": \"value\", \"series\": \"geography\", \"highlight\": \"North\"}, \"claims\": [{\"sentence\": \"North felt better: up from 7.0 to 7.4.\", \"keys\": [\"a\"]}], \"more_charts\": [{\"type\": \"slope\", \"x\": \"period\", \"y\": \"value\", \"series\": \"geography\", \"highlight\": \"North\", \"title\": \"First vs last\", \"start\": \"2011-12\", \"end\": \"2013-14\"}, {\"type\": \"map\", \"x\": \"period\", \"y\": \"value\", \"series\": \"geography\", \"highlight\": \"North\", \"title\": \"By region\", \"period\": \"2013-14\"}]}",
    "chart_data": [

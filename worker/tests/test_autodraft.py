@@ -202,3 +202,31 @@ def test_the_user_turn_asks_for_the_story(repo_ct: tuple[MemRepo, str]) -> None:
     assert content.endswith(STORY_REQUEST) and content.index("</data>") < content.index("Write the")
     props = sdk.requests[0]["output_config"]["format"]["schema"]["properties"]
     assert "strongest finding" in props["headline"]["description"]
+
+
+def test_schema_requires_every_chart_and_check_field() -> None:
+    from datatales.narrate import narration_json_schema, parse_narration
+
+    schema = narration_json_schema()
+    spec = schema["properties"]["more_charts"]["items"]
+    assert set(spec["required"]) == set(spec["properties"])  # series can never be left out
+    check = schema["properties"]["claims"]["items"]["properties"]["checks"]["items"]
+    assert set(check["required"]) == {"kind", "group", "period", "start", "end"}
+    # explicit nulls (as structured output returns them) still parse
+    reply = {
+        "headline": "North rose the most of all areas", "hook": "North rose from 7.0 to 7.4.",
+        "summary": "North rose from 7.0 to 7.4 between 2011-12 and 2012-13.",
+        "body_md": "## How it compares\n\nx\n\n## What the data can't tell us\n\n" + "word " * 500,
+        "video_script": "North rose.",
+        "chart_spec": {"type": "line", "x": "period", "y": "value", "series": "geography",
+                       "highlight": None, "annotation": None, "title": None, "yLabel": None,
+                       "start": None, "end": None, "period": None},
+        "more_charts": [],
+        "claims": [{"sentence": "North rose from 7.0 to 7.4.", "keys": ["a"],
+                    "checks": [{"kind": "all_rise", "group": None, "period": None,
+                                "start": "2011-12", "end": "2012-13"}]}],
+    }  # fmt: skip
+    chart = [{"period": "2011-12", "geography": "North", "value": 7.0},
+             {"period": "2012-13", "geography": "North", "value": 7.4}]  # fmt: skip
+    n = parse_narration(json.dumps(reply), chart)
+    assert n.claims[0].checks[0].group is None and n.chart_spec.series == "geography"

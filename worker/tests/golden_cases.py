@@ -488,6 +488,60 @@ NARRATION_CASES: list[dict[str, Any]] = [
         "error": None,
     },  # noqa: E501
     {
+        "name": "explicit_nulls",
+        "reply": _reply(
+            chart_spec={
+                **_LINE,
+                "annotation": None,
+                "title": None,
+                "yLabel": None,
+                "start": None,
+                "end": None,
+                "period": None,
+            },
+            more_charts=[{**SLOPE, "annotation": None, "yLabel": None, "period": None}],
+            claims=[
+                {
+                    "sentence": "North felt better: up from 7.0 to 7.4.",
+                    "keys": ["a"],
+                    "checks": [
+                        {
+                            "kind": "all_rise",
+                            "group": None,
+                            "period": None,
+                            "start": "2011-12",
+                            "end": "2013-14",
+                        }
+                    ],
+                }
+            ],
+        ),
+        "chart_data": CODED,
+        "error": None,
+    },  # fmt: skip
+    {
+        "name": "null_check_field_still_needed",
+        "reply": _reply(
+            claims=[
+                {
+                    "sentence": "North felt better: up from 7.0 to 7.4.",
+                    "keys": ["a"],
+                    "checks": [
+                        {
+                            "kind": "only_rise",
+                            "group": "North",
+                            "period": None,
+                            "start": None,
+                            "end": "2013-14",
+                        }
+                    ],
+                }
+            ],
+        ),
+        "chart_data": CODED,
+        "error": "only_rise needs start",
+    },  # fmt: skip
+    {
         "name": "three_charts",
         "reply": _reply(more_charts=[SLOPE, MAP]),
         "chart_data": CODED,
