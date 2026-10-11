@@ -11,7 +11,7 @@ from typing import Any
 import pandas as pd
 
 from datatales.ingest.common import extension
-from datatales.rawio import list_sheets, read_grid
+from datatales.rawio import SPREADSHEET_ENGINES, list_sheets, read_grid, read_grids
 
 PROFILE_VERSION = 1
 MAX_SHEETS = 25
@@ -220,13 +220,11 @@ def profile_file(content: bytes, filename: str) -> dict[str, Any]:
         "format": extension(filename).lstrip("."),
         "bytes": len(content),
     }
-    if profile["format"] == "xlsx":
+    if f".{profile['format']}" in SPREADSHEET_ENGINES:
         sheets = list_sheets(content, filename)
         profile["sheet_names"] = sheets
-        profile["sheets"] = [
-            {"sheet": s, **profile_grid(read_grid(content, filename, s))}
-            for s in sheets[:MAX_SHEETS]
-        ]
+        grids = read_grids(content, filename, sheets[:MAX_SHEETS])
+        profile["sheets"] = [{"sheet": s, **profile_grid(grids[s])} for s in sheets[:MAX_SHEETS]]
         if len(sheets) > MAX_SHEETS:
             profile["sheets_truncated"] = len(sheets) - MAX_SHEETS
     else:

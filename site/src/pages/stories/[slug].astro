@@ -158,6 +158,7 @@ const dataset = {
         title={enDash(charts[0].title ?? d.title)}
         csvHref={`/stories/${story.id}.csv`}
         csvName={`datatales-${story.id}.csv`}
+        showCi={!(d.numbers as { exact_counts?: boolean }).exact_counts}
       />
     </div>
 

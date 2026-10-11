@@ -60,6 +60,8 @@ jobs:
           git config user.name "datatales-publish[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "worker/recipes/${SOURCE}.v${VERSION}.yaml"
+          # a new source's drafted detector settings are written into its file on approval
+          if [ -f "worker/sources.d/${SOURCE}.yaml" ]; then git add "worker/sources.d/${SOURCE}.yaml"; fi
           git commit -m "Approve recipe ${SOURCE} v${VERSION}"
           git pull --rebase origin main
           git push origin HEAD:main

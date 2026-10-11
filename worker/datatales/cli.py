@@ -147,6 +147,24 @@ def cmd_discover(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_add_datasets(_args: argparse.Namespace) -> int:
+    """Weekly: the best accepted backlog item(s) -> new source, ingested, profiled, recipe."""
+    from datatales.llm import LLMClient, load_api_key
+    from datatales.newsource import add_next_datasets
+    from datatales.pipeline import run_job
+
+    repo = _repo()
+    llm = LLMClient(repo) if load_api_key() else None
+
+    def job(log):  # noqa: ANN001, ANN202
+        summary = add_next_datasets(repo, log, llm)
+        log(f"Added {len(summary.added)} source(s); {len(summary.failed)} item(s) failed")
+        return summary
+
+    run_job(repo, "add-datasets", job)
+    return 0
+
+
 def cmd_backlog_seed(_args: argparse.Namespace) -> int:
     from datatales.discovery import seed_backlog
 
@@ -278,6 +296,8 @@ def cmd_recipe_approve(args: argparse.Namespace) -> int:
     recipe, path = run_job(repo, f"recipe-approve:{args.source}", job)
     print(f"Approved {args.source} v{recipe.version} by {recipe.approved_by}.")
     print(f"Wrote {path}. Commit it so the approved recipe is versioned in git.")
+    if recipe.detect_spec:
+        print("Detector settings written into worker/sources.d (if it is a generated source).")
     return 0
 
 
@@ -460,6 +480,11 @@ def build_parser() -> argparse.ArgumentParser:
         "Make one tiny Claude API call (logged) to confirm the key works.",
     )
     add("discover", cmd_discover, "Find new UK datasets and suggest the best few (backlog).")
+    add(
+        "add-datasets",
+        cmd_add_datasets,
+        "Turn the best accepted backlog item into a source: ingest, profile, draft its recipe.",
+    )
     add("backlog-seed", cmd_backlog_seed, "Add the curated seed list to the dataset backlog.")
     p = add("backlog", cmd_backlog, "List the dataset backlog.")
     p.add_argument("--status", choices=["suggested", "accepted", "rejected", "ingested"])
@@ -474,7 +499,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = add("auto-draft", cmd_auto_draft, "Create and Claude-draft stories for a clean table.")
     p.add_argument("clean_table_id")
     add("llm-config-sync", cmd_llm_config_sync, "Copy config/llm.yaml to the dashboard as JSON.")
-    add("sources-sync", cmd_sources_sync, "Upsert worker/sources.yaml into the sources table.")
+    add(
+        "sources-sync",
+        cmd_sources_sync,
+        "Upsert worker/sources.yaml and sources.d/ into the sources table.",
+    )
 
     p = add("ingest", cmd_ingest, "Fetch a source's raw file, store it untouched, then profile it.")
     p.add_argument("source", help="source slug from sources.yaml")

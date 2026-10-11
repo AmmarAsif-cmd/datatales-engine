@@ -196,7 +196,9 @@ export async function decideBacklog(_prev: ActionState, form: FormData): Promise
     if (decision !== "accepted" && decision !== "rejected") throw new StoryOpError("bad decision");
     const reason = str(form, "reason").trim().slice(0, 500);
     const fields =
-      decision === "rejected" ? { status: "rejected", reject_reason: reason || null } : { status: "accepted" };
+      decision === "rejected"
+        ? { status: "rejected", reject_reason: reason || null }
+        : { status: "accepted", error: null }; // accepting again clears a failed attempt
     const { data, error } = await db()
       .from("dataset_backlog")
       .update(fields)

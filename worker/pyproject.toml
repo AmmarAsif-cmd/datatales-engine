@@ -11,6 +11,7 @@ dependencies = [
     "pandas>=3.0.6",
     "pyarrow>=26.0.0",
     "pydantic>=2.14.0",
+    "python-calamine>=0.8.3",
     "pyyaml>=6.0.3",
     "supabase>=2.32.0",
 ]

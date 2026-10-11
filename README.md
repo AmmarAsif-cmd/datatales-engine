@@ -56,7 +56,8 @@ in number order, in the Supabase **SQL Editor**.
 2. Paste the whole of `supabase/migrations/0001_init.sql` and click **Run**. Then do the same
    for each later migration in order (`0002_llm_calls.sql`: Claude API usage log;
    `0003_story_drafting.sql`: automatic story drafting; `0004_recipe_drafting.sql`: recipe
-   drafting and test runs; `0005_dataset_backlog.sql`: dataset discovery).
+   drafting and test runs; `0005_dataset_backlog.sql`: dataset discovery;
+   `0006_new_sources.sql`: detector settings drafted for new sources).
    It should end with "Success. No rows returned". It runs in a transaction, so on error nothing is applied.
 3. Check from the worker:
    ```sh
@@ -119,3 +120,4 @@ Only `.env.example` files (placeholder names, no values) are committed.
 - [x] P2.2 Automatic story drafting (pipeline + "Regenerate with Claude")
 - [x] P2.3 Automatic recipe drafting with sandbox test runs
 - [x] P2.4 Dataset discovery and backlog (weekly, data.gov.uk + ONS)
+- [x] P2.5 Weekly new-dataset step (accepted backlog item -> source -> recipe + detector drafts)

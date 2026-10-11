@@ -122,6 +122,20 @@ GROUP_NOUNS = {
 }
 
 
+def is_exact(config: DetectConfig) -> bool:
+    """Administrative counts (no sampling error): precision band instead of CIs."""
+    return bool(config.precision_pct) and not (config.lower or config.upper)
+
+
+def exact_count_caveat(config: DetectConfig) -> list[str]:
+    if not is_exact(config):
+        return []
+    return [
+        "These are administrative counts, not survey estimates, so they have no margin of error; "
+        f"changes smaller than {config.precision_pct:g}% are treated as no real change."
+    ]
+
+
 def ordinal(n: int) -> str:
     suffix = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
     return f"{n}{suffix}"
@@ -282,7 +296,12 @@ def build_story_data(
             "url": str(source.url),
             "licence": source.licence,
         },
-        "caveats": list(source.caveats),
+        "caveats": list(source.caveats) + exact_count_caveat(config),
+        **(
+            {"exact_counts": True, "precision_pct": config.precision_pct}
+            if is_exact(config)
+            else {}
+        ),  # fmt: skip
         "geography": candidate.geography,
         "geo_level": candidate.geo_level,
         "good_news": candidate.good_news,

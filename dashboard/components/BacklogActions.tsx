@@ -7,14 +7,22 @@ import { type ActionState, decideBacklog } from "@/app/actions";
 const initial: ActionState = { ok: true, message: "" };
 
 /** Accept, or reject with an optional reason. Works on a phone: one row that wraps. */
-export default function BacklogActions({ itemId, status }: { itemId: string; status: string }) {
+export default function BacklogActions({
+  itemId,
+  status,
+  failed = false,
+}: {
+  itemId: string;
+  status: string;
+  failed?: boolean;
+}) {
   const [state, action, pending] = useActionState(decideBacklog, initial);
   return (
     <form action={action} className="row backlog-actions">
       <input type="hidden" name="item_id" value={itemId} />
-      {status !== "accepted" && (
+      {(status !== "accepted" || failed) && (
         <button type="submit" name="decision" value="accepted" disabled={pending}>
-          Accept
+          {failed ? "Try again next week" : "Accept"}
         </button>
       )}
       {status !== "rejected" && (

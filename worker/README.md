@@ -14,7 +14,7 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest
 | Command | What it does |
 |---|---|
 | `db-check` | Confirm Supabase connection, tables, RLS and private buckets |
-| `sources-sync` | Upsert `sources.yaml` into the `sources` table |
+| `sources-sync` | Upsert `sources.yaml` and `sources.d/*.yaml` into the `sources` table |
 | `ingest <source> [--file NAME]` | Fetch the raw file (ONS API, or `data/inbox/NAME` for upload sources), store it untouched in the `raw` bucket with a `fetch.json` record, skip if the checksum is already known, then profile it |
 | `datasets [--source S]` | List recent datasets and their ids |
 | `profile <dataset_id> [--json]` | Re-profile a dataset |
@@ -33,6 +33,7 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest
 | `story-refresh <story_id>` | Rebuild a story's numbers and chart data with the current logic; back to draft for a new narration (same slug, so the URL is kept) |
 | `stories` | List stories |
 | `discover` | Weekly discovery: data.gov.uk + ONS metadata -> hard filters -> Claude scores -> best few added as `suggested` (seeds the backlog on first run) |
+| `add-datasets` | Weekly: the highest-scored accepted backlog item becomes a source (`sources.d/<slug>.yaml`): file found on its page, ingested, profiled, recipe + detector settings drafted by Claude for your approval. Failures are recorded on the item and the next one is tried |
 | `backlog-seed` | Add the curated list of 25 strong UK sources to the backlog (idempotent) |
 | `backlog [--status S]` | List the dataset backlog |
 | `recipe-draft <dataset_id>` | Claude drafts a cleaning recipe from the dataset's profile, then test-runs it in memory (nothing written); stored as `ready` or `failed` for review |
@@ -45,15 +46,23 @@ Every `ingest`, `profile`, `clean` and `detect` run writes a row to the `jobs` t
 
 ## Detectors
 
-Configured per source in `sources.yaml` under `detect:` (which columns are the group, period,
-value and confidence interval; how to slice; filters; units; polarity). Rules:
+Configured per source in `sources.yaml` (or its `sources.d` file) under `detect:` (which
+columns are the group, period, value and confidence interval; how to slice; filters; units;
+polarity). Exact counts with no confidence interval use `precision_pct` instead (a +/- p/2 %
+band, so smaller changes count as no change). For a source added from the backlog, Claude
+drafts this block and it is trial-run on the cleaned table; approving the recipe saves it. Rules:
 unreliable/suppressed values are ignored; a change or gap is only reported when the confidence
 intervals don't overlap; changes only compare groups present in both periods; comparisons
 stay within one slice (same measure, estimate and geography level).
 
 ## Adding a dataset
 
-1. Add the source to `sources.yaml` (`fetch.type: ons_api` or `upload`), then `sources-sync`.
+Automatically: accept it on the dashboard (Datasets -> Suggested). The next Monday run adds it,
+and its recipe appears on the Recipes page for approval.
+
+By hand:
+
+1. Add the source to `sources.yaml` (`fetch.type: ons_api`, `catalogue_file` or `upload`), then `sources-sync`.
 2. Upload sources: put the CSV/XLSX in `data/inbox/` and run `ingest <source> --file <name>`.
 3. `recipe-prompt <dataset_id> --out prompt.txt` → paste into Claude chat → save the YAML reply.
 4. `recipe-test reply.yaml <dataset_id>` until every check passes.

@@ -38,3 +38,12 @@ def messy_xlsx() -> bytes:
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
+
+
+@pytest.fixture(autouse=True)
+def isolated_sources_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Generated sources (worker/sources.d) are left out of every test, so tests never see
+    (or fetch) real backlog sources; tests that need some write them here."""
+    folder = tmp_path / "sources.d"
+    monkeypatch.setattr("datatales.sources.SOURCES_DIR", folder)
+    return folder

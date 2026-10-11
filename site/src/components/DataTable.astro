@@ -9,10 +9,13 @@ interface Props {
   /** Static CSV of `data` (the same rows), offered as a download. */
   csvHref?: string;
   csvName?: string;
+  /** false for administrative counts: there are no confidence intervals to show. */
+  showCi?: boolean;
 }
 
-const { spec, data, title, csvHref, csvName } = Astro.props;
-const table = pivot(spec, data);
+const { spec, data, title, csvHref, csvName, showCi = true } = Astro.props;
+const pivoted = pivot(spec, data);
+const table = showCi ? pivoted : { ...pivoted, ciFor: null };
 const fmt = new Intl.NumberFormat('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const num = (v: number | null) => (v === null ? '–' : fmt.format(v));
 const id = 'story-data';

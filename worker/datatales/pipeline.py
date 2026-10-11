@@ -24,7 +24,7 @@ from datatales.ingest import ons, upload
 from datatales.ingest.common import IngestResult, RawFile, ingest_raw
 from datatales.profile import profile_file
 from datatales.repo import Recipe, Repo
-from datatales.sources import SourceDef, get_source, load_sources
+from datatales.sources import SourceDef, get_source, load_sources, set_detect
 
 RECIPES_DIR = WORKER_DIR / "recipes"
 
@@ -75,6 +75,13 @@ def fetch_raw(
         if file:
             raise PipelineError(f"{source.slug} is fetched from the ONS API; don't pass --file")
         return ons.fetch_latest(source.fetch.dataset_id, source.fetch.edition, client)
+    if source.fetch.type == "catalogue_file":
+        if file:
+            raise PipelineError(f"{source.slug} is fetched from its page; don't pass --file")
+        from datatales.ingest.catalogue import fetch_catalogue_file
+
+        f = source.fetch
+        return fetch_catalogue_file(f.kind, str(f.page_url), f.file_match, f.format, client)
     if not file:
         raise PipelineError(f"{source.slug} is an upload source; pass --file <name in data/inbox>")
     return upload.read_inbox_file(file)
@@ -162,7 +169,12 @@ def recipe_file(slug: str, version: int, recipes_dir: Path = RECIPES_DIR) -> Pat
 
 
 def approve_recipe(
-    repo: Repo, slug: str, version: int, approved_by: str, recipes_dir: Path = RECIPES_DIR
+    repo: Repo,
+    slug: str,
+    version: int,
+    approved_by: str,
+    recipes_dir: Path = RECIPES_DIR,
+    sources_dir: Path | None = None,
 ) -> tuple[Recipe, Path]:
     if not approved_by.strip():
         raise PipelineError("--by is required (who approved it)")
@@ -176,6 +188,10 @@ def approve_recipe(
     except RecipeDraftError as exc:
         raise PipelineError(str(exc)) from None
     spec = RecipeSpec.model_validate(recipe.spec)
+    if recipe.detect_spec:  # validate before approving, so a bad block cannot half-apply
+        from datatales.sources import DetectConfig
+
+        DetectConfig.model_validate(recipe.detect_spec)
     approved = repo.approve_recipe(recipe.id, approved_by.strip())
     path = recipe_file(slug, version, recipes_dir)
     header = (
@@ -184,6 +200,9 @@ def approve_recipe(
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(header + recipe_to_yaml(spec), encoding="utf-8", newline="\n")
+    if approved.detect_spec:
+        # a new source's drafted detector settings join its generated source file
+        set_detect(slug, approved.detect_spec, sources_dir)
     return approved, path
 
 
@@ -273,7 +292,7 @@ def detect_clean_table(
     ds = repo.get_dataset(ct.dataset_id)
     source = get_source(ds.source_slug)
     if source.detect is None:
-        raise PipelineError(f"source {source.slug} has no `detect` config in sources.yaml")
+        raise PipelineError(f"source {source.slug} has no `detect` config yet")
 
     existing = repo.list_findings(ct.id)
     if existing and not dry_run:
@@ -311,7 +330,8 @@ def detect_clean_table(
 
 
 def run_scheduled(repo: Repo, log: Callable[[str], None]) -> bool:
-    """ingest -> profile -> clean -> detect for every ONS API source with an approved recipe.
+    """ingest -> profile -> clean -> detect for every fetched source with an approved recipe
+    (a source without one gets a Claude-drafted recipe to approve instead).
 
     Idempotent: an unchanged raw file is skipped, and clean/detect only run for a dataset
     that has no clean table (or no findings) for the latest approved recipe yet.
@@ -320,7 +340,7 @@ def run_scheduled(repo: Repo, log: Callable[[str], None]) -> bool:
     ok = True
     sync_sources(repo)
     for slug, source in load_sources().items():
-        if source.fetch.type != "ons_api":
+        if source.fetch.type == "upload":
             log(f"[{slug}] upload source: skipped (ingest with --file)")
             continue
         try:
@@ -344,7 +364,9 @@ def run_scheduled(repo: Repo, log: Callable[[str], None]) -> bool:
             if not ct.checks_passed:
                 log(f"[{slug}] latest clean table failed its checks: nothing to detect")
                 continue
-            if repo.list_findings(ct.id):
+            if source.detect is None:
+                log(f"[{slug}] no `detect` settings yet: cleaned, detectors skipped")
+            elif repo.list_findings(ct.id):
                 log(f"[{slug}] findings already exist for clean table {ct.id}")
             else:
                 detect_clean_table(repo, ct.id, log)

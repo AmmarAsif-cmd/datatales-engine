@@ -13,6 +13,7 @@ MAX_RAW_BYTES = 50 * 1024 * 1024  # Supabase free-tier per-file limit (bucket li
 CONTENT_TYPES = {
     ".csv": "text/csv",
     ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".ods": "application/vnd.oasis.opendocument.spreadsheet",
 }
 
 

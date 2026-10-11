@@ -64,7 +64,7 @@ function Card({ item }: { item: Item }) {
           <span className="badge ok">in the pipeline</span> as <code>{item.source_slug}</code>
         </p>
       ) : (
-        <BacklogActions itemId={item.id} status={item.status} />
+        <BacklogActions itemId={item.id} status={item.status} failed={!!item.error} />
       )}
     </div>
   );

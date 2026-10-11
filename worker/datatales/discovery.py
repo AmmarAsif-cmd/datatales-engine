@@ -54,6 +54,7 @@ class OnsConfig(BaseModel):
 class DiscoveryConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     suggestions_per_week: int = Field(5, ge=1, le=20)
+    new_datasets_per_week: int = Field(1, ge=0, le=5)
     min_score: int = Field(55, ge=0, le=100)
     max_to_score: int = Field(40, ge=1, le=100)
     recent_days: int = Field(180, ge=1)

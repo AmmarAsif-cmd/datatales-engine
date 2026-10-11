@@ -2,6 +2,7 @@
 # before the pipeline). Only catalogue metadata is used: nothing is downloaded at this step.
 
 suggestions_per_week: 5   # top N new candidates added as `suggested`
+new_datasets_per_week: 1  # accepted backlog items turned into pipeline sources each Monday (0 = off)
 min_score: 55             # never suggest below this score (0-100)
 max_to_score: 40          # candidates sent to Claude per run, after the hard filters
 recent_days: 180          # data.gov.uk: only datasets updated within this many days

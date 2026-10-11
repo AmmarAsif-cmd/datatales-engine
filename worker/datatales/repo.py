@@ -40,6 +40,7 @@ class Recipe:
     dataset_id: str | None = None
     test_report: dict[str, Any] | None = None
     reject_note: str | None = None
+    detect_spec: dict[str, Any] | None = None  # drafted `detect` block (new sources)
 
     @property
     def approved(self) -> bool:
@@ -142,6 +143,7 @@ def _recipe(row: dict[str, Any]) -> Recipe:
         dataset_id=row.get("dataset_id"),
         test_report=row.get("test_report"),
         reject_note=row.get("reject_note"),
+        detect_spec=row.get("detect_spec"),
     )
 
 

@@ -85,11 +85,13 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 
 - Layout: `ingest/` (common, ons, upload) → `rawio.py` (any file → grid of strings, nothing inferred) → `profile.py` → `clean/` (schema, runner, checks) → `pipeline.py` (orchestration, jobs) → `cli.py`.
 - All persistence goes through the `Repo` protocol (`repo.py`); tests use `tests/memrepo.py`. Never call Supabase directly from pipeline code.
-- Sources live in `worker/sources.yaml`. Raw files: `raw/<slug>/<UTC timestamp>-<sha12>/<file>` + `fetch.json` (source URL, ONS version, release date). Clean: `clean/<slug>/<dataset_id>/recipe-v<N>.parquet`.
+- Sources live in `worker/sources.yaml` (hand-made) plus `worker/sources.d/<slug>.yaml` (one per source added from the backlog; merged by `load_sources`, duplicate slugs refused). Raw files: `raw/<slug>/<UTC timestamp>-<sha12>/<file>` + `fetch.json` (source URL, ONS version, release date). Clean: `clean/<slug>/<dataset_id>/recipe-v<N>.parquet`.
 - Recipes: declarative only, `extra="forbid"` everywhere, `yaml.safe_load`. New step types must be added to `clean/schema.py` (model) and `clean/runner.py` (`apply_step`), with tests. Only approved recipes run; versions are immutable.
 - ONS fetches: HTTPS + ONS hosts only (checked on every redirect), 50 MB cap.
+- `catalogue_file` fetches (`ingest/catalogue.py`): the source stores a publisher PAGE + a `file_match`; the file is found again on each refresh (GOV.UK Content API attachments, ONS page JSON, ONS API, CKAN, or links in HTML). `file_match` is the file name without release dates (`stable_name`) or the title. HTTPS on `*.gov.uk`, `*.nhs.uk` and Nomis only, every redirect hop checked, 50 MB cap.
+- Spreadsheets: `.xlsx` via openpyxl, `.ods` via python-calamine (odfpy took 500 s on a 17 MB VEH file; approved by user 2026-10-11). `rawio.read_grids` parses several sheets in one pass.
 - pandas 3: `astype(str)` keeps NaN; use the runner's `_text()` helper for string comparisons.
-- Added deps (approved by user 2026-10-10): `pyyaml`, `openpyxl`.
+- Added deps (approved by user 2026-10-10): `pyyaml`, `openpyxl`; 2026-10-11: `python-calamine`.
 - Unapproved recipe versions may be overwritten with `recipe-import --replace` (they never ran); approved ones never.
 
 ## Detector rules (M4, set by the user 2026-10-10)
@@ -172,13 +174,22 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - Hard filters in code: OGL only; CSV/XLSX/XLS/ODS/JSON/API; time series and/or geography (heuristic from metadata); `exclude_keywords` (organograms, salaries, individual/record-level data, spend-over lists...); nothing already a source or in the backlog (any status, so rejected items never come back; `source_url` is unique).
 - Scoring: Claude (`task: discovery`, Haiku) with a small structured-output schema (no unions), validated (`Rating`: score 0-100, pitch length, known ids). Budget/key/invalid reply -> `heuristic_score`. Top `suggestions_per_week` at or above `min_score` become `suggested`.
 - `dataset_backlog` (migration 0005): statuses suggested/accepted/rejected/ingested, `catalogue` data_gov_uk|ons|seed. Dashboard: Datasets -> Suggested (Accept / Reject with reason).
+- Weekly run order (`pipeline.yml`, Mondays 06:00 UTC): `discover` -> `add-datasets` -> `run-pipeline` -> commit `worker/sources.d`. `discovery.yml` is dispatch-only (dashboard button). The dashboard's "Run pipeline now" runs the pipeline only (`new_datasets` input off).
+
+## Weekly new-dataset step (P2.5)
+
+- `worker/datatales/newsource.py` `add_next_datasets` (CLI `add-datasets`): up to `new_datasets_per_week` (config/discovery.yaml, default 1, 0 = off) `accepted` backlog items without an `error`, highest score first.
+- Per item: list the page's CSV/XLSX/ODS files (<= 50 MB) -> Claude (`discovery` task, schema `{index, reason}`, file titles are untrusted data) picks one, else `heuristic_pick` -> `SourceDef` with `fetch.type: catalogue_file`, `backlog_id`, no `detect` -> `upsert_source`, ingest, profile -> only then write `worker/sources.d/<slug>.yaml` and mark the item `ingested` (+ `source_slug`) -> `ensure_recipe_draft`. Any failure before that: `error` on the item, nothing left behind, next item tried. Accepting it again on the dashboard clears the error.
+- Detector settings (`detectdraft.py`): once a new source's recipe passes its test run, Claude (`recipe` task, no schema: free-key maps) drafts a `DetectConfig` from the CLEANED table (columns, distinct values, first rows; untrusted). Hard checks in code (`check_config`): columns exist, filter values exist, CI columns or `precision_pct`, (group, period, slice_by) unique, >= 3 groups; then a trial run through the real detectors. One retry with the reason. Stored in `recipes.detect_spec` (migration 0006) + `test_report.detect`; approval writes it into the `sources.d` file (`set_detect`; hand-made sources are never touched). `recipe-approve.yml` commits that file.
+- A source without `detect` is cleaned but its detectors are skipped (logged), never an error.
+- Exact administrative counts have no CIs: `detect.precision_pct` gives each value a +/- p/2 % band (`prepare`), so smaller changes count as "no change"; stories get an exact-counts caveat and the site hides CI columns (`numbers.exact_counts`).
 
 ## Database
 
 - Migrations: `supabase/migrations/NNNN_name.sql`, plain SQL, wrapped in `begin; ... commit;`. The user runs them in the Supabase SQL Editor. Never edit an applied migration; add a new one.
 - Every new table must: `enable row level security`, have **no** policies, `revoke all ... from anon, authenticated`, `grant all ... to service_role`. `db-check` fails on any public table that breaks this.
 - Functions: `set search_path = ''` and fully qualified names; revoke execute from `public, anon, authenticated`.
-- `recipes` gained (migration 0004) `status`, `drafted_by`, `dataset_id`, `test_report`, `reject_note`; approval requires `status = 'ready'`.
+- `recipes` gained (migration 0004) `status`, `drafted_by`, `dataset_id`, `test_report`, `reject_note`; approval requires `status = 'ready'`. Migration 0006 added `detect_spec` (drafted detector settings for a new source).
 - `stories` gained (migration 0003) status `failed`, `drafted_by` (claude|manual), `candidate_key`, `data_version`, `draft_note`.
 - `llm_calls` (migration 0002): one row per Claude call or blocked attempt; statuses reserved/ok/error/invalid_output/budget_blocked; `estimated_cost` in GBP.
 - DB-level rule: a story cannot be `approved`/`published` unless `verify_status = 'passed'`.

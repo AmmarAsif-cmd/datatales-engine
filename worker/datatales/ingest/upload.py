@@ -17,7 +17,7 @@ def read_inbox_file(name_or_path: str | Path, inbox: Path = INBOX) -> RawFile:
     if not path.is_file():
         raise FileNotFoundError(f"no such file in inbox: {path.name}")
     if extension(path.name) not in CONTENT_TYPES:
-        raise ValueError(f"unsupported file type: {path.name} (use .csv or .xlsx)")
+        raise ValueError(f"unsupported file type: {path.name} (use .csv, .xlsx or .ods)")
     if path.stat().st_size > MAX_RAW_BYTES:
         raise ValueError(f"{path.name} is larger than {MAX_RAW_BYTES:,} bytes")
     return RawFile(

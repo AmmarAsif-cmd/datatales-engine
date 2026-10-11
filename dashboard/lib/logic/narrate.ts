@@ -353,6 +353,7 @@ export function pyDumps(obj: unknown, indent?: number, level = 0): string {
 /** Generated from narrate.py OUTPUT_SCHEMA (golden-tested). */
 /** Generated from narrate.py OUTPUT_SCHEMA (golden-tested). */
 /** Generated from narrate.py OUTPUT_SCHEMA (golden-tested). */
+/** Generated from narrate.py OUTPUT_SCHEMA (golden-tested). */
 export const OUTPUT_SCHEMA = {
   "headline": "string, at most 70 characters: the single strongest finding as a statement, e.g. \"Northern Ireland is the only UK nation where low anxiety rose\"",
   "hook": "string, exactly one sentence",
@@ -409,7 +410,9 @@ export const RULES = `Rules (follow every one):
    When one is supported, prefer that framing ("the only nation where…", "the biggest rise
    of the four…"), or rank-change framing from \`rank_change\`/\`overtook\` in the findings.
 5. Every change or gap in NUMBERS is statistically clear (confidence intervals do not
-   overlap). Say "clearly higher/lower" if useful; never say "significant".
+   overlap). Say "clearly higher/lower" if useful; never say "significant". If
+   \`exact_counts\` is true the data are administrative counts with no margin of error:
+   never mention confidence intervals or survey estimates for them.
 6. Respect polarity: \`higher_is_better\` and \`good_news\` say whether a rise is good. For
    anxiety, a LOWER score is better. Band labels for anxiety mean: Poor = high anxiety,
    Fair = medium, Good = low, Very good = very low anxiety. Never write "very good anxiety";

@@ -8,6 +8,16 @@ import type { Json } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 type CheckRow = { name: string; passed: boolean; detail: string };
+type DetectTrial = {
+  passed: boolean;
+  drafted: boolean;
+  error?: string;
+  candidates?: number;
+  findings?: string[];
+  series?: number;
+  groups?: number;
+  periods?: number;
+};
 type TestReport = {
   passed: boolean;
   error?: string;
@@ -16,6 +26,7 @@ type TestReport = {
   checks?: CheckRow[];
   preview?: Record<string, Json>[];
   summary?: string[];
+  detect?: DetectTrial;
 };
 type Recipe = {
   id: string;
@@ -25,6 +36,7 @@ type Recipe = {
   drafted_by: "claude" | "manual" | null;
   dataset_id: string | null;
   test_report: TestReport | null;
+  detect_spec: Record<string, Json> | null;
   reject_note: string | null;
   approved_at: string | null;
   approved_by: string | null;
@@ -108,6 +120,43 @@ function Report({ report }: { report: TestReport }) {
   );
 }
 
+const n = (v: number | undefined) => (v ?? 0).toLocaleString("en-GB");
+
+/** A new source's detector settings (drafted by Claude, trial-run on the cleaned table). */
+function Detect({ trial, spec }: { trial: DetectTrial; spec: Record<string, Json> | null }) {
+  return (
+    <>
+      <h3>Story detectors</h3>
+      {trial.passed ? (
+        <p className="small">
+          Trial run: <span className="badge ok">{n(trial.candidates)} possible finding(s)</span> across{" "}
+          {n(trial.groups)} places, {n(trial.periods)} periods and {n(trial.series)} series. Approving the recipe
+          also saves these settings, so the source joins the weekly pipeline.
+        </p>
+      ) : (
+        <p className="msg bad">
+          {trial.drafted ? "The detector settings did not pass their trial run" : "No detector settings were drafted"}
+          {trial.error ? `: ${trial.error}` : ""}. You can still approve the recipe; the data is then cleaned each
+          week, but no stories are found until a <code>detect</code> block is added to the source file.
+        </p>
+      )}
+      {(trial.findings ?? []).length > 0 && (
+        <ul className="small">
+          {trial.findings!.map((f, i) => (
+            <li key={i}>{f}</li>
+          ))}
+        </ul>
+      )}
+      {spec && (
+        <details>
+          <summary className="small">Settings</summary>
+          <pre className="small">{JSON.stringify(spec, null, 2)}</pre>
+        </details>
+      )}
+    </>
+  );
+}
+
 function RecipeCard({ r }: { r: Recipe }) {
   const slug = r.sources?.slug ?? "?";
   const badge = r.approved_at
@@ -127,7 +176,10 @@ function RecipeCard({ r }: { r: Recipe }) {
       {r.spec.description && <p>{r.spec.description}</p>}
       {r.reject_note && <p className="small">Rejected: {r.reject_note}</p>}
       {r.test_report ? (
-        <Report report={r.test_report} />
+        <>
+          <Report report={r.test_report} />
+          {r.test_report.detect && <Detect trial={r.test_report.detect} spec={r.detect_spec} />}
+        </>
       ) : (
         <p className="small">Steps: {(r.spec.steps ?? []).map((s) => s.op).join(" → ")}</p>
       )}
@@ -156,7 +208,7 @@ export default async function RecipesPage() {
     db()
       .from("recipes")
       .select(
-        "id, version, spec, status, drafted_by, dataset_id, test_report, reject_note, approved_at, approved_by, created_at, sources(slug)",
+        "id, version, spec, status, drafted_by, dataset_id, test_report, detect_spec, reject_note, approved_at, approved_by, created_at, sources(slug)",
       )
       .order("created_at", { ascending: false }),
   );

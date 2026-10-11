@@ -1,16 +1,24 @@
 name: pipeline
 
-# ingest -> profile -> clean (approved recipes only) -> detect -> Claude story drafts,
-# for every ONS API source.
-# Weekly (also keeps the free Supabase project from pausing), and on demand from the
-# dashboard's "Run pipeline now" button. Each run writes rows to the `jobs` table.
+# Every Monday: discovery (new suggestions) -> the weekly new-dataset step (the best accepted
+# backlog item becomes a source: ingest, profile, Claude-drafted recipe waiting for approval)
+# -> ingest -> profile -> clean (approved recipes only) -> detect -> Claude story drafts, for
+# every source. New source files (worker/sources.d) are committed at the end.
+# Also on demand from the dashboard's "Run pipeline now" button (pipeline only, unless
+# `new_datasets` is ticked). Each run writes rows to the `jobs` table.
 on:
   schedule:
     - cron: "0 6 * * 1" # Monday 06:00 UTC
   workflow_dispatch:
+    inputs:
+      new_datasets:
+        description: Also run discovery and add the next accepted dataset
+        required: false
+        type: boolean
+        default: false
 
 permissions:
-  contents: read
+  contents: write # commits worker/sources.d/<slug>.yaml for newly added sources
 
 concurrency:
   group: pipeline
@@ -22,9 +30,10 @@ jobs:
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      # Claude drafts stories for new findings (budget-guarded; without it, drafts wait for
-      # copy-paste).
+      # Claude scores discoveries, drafts recipes and stories (budget-guarded; without it,
+      # heuristics are used and drafts wait for copy-paste).
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      WEEKLY: ${{ github.event_name == 'schedule' || inputs.new_datasets }}
     steps:
       - uses: actions/checkout@v7
 
@@ -33,8 +42,36 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "worker/uv.lock"
 
+      - name: Install
+        working-directory: worker
+        run: uv sync --locked
+
+      - name: Discover datasets
+        if: env.WEEKLY == 'true'
+        continue-on-error: true # a catalogue outage must not stop the weekly refresh
+        working-directory: worker
+        run: uv run python -m datatales discover
+
+      - name: Add the next accepted dataset
+        if: env.WEEKLY == 'true'
+        continue-on-error: true
+        working-directory: worker
+        run: uv run python -m datatales add-datasets
+
       - name: Run pipeline
         working-directory: worker
+        run: uv run python -m datatales run-pipeline
+
+      - name: Commit new source files
+        if: always()
         run: |
-          uv sync --locked
-          uv run python -m datatales run-pipeline
+          git add worker/sources.d
+          if git diff --cached --quiet; then echo "No new sources"; exit 0; fi
+          git config user.name "datatales-publish[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Add new source(s) from the dataset backlog"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep 5
+          done
+          exit 1

@@ -1,11 +1,9 @@
 name: discovery
 
-# Weekly dataset discovery, before the main pipeline: data.gov.uk + ONS catalogue metadata ->
-# hard filters -> Claude scores (Haiku) -> the best few added to the backlog as `suggested`.
-# Also from the dashboard's "Find new datasets now" button.
+# Dataset discovery on demand (the dashboard's "Find new datasets now" button):
+# data.gov.uk + ONS catalogue metadata -> hard filters -> Claude scores (Haiku) -> the best few
+# added to the backlog as `suggested`. The weekly run is the first step of pipeline.yml.
 on:
-  schedule:
-    - cron: "30 5 * * 1" # Monday 05:30 UTC (pipeline runs at 06:00)
   workflow_dispatch:
 
 permissions:

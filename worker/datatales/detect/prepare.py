@@ -62,6 +62,12 @@ def prepare(clean: pd.DataFrame, config: DetectConfig) -> tuple[pd.DataFrame, De
             df[col].astype(object).map(lambda v: v.item() if isinstance(v, np.generic) else v)
         )
     out = out[out["value"].notna()]
+    if config.precision_pct and not (config.lower or config.upper):
+        # Exact (administrative) counts: a band of +/- precision_pct/2 percent, so changes
+        # smaller than precision_pct count as "no change" under the usual CI rules.
+        half = out["value"].abs() * (config.precision_pct / 200)
+        out["lower"] = (out["value"] - half).round(6)
+        out["upper"] = (out["value"] + half).round(6)
     # Stable order so results never depend on the input row order.
     out = out.sort_values([*config.slice_by, "period", "group"], kind="stable").reset_index(
         drop=True

@@ -9,6 +9,10 @@ The draft is then test-run in a sandbox: cleaning and every check run in memory 
 raw file; nothing is written to `clean` or `clean_tables`. Checks failed -> one retry with the
 failures -> else the recipe is stored as `failed` with its report. A passing draft is stored
 as `ready`: you approve or reject it in the dashboard. Only approved recipes ever run.
+
+For a source with no `detect` block yet (added from the backlog), Claude then drafts the
+detector settings from the cleaned table and they are trial-run too (detectdraft.py); they
+are stored on the recipe and written into the source file when you approve it.
 """
 
 import json
@@ -177,23 +181,28 @@ def _jsonable(v: Any) -> Any:
 
 def test_recipe(repo: Repo, dataset_id: str, spec: RecipeSpec) -> dict[str, Any]:
     """Run cleaning and checks in memory. Returns a JSON-safe report; writes nothing."""
+    return test_recipe_frame(repo, dataset_id, spec)[0]
+
+
+def test_recipe_frame(repo: Repo, dataset_id: str, spec: RecipeSpec) -> tuple[dict[str, Any], Any]:
+    """test_recipe plus the cleaned DataFrame (None when the recipe did not run)."""
     ds = repo.get_dataset(dataset_id)
     summary = describe_recipe(spec.model_dump(mode="json"))
     if spec.source != ds.source_slug:
         return {"passed": False, "error": f"recipe is for {spec.source}, dataset is "
-                f"{ds.source_slug}", "summary": summary, "checks": []}  # fmt: skip
+                f"{ds.source_slug}", "summary": summary, "checks": []}, None  # fmt: skip
     try:
         content = repo.get_object("raw", ds.raw_path)
         df = run_recipe(spec, content, ds.raw_path.rsplit("/", 1)[-1])
     except Exception as exc:  # noqa: BLE001 - a step error is a test result, not a crash
         return {"passed": False, "error": f"{type(exc).__name__}: {exc}"[:1000],
-                "summary": summary, "checks": []}  # fmt: skip
+                "summary": summary, "checks": []}, None  # fmt: skip
     results = run_checks(df, spec.checks)
     preview = [
         {str(k): _jsonable(v) for k, v in row.items()}
         for row in df.head(PREVIEW_ROWS).to_dict(orient="records")
     ]
-    return {
+    report = {
         "passed": all_passed(results),
         "row_count": int(len(df)),
         "columns": [str(c) for c in df.columns],
@@ -202,6 +211,7 @@ def test_recipe(repo: Repo, dataset_id: str, spec: RecipeSpec) -> dict[str, Any]
         "summary": summary,
         "dataset_id": dataset_id,
     }
+    return report, df
 
 
 # ---- drafting ----
@@ -285,6 +295,7 @@ def draft_recipe(
     feedback = ""
     spec: RecipeSpec | None = None
     report: dict[str, Any] = {}
+    clean = None
     for attempt in range(1, MAX_ATTEMPTS + 1):
         data = base + (f"\n\n{feedback}" if feedback else "")
         try:
@@ -310,7 +321,7 @@ def draft_recipe(
             return RecipeOutcome("error", str(exc), None, version)
 
         spec = result.value
-        report = test_recipe(repo, dataset_id, spec)
+        report, clean = test_recipe_frame(repo, dataset_id, spec)
         if report["passed"]:
             log(f"  attempt {attempt}: test run passed ({report['row_count']:,} rows)")
             break
@@ -323,13 +334,23 @@ def draft_recipe(
     if spec is None:
         return RecipeOutcome("failed", "Claude's replies were rejected twice", None, version)
     status = "ready" if report.get("passed") else "failed"
-    fields = {
+    fields: dict[str, Any] = {
         "status": status,
         "drafted_by": "claude",
         "dataset_id": dataset_id,
         "test_report": report,
         "reject_note": None,
     }
+    source = get_source(ds.source_slug)
+    if status == "ready" and source.detect is None and clean is not None:
+        from datatales.detectdraft import draft_detect
+
+        log("  drafting detector settings for the new source")
+        detect = draft_detect(llm, source, clean, related_id=dataset_id, log=log)
+        report["detect"] = detect.report()
+        fields["detect_spec"] = (
+            detect.config.model_dump(mode="json", exclude_defaults=True) if detect.config else None
+        )
     spec_json = spec.model_dump(mode="json")
     if existing is not None:
         repo.replace_unapproved_spec(existing.id, spec_json)

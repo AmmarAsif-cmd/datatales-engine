@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from datatales.config import WORKER_DIR
 from datatales.ingest.common import RawFile, ingest_raw, safe_filename, sha256
 from datatales.ingest.upload import read_inbox_file
 from datatales.sources import SourceDef, load_sources
@@ -88,6 +89,11 @@ def test_committed_sources_file_is_valid() -> None:
     sources = load_sources()
     assert "ons-wellbeing-local-authority" in sources
     assert sources["ons-wellbeing-local-authority"].fetch.type == "ons_api"
+
+
+def test_committed_generated_sources_are_valid() -> None:
+    """worker/sources.d (written by the weekly new-dataset step) loads with sources.yaml."""
+    load_sources(extra_dir=WORKER_DIR / "sources.d")
 
 
 def test_duplicate_source_slugs_rejected(tmp_path: Path) -> None:
