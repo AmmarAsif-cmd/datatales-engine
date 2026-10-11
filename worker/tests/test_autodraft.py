@@ -53,7 +53,7 @@ def test_draft_passes_first_time(repo_ct: tuple[MemRepo, str]) -> None:  # noqa:
     assert saved["drafted_by"] == "claude" and saved["verify_status"] == "passed"
     assert saved["status"] == "draft" and saved["draft_note"] is None
     req = sdk.requests[0]
-    assert req["model"] == "claude-sonnet-5-5"
+    assert req["model"] == "claude-opus-5-5"
     assert "Rules (follow every one)" in req["system"][0]["text"]  # cached fixed part
     assert req["messages"][0]["content"].startswith('<data name="story_data">')
     assert "## CHART DATA" in req["messages"][0]["content"]

@@ -86,7 +86,7 @@ const args = { task: "check" as const, instructions: "Rules. ".repeat(50), data:
 
 test("config: models, budget and prices", () => {
   assert.equal(LLM_CONFIG.monthly_budget_gbp, 5);
-  assert.equal(LLM_CONFIG.tasks.story.model, "claude-sonnet-5-5");
+  assert.equal(LLM_CONFIG.tasks.story.model, "claude-opus-5-5");
   assert.equal(LLM_CONFIG.tasks.discovery.model, "claude-haiku-5-5");
   for (const t of Object.values(LLM_CONFIG.tasks)) assert.ok(LLM_CONFIG.pricing[t.model], t.model);
   const sonnet = costGbp(LLM_CONFIG, "claude-sonnet-5-5", { input: 1e6, output: 1e6, cacheWrite: 0, cacheRead: 0 });

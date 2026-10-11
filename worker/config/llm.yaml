@@ -11,7 +11,7 @@ usd_to_gbp: 0.79 # update now and then; only used to estimate spend in GBP
 
 tasks:
   story:
-    model: claude-sonnet-5-5
+    model: claude-opus-5-5 # best writing quality; ~2x Sonnet's price (decided 2026-10-11)
     max_tokens: 8000
     effort: medium
   recipe:

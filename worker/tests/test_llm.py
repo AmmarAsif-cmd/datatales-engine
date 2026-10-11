@@ -104,7 +104,7 @@ def call(c: LLMClient, **over: Any) -> Any:
 def test_config_file_is_valid_and_complete() -> None:
     cfg = load_llm_config(CONFIG_PATH)
     assert cfg.monthly_budget_gbp == 5
-    assert cfg.task("story").model == "claude-sonnet-5-5"
+    assert cfg.task("story").model == "claude-opus-5-5"
     assert cfg.task("recipe").model == "claude-sonnet-5-5"
     assert cfg.task("discovery").model == "claude-haiku-5-5"
     for name in ("story", "recipe", "discovery", "check"):
