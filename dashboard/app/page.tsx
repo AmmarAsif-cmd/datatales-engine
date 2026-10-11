@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { RunPipelineButton } from "@/components/Buttons";
+import ClaudeUsage from "@/components/ClaudeUsage";
 import { db, must } from "@/lib/db";
 import { when } from "@/lib/format";
 import { pageGate } from "@/lib/gate";
@@ -46,6 +47,7 @@ export default async function Home() {
   return (
     <>
       <h1>Overview</h1>
+      <ClaudeUsage />
       <div className="grid2">
         <div className="panel">
           <h2 className="first">Pipeline</h2>

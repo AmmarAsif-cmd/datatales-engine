@@ -9,3 +9,5 @@ GITHUB_REPO=AmmarAsif-cmd/datatales-engine
 # Production only (Cloudflare Access); leave empty for local development.
 CF_ACCESS_TEAM_DOMAIN=
 CF_ACCESS_AUD=
+# Claude API key (Phase 2). Production: GitHub Actions secret / Worker secret.
+ANTHROPIC_API_KEY=

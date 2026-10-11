@@ -32,6 +32,8 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest
 | `story-verify <story_id>` | Re-run verification |
 | `story-refresh <story_id>` | Rebuild a story's numbers and chart data with the current logic; back to draft for a new narration (same slug, so the URL is kept) |
 | `stories` | List stories |
+| `llm-check` | One tiny Claude API call (logged to `llm_calls`) to confirm `ANTHROPIC_API_KEY` and show this month's spend |
+| `llm-config-sync` | Copy `config/llm.yaml` to the dashboard (`dashboard/lib/llm-config.json`) after editing it |
 
 Every `ingest`, `profile`, `clean` and `detect` run writes a row to the `jobs` table.
 

@@ -1,0 +1,53 @@
+# Claude API settings for the worker and the dashboard.
+# The dashboard reads a JSON copy: after editing, run `uv run python -m datatales
+# llm-config-sync` from worker/ (a test fails if the copies differ).
+#
+# Models: https://platform.claude.com/docs/en/about-claude/models/overview
+# Prices: https://platform.claude.com/docs/en/about-claude/pricing (USD per million tokens,
+# checked 2026-10-11). Thinking tokens are billed as output tokens.
+
+monthly_budget_gbp: 5
+usd_to_gbp: 0.79 # update now and then; only used to estimate spend in GBP
+
+tasks:
+  story:
+    model: claude-sonnet-5-5
+    max_tokens: 8000
+    effort: medium
+  recipe:
+    model: claude-sonnet-5-5
+    max_tokens: 6000
+    effort: medium
+  discovery:
+    model: claude-haiku-5-5
+    max_tokens: 3000
+    effort: low
+  check:
+    model: claude-haiku-5-5
+    max_tokens: 200
+    effort: low
+
+# USD per million tokens. cache_write = 5-minute cache writes.
+# long_context_over: above this many input tokens, `long` prices apply (Haiku 5.5 only).
+pricing:
+  claude-sonnet-5-5:
+    input: 2.00
+    output: 10.00
+    cache_write: 2.50
+    cache_read: 0.10
+  claude-haiku-5-5:
+    input: 0.10
+    output: 0.50
+    cache_write: 0.125
+    cache_read: 0.01
+    long_context_over: 100000
+    long:
+      input: 0.50
+      output: 2.50
+      cache_write: 0.625
+      cache_read: 0.05
+  claude-opus-5-5:
+    input: 4.00
+    output: 20.00
+    cache_write: 5.00
+    cache_read: 0.20

@@ -92,6 +92,9 @@ class Repo(Protocol):
     def get_object(self, bucket: Bucket, path: str) -> bytes: ...
     def start_job(self, job_type: str) -> str: ...
     def finish_job(self, job_id: str, status: JobStatus, log: str, error: str | None) -> None: ...
+    def insert_llm_call(self, row: dict[str, Any]) -> str: ...
+    def update_llm_call(self, call_id: str, fields: dict[str, Any]) -> None: ...
+    def llm_spend_since(self, since: datetime) -> tuple[float, int]: ...
 
 
 def now_utc() -> datetime:
@@ -361,3 +364,25 @@ class SupabaseRepo:
                 "error": error,
             }
         ).eq("id", job_id).execute()
+
+    # ---- Claude API usage (llm_calls) ----
+
+    def insert_llm_call(self, row: dict[str, Any]) -> str:
+        res = self.db.table("llm_calls").insert(row).execute()
+        return str(res.data[0]["id"])
+
+    def update_llm_call(self, call_id: str, fields: dict[str, Any]) -> None:
+        self.db.table("llm_calls").update(fields).eq("id", call_id).execute()
+
+    def llm_spend_since(self, since: datetime) -> tuple[float, int]:
+        """(GBP spent or reserved since `since`, number of completed calls)."""
+        res = (
+            self.db.table("llm_calls")
+            .select("estimated_cost,status")
+            .gte("created_at", since.isoformat())
+            .execute()
+        )
+        rows = res.data or []
+        spent = sum(float(r["estimated_cost"] or 0) for r in rows)
+        calls = sum(1 for r in rows if r["status"] in ("ok", "invalid_output"))
+        return spent, calls

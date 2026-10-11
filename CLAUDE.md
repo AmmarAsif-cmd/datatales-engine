@@ -140,11 +140,21 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - `datatales/api.py` (JSON bridge) remains for local scripting; the deployed dashboard doesn't use it.
 - Story status transitions: draft -> approved (verify passed only) | rejected; rejected -> draft; approved -> draft; published -> draft ("Revise": clears published_at; the live page stays until republished); approved -> published only by `publish.yml`.
 
+## Claude API (Phase 2)
+
+- One client per side, same rules: `worker/datatales/llm.py` (Python `anthropic` SDK) and `dashboard/lib/logic/llm.ts` (pure, tested) + `dashboard/lib/llm.ts` (server wiring, `@anthropic-ai/sdk`). Added deps approved in the Phase 2 brief. No other LLM libraries.
+- Config: `worker/config/llm.yaml` (models per task, max_tokens, effort, prices in USD/MTok, `usd_to_gbp`, `monthly_budget_gbp`). After editing: `uv run python -m datatales llm-config-sync` (writes `dashboard/lib/llm-config.json`; a test fails if they differ). Never hard-code model names or prices elsewhere.
+- Every call: budget guard (month-to-date `llm_calls.estimated_cost` incl. `reserved` rows + worst case for this call; else `budget_blocked` row + `BudgetReached` -> copy-paste fallback), a `reserved` row during the call, fixed instructions in a cached system block, untrusted data only inside `untrusted(...)` `<data>` delimiters in the user turn, `output_config.format` JSON schema, then the caller's strict validator (json.loads/JSON.parse only). SDK retries (max 3) with backoff.
+- Structured-output schemas cannot carry minLength/maxLength/minimum etc.: keep those in our validators. Thinking tokens are billed as output: set `effort` per task.
+- `ANTHROPIC_API_KEY`: GitHub Actions secret + Worker secret (`datatales-admin`); locally `worker/.env` / `dashboard/.dev.vars`. Never log it: errors go through `redact()`. Guards: worker `test_no_secrets` (repo scan for `sk-ant-`), dashboard `check-bundle.mjs`, site `check-dist.mjs`.
+- Check the key: `uv run python -m datatales llm-check` or the `llm-check` workflow (Actions tab).
+
 ## Database
 
 - Migrations: `supabase/migrations/NNNN_name.sql`, plain SQL, wrapped in `begin; ... commit;`. The user runs them in the Supabase SQL Editor. Never edit an applied migration; add a new one.
 - Every new table must: `enable row level security`, have **no** policies, `revoke all ... from anon, authenticated`, `grant all ... to service_role`. `db-check` fails on any public table that breaks this.
 - Functions: `set search_path = ''` and fully qualified names; revoke execute from `public, anon, authenticated`.
+- `llm_calls` (migration 0002): one row per Claude call or blocked attempt; statuses reserved/ok/error/invalid_output/budget_blocked; `estimated_cost` in GBP.
 - DB-level rule: a story cannot be `approved`/`published` unless `verify_status = 'passed'`.
 - Config is read by `datatales.config.load_settings()` (env vars override `worker/.env`). The key is a `SecretStr`, so never call `get_secret_value()` except when creating the client.
 

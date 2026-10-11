@@ -4,6 +4,8 @@ import { test } from "node:test";
 import { configProblems } from "../lib/config.ts";
 
 const GOOD = {
+  // built at runtime so no key-shaped string sits in the source (the repo key scan)
+  ANTHROPIC_API_KEY: "sk-ant-" + "x".repeat(12),
   NODE_ENV: "production",
   SUPABASE_URL: "https://abc.supabase.co",
   SUPABASE_SERVICE_ROLE_KEY: "x".repeat(40),
@@ -52,4 +54,10 @@ test("problems never include values", () => {
   const secret = "super-secret-value-123";
   const out = JSON.stringify(configProblems({ NODE_ENV: "production", SUPABASE_SERVICE_ROLE_KEY: "short", SUPABASE_URL: secret }));
   assert.ok(!out.includes(secret) && !out.includes("short\""));
+});
+
+test("Claude key missing or malformed is a warning, not fatal", () => {
+  assert.deepEqual(names({ ...GOOD, ANTHROPIC_API_KEY: "" }), []);
+  assert.deepEqual(names({ ...GOOD, ANTHROPIC_API_KEY: "" }, false), ["ANTHROPIC_API_KEY"]);
+  assert.deepEqual(names({ ...GOOD, ANTHROPIC_API_KEY: "abc" }, false), ["ANTHROPIC_API_KEY"]);
 });

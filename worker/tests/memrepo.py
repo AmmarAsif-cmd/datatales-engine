@@ -16,6 +16,7 @@ class MemRepo:
         self.clean_tables: dict[tuple[str, str], dict[str, Any]] = {}
         self.objects: dict[tuple[str, str], tuple[bytes, str]] = {}
         self.jobs: dict[str, dict[str, Any]] = {}
+        self.llm_calls: dict[str, dict[str, Any]] = {}
         self.findings: dict[str, dict[str, Any]] = {}
         self.stories: dict[str, dict[str, Any]] = {}
 
@@ -217,3 +218,18 @@ class MemRepo:
 
     def finish_job(self, job_id: str, status: JobStatus, log: str, error: str | None) -> None:
         self.jobs[job_id] |= {"status": status, "log": log, "error": error}
+
+    # ---- llm_calls ----
+
+    def insert_llm_call(self, row: dict[str, Any]) -> str:
+        call_id = str(uuid.uuid4())
+        self.llm_calls[call_id] = {"id": call_id, "created_at": now_utc(), **row}
+        return call_id
+
+    def update_llm_call(self, call_id: str, fields: dict[str, Any]) -> None:
+        self.llm_calls[call_id].update(fields)
+
+    def llm_spend_since(self, since: datetime) -> tuple[float, int]:
+        rows = [r for r in self.llm_calls.values() if r["created_at"] >= since]
+        spent = sum(float(r.get("estimated_cost") or 0) for r in rows)
+        return spent, sum(1 for r in rows if r["status"] in ("ok", "invalid_output"))

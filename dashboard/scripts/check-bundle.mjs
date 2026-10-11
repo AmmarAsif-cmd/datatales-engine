@@ -3,7 +3,9 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const SECRET_NAMES = ["SUPABASE_SERVICE_ROLE_KEY", "GITHUB_DISPATCH_TOKEN", "CF_ACCESS_AUD"];
+const SECRET_NAMES = ["SUPABASE_SERVICE_ROLE_KEY", "GITHUB_DISPATCH_TOKEN", "CF_ACCESS_AUD", "ANTHROPIC_API_KEY"];
+// Any Anthropic key, even one not in .dev.vars, must never be in the bundle.
+const KEY_PATTERNS = [/sk-ant-[A-Za-z0-9_-]{8,}/];
 const values = [];
 if (existsSync(".dev.vars")) {
   for (const line of readFileSync(".dev.vars", "utf8").split(/\r?\n/)) {
@@ -25,6 +27,7 @@ const walk = (dir) => {
     else if (/\.(m?js|json|html|txt|map)$/.test(name)) {
       const text = readFileSync(p, "utf8");
       for (const v of values) if (text.includes(v)) problems.push(`secret value found in ${p}`);
+      for (const re of KEY_PATTERNS) if (re.test(text)) problems.push(`API key pattern ${re} found in ${p}`);
     }
   }
 };

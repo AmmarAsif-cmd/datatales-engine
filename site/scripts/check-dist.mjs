@@ -50,6 +50,8 @@ const SECRET_PATTERNS = [
   /service_role/,
   /eyJhbGciOi[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/, // JWT
   /\.supabase\.co/,
+  /sk-ant-[A-Za-z0-9_-]{8,}/, // Anthropic API key
+  /ANTHROPIC_API_KEY/,
 ];
 for (const f of files.filter((p) => /\.(html|js|xml|txt|json|css)$/.test(p))) {
   const text = readFileSync(f, 'utf8');

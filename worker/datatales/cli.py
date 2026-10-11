@@ -25,6 +25,58 @@ def _read_text(path: str) -> str:
 # ---- commands ----
 
 
+CHECK_SCHEMA = {
+    "type": "object",
+    "properties": {"ok": {"type": "boolean"}},
+    "required": ["ok"],
+    "additionalProperties": False,
+}
+
+
+def _check_reply(data: object) -> dict[str, bool]:
+    if not isinstance(data, dict) or data.get("ok") is not True:
+        raise ValueError('expected {"ok": true}')
+    return {"ok": True}
+
+
+def cmd_llm_check(_args: argparse.Namespace) -> int:
+    """One tiny Claude API call, logged to llm_calls, to confirm the key and the budget guard."""
+    from datatales.llm import LLMClient, untrusted
+
+    client = LLMClient(_repo())
+    cfg = client.config.task("check")
+    before = client.budget()
+    print(f"Model: {cfg.model} (task 'check')")
+    print(
+        f"This month: £{before.spent_gbp:.4f} of £{before.budget_gbp:.2f}, {before.calls} call(s)"
+    )
+    result = client.call(
+        "check",
+        instructions='Health check for an API integration. Reply with the JSON {"ok": true}.',
+        data=untrusted("ping", "ping"),
+        schema=CHECK_SCHEMA,
+        validate=_check_reply,
+    )
+    u = result.usage
+    print(
+        f"OK: reply valid. Tokens in {u.input_tokens}, out {u.output_tokens}, "
+        f"cache read {u.cache_read_tokens}, cache write {u.cache_write_tokens}."
+    )
+    after = client.budget()
+    print(f"Cost: £{result.cost_gbp:.6f}.")
+    print(f"This month now: £{after.spent_gbp:.4f}, {after.calls} call(s).")
+    print(f"Logged as llm_calls {result.call_id}.")
+    return 0
+
+
+def cmd_llm_config_sync(_args: argparse.Namespace) -> int:
+    from datatales.llm import DASHBOARD_CONFIG, dashboard_config_json
+
+    DASHBOARD_CONFIG.write_text(dashboard_config_json(), encoding="utf-8", newline="\n")
+    print(f"Wrote {DASHBOARD_CONFIG}")
+    return 0
+
+
 def cmd_db_check(_args: argparse.Namespace) -> int:
     from datatales.db import get_client, run_db_check
 
@@ -317,6 +369,12 @@ def build_parser() -> argparse.ArgumentParser:
         return p
 
     add("db-check", cmd_db_check, "Confirm Supabase connection, tables, RLS and storage buckets.")
+    add(
+        "llm-check",
+        cmd_llm_check,
+        "Make one tiny Claude API call (logged) to confirm the key works.",
+    )
+    add("llm-config-sync", cmd_llm_config_sync, "Copy config/llm.yaml to the dashboard as JSON.")
     add("sources-sync", cmd_sources_sync, "Upsert worker/sources.yaml into the sources table.")
 
     p = add("ingest", cmd_ingest, "Fetch a source's raw file, store it untouched, then profile it.")

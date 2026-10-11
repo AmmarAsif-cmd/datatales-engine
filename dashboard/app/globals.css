@@ -428,3 +428,22 @@ label.inline {
     grid-template-columns: 1fr;
   }
 }
+
+/* Claude budget meter */
+.meter {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--rule, #e1e0d9);
+  overflow: hidden;
+}
+.meter span {
+  display: block;
+  height: 100%;
+  background: var(--ok, #1baf7a);
+}
+.meter span.high {
+  background: var(--warn, #eda100);
+}
+.meter span.full {
+  background: var(--bad, #e34948);
+}

@@ -1,0 +1,30 @@
+name: llm-check
+
+# One tiny Claude API call (Haiku, well under 1p), logged to llm_calls, to confirm the
+# ANTHROPIC_API_KEY secret works. Run it from the Actions tab ("Run workflow").
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "worker/uv.lock"
+
+      - name: Claude API check
+        working-directory: worker
+        run: |
+          uv sync --locked
+          uv run python -m datatales llm-check

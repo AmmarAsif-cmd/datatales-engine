@@ -37,6 +37,9 @@ export function configProblems(env: Env = process.env): ConfigProblem[] {
     }
   }
 
+  const anthropic = get("ANTHROPIC_API_KEY");
+  if (!anthropic) warn("ANTHROPIC_API_KEY", "is not set: Claude drafting falls back to copy-paste");
+  else if (!anthropic.startsWith("sk-ant-")) warn("ANTHROPIC_API_KEY", "does not look like an Anthropic API key");
   if (!get("GITHUB_DISPATCH_TOKEN")) warn("GITHUB_DISPATCH_TOKEN", "is not set: publish and run buttons won't work");
   const repo = get("GITHUB_REPO");
   if (!repo) warn("GITHUB_REPO", "is not set");

@@ -15,6 +15,7 @@ EXPECTED_TABLES = (
     "findings",
     "stories",
     "jobs",
+    "llm_calls",
 )
 EXPECTED_BUCKETS = ("raw", "clean")
 
