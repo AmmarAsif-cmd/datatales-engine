@@ -158,11 +158,19 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - Verification now also: any `chart_data` value is allowed and citable as `chart.<geography>.<period>.value|lower|upper`; `chart_text` (all chart titles/annotations, `verify.chart_text`) is a verified field; percentages must have exactly 2 decimals (`format_issues`). Site/cards/covers/charts format percentages with 2 decimals (`publish.format_value`, `graphics/alt.ts formatValue`).
 - The narration schema for the dashboard is synced by `llm-config-sync` (`dashboard/lib/narration-schema.json`).
 
+## Automatic recipe drafting (P2.3)
+
+- `worker/datatales/recipedraft.py`. Trigger: the weekly pipeline, for a source with no approved recipe (`pipeline.draft_recipe_for_source`: ingest + profile + `ensure_recipe_draft`), the dashboard's "Draft with Claude" (workflow `recipe-draft.yml`), or `recipe-draft <dataset_id>`.
+- Claude (`task: recipe`, Sonnet) gets `RECIPE_INSTRUCTIONS` (rules, recipe JSON schema, example; cached) + `untrusted("dataset", profile)` + `RECIPE_REQUEST`. No structured-output schema (recipes have free-key mappings it cannot express): the reply is json.loads'd (code fences stripped) and validated by the `Recipe` model + source/version check. Never executed.
+- Sandbox: `test_recipe` runs cleaning + checks in memory against the raw file and writes nothing; the report holds checks, row count, columns, a plain-English `summary` (`describe_recipe`, generated from the steps, never by the model) and the first 20 rows. Failed -> one retry with the failures -> else status `failed`.
+- `recipes` (migration 0004): `status` draft|ready|failed|rejected, `drafted_by`, `dataset_id`, `test_report`, `reject_note`. DB rule: approval only when `status = 'ready'`. `approve_recipe` test-runs a hand-imported (draft) recipe first and refuses one that fails. Rejected drafts are not redrafted for the same dataset. Manual drafts are never overwritten by Claude.
+
 ## Database
 
 - Migrations: `supabase/migrations/NNNN_name.sql`, plain SQL, wrapped in `begin; ... commit;`. The user runs them in the Supabase SQL Editor. Never edit an applied migration; add a new one.
 - Every new table must: `enable row level security`, have **no** policies, `revoke all ... from anon, authenticated`, `grant all ... to service_role`. `db-check` fails on any public table that breaks this.
 - Functions: `set search_path = ''` and fully qualified names; revoke execute from `public, anon, authenticated`.
+- `recipes` gained (migration 0004) `status`, `drafted_by`, `dataset_id`, `test_report`, `reject_note`; approval requires `status = 'ready'`.
 - `stories` gained (migration 0003) status `failed`, `drafted_by` (claude|manual), `candidate_key`, `data_version`, `draft_note`.
 - `llm_calls` (migration 0002): one row per Claude call or blocked attempt; statuses reserved/ok/error/invalid_output/budget_blocked; `estimated_cost` in GBP.
 - DB-level rule: a story cannot be `approved`/`published` unless `verify_status = 'passed'`.

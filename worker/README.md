@@ -32,6 +32,7 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest
 | `story-verify <story_id>` | Re-run verification |
 | `story-refresh <story_id>` | Rebuild a story's numbers and chart data with the current logic; back to draft for a new narration (same slug, so the URL is kept) |
 | `stories` | List stories |
+| `recipe-draft <dataset_id>` | Claude drafts a cleaning recipe from the dataset's profile, then test-runs it in memory (nothing written); stored as `ready` or `failed` for review |
 | `story-draft <story_id>` | Draft (or redraft) one story with Claude, verify it, retry once on failure |
 | `auto-draft <clean_table_id>` | Create and Claude-draft stories for a clean table's shortlist (the pipeline does this after `detect`) |
 | `llm-check` | One tiny Claude API call (logged to `llm_calls`) to confirm `ANTHROPIC_API_KEY` and show this month's spend |

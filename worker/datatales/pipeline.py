@@ -169,6 +169,12 @@ def approve_recipe(
     recipe = find_recipe(repo, slug, version, approved_only=False)
     if recipe.approved:
         raise PipelineError(f"{slug} v{version} was already approved by {recipe.approved_by}")
+    from datatales.recipedraft import RecipeDraftError, approve_ready_check
+
+    try:
+        recipe = approve_ready_check(repo, recipe)  # test-runs a hand-imported recipe first
+    except RecipeDraftError as exc:
+        raise PipelineError(str(exc)) from None
     spec = RecipeSpec.model_validate(recipe.spec)
     approved = repo.approve_recipe(recipe.id, approved_by.strip())
     path = recipe_file(slug, version, recipes_dir)
@@ -320,7 +326,7 @@ def run_scheduled(repo: Repo, log: Callable[[str], None]) -> bool:
         try:
             recipe = find_recipe(repo, slug, None, approved_only=True)
         except PipelineError:
-            log(f"[{slug}] no approved recipe: skipped")
+            draft_recipe_for_source(repo, source, log)
             continue
         try:
             result = ingest(repo, source, fetch_raw(source), log)
@@ -347,6 +353,24 @@ def run_scheduled(repo: Repo, log: Callable[[str], None]) -> bool:
             log(f"[{slug}] FAILED: {type(exc).__name__}: {exc}")
             ok = False
     return ok
+
+
+def draft_recipe_for_source(repo: Repo, source: SourceDef, log: Callable[[str], None]) -> None:
+    """No approved recipe: ingest and profile the latest file, then let Claude draft a recipe
+    (sandbox-tested) for you to approve. Never fails the pipeline run."""
+    from datatales.llm import LLMClient, load_api_key
+    from datatales.recipedraft import ensure_recipe_draft
+
+    slug = source.slug
+    try:
+        result = ingest(repo, source, fetch_raw(source), log)
+        if result.dataset.profile is None:
+            profile_dataset(repo, result.dataset.id, log)
+        llm = LLMClient(repo) if load_api_key() else None
+        outcome = ensure_recipe_draft(repo, result.dataset.id, log, llm)
+        log(f"[{slug}] recipe draft: {outcome.status} {outcome.detail}".rstrip())
+    except Exception as exc:  # noqa: BLE001
+        log(f"[{slug}] recipe drafting stopped: {type(exc).__name__}: {exc}")
 
 
 def draft_new_stories(repo: Repo, clean_table_id: str, log: Callable[[str], None]) -> None:

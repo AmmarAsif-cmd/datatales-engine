@@ -186,6 +186,13 @@ def missing_key_message() -> str:
     )
 
 
+def strip_fences(text: str) -> str:
+    """A JSON reply possibly wrapped in a Markdown code fence."""
+    t = text.strip()
+    m = re.match(r"^```(?:json)?\s*\n(.*)\n```$", t, re.S)
+    return m.group(1) if m else t
+
+
 def redact(text: str, key: str | None = None) -> str:
     out = KEY_PATTERN.sub("[redacted]", text)
     if key:
@@ -256,7 +263,7 @@ class LLMClient:
         *,
         instructions: str,
         data: str,
-        schema: dict[str, Any],
+        schema: dict[str, Any] | None,
         validate: Callable[[Any], T],
         related_id: str | None = None,
         request: str = "",
@@ -265,7 +272,7 @@ class LLMClient:
         base = {"task": task, "model": cfg.model, "related_id": related_id}
 
         # 1. budget guard: worst case = all input written to cache + max_tokens of output
-        est_in = estimate_tokens(instructions + data + json.dumps(schema))
+        est_in = estimate_tokens(instructions + data + request + json.dumps(schema or {}))
         worst = cost_gbp(
             self.config, cfg.model, Usage(output_tokens=cfg.max_tokens, cache_write_tokens=est_in)
         )
@@ -301,10 +308,10 @@ class LLMClient:
                     }
                 ],
                 messages=[{"role": "user", "content": f"{data}\n\n{request}" if request else data}],
-                output_config={
-                    "effort": cfg.effort,
-                    "format": {"type": "json_schema", "schema": schema},
-                },
+                # schema=None: free-form JSON (e.g. recipes, whose free-key mappings structured
+                # output cannot express); the caller's validator is then the only guard.
+                output_config={"effort": cfg.effort}
+                | ({"format": {"type": "json_schema", "schema": schema}} if schema else {}),
             )
         except LLMError as exc:  # e.g. no API key: nothing was sent
             self.repo.update_llm_call(
@@ -340,7 +347,7 @@ class LLMClient:
             if response.stop_reason == "max_tokens":
                 raise InvalidOutput("reply was cut off at max_tokens")
             text = "".join(b.text for b in response.content if getattr(b, "type", "") == "text")
-            value = validate(json.loads(text))
+            value = validate(json.loads(strip_fences(text)))
         except (InvalidOutput, ValueError, TypeError, ValidationError, UserError) as exc:
             message = redact(str(exc), self._key)
             # keep the start of the rejected reply so the failure can be diagnosed

@@ -1,0 +1,42 @@
+name: recipe-draft
+
+# Triggered by the dashboard's "Draft with Claude" button on a dataset or failed recipe:
+# Claude drafts a cleaning recipe from the dataset's profile, then it is test-run in a
+# sandbox (nothing is written to clean data). Needs pandas, so it runs here.
+on:
+  workflow_dispatch:
+    inputs:
+      dataset_id:
+        description: Dataset id (uuid)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  recipe-draft:
+    runs-on: ubuntu-latest
+    env:
+      DATASET_ID: ${{ inputs.dataset_id }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - name: Validate inputs
+        run: |
+          [[ "$DATASET_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] \
+            || { echo "::error::dataset_id is not a uuid"; exit 1; }
+
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "worker/uv.lock"
+
+      - name: Draft and test-run the recipe
+        working-directory: worker
+        run: |
+          uv sync --locked
+          uv run python -m datatales recipe-draft "$DATASET_ID"

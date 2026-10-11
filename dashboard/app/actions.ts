@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { AccessDenied, requireUser } from "@/lib/access";
+import { db } from "@/lib/db";
 import { dispatch, WORKFLOWS } from "@/lib/github";
 import type { VerifyReport } from "@/lib/types";
 import {
@@ -157,6 +158,34 @@ export async function approveRecipe(_prev: ActionState, form: FormData): Promise
     }
     await dispatch(WORKFLOWS.recipeApprove, { source, version, by });
     return { ok: true, message: `Approval of v${version} queued; the recipe file is committed by the workflow.` };
+  });
+}
+
+export async function rejectRecipe(_prev: ActionState, form: FormData): Promise<ActionState> {
+  return guarded(async () => {
+    const recipeId = id(form, "recipe_id");
+    const note = str(form, "note").trim().slice(0, 500);
+    const { data, error } = await db()
+      .from("recipes")
+      .update({ status: "rejected", reject_note: note || null })
+      .eq("id", recipeId)
+      .is("approved_at", null) // approved recipes are immutable
+      .select("id");
+    if (error) throw new StoryOpError(error.message);
+    if (!data?.length) throw new StoryOpError("recipe is approved or missing; it cannot be rejected");
+    revalidatePath("/recipes");
+    return { ok: true, message: "Recipe rejected. It will not run, and Claude will not redraft it for this data." };
+  });
+}
+
+export async function draftRecipe(_prev: ActionState, form: FormData): Promise<ActionState> {
+  return guarded(async () => {
+    const datasetId = id(form, "dataset_id");
+    await dispatch(WORKFLOWS.recipeDraft, { dataset_id: datasetId });
+    return {
+      ok: true,
+      message: "Claude is drafting and test-running a recipe. It appears under Recipes in a few minutes.",
+    };
   });
 }
 

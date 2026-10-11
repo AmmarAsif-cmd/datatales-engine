@@ -30,6 +30,13 @@ def repo_with_dataset(ons_csv: bytes) -> tuple[MemRepo, str]:
     return repo, result.dataset.id
 
 
+def relaxed_text() -> str:
+    """The real recipe with its row-count check relaxed for the 30-row fixture."""
+    return DRAFT.read_text(encoding="utf-8").replace(
+        "row_count: {min: 90288, max: 110352}", "row_count: {min: 27, max: 33}"
+    )
+
+
 def recipe_text(**overrides: object) -> str:
     text = DRAFT.read_text(encoding="utf-8")
     for key, value in overrides.items():
@@ -75,8 +82,14 @@ def test_failing_checks_write_no_parquet(
     repo_with_dataset: tuple[MemRepo, str], tmp_path: Path
 ) -> None:
     repo, ds_id = repo_with_dataset
-    pipeline.import_recipe(repo, DRAFT.read_text(encoding="utf-8"))  # expects ~100k rows
-    pipeline.approve_recipe(repo, SLUG, 1, "Tester", tmp_path)
+    recipe = pipeline.import_recipe(repo, DRAFT.read_text(encoding="utf-8"))  # expects ~100k rows
+    # a recipe that fails its test run can never be approved ...
+    with pytest.raises(pipeline.PipelineError, match="failed its test run"):
+        pipeline.approve_recipe(repo, SLUG, 1, "Tester", tmp_path)
+    assert repo.get_recipe(recipe.id).status == "failed" and not repo.get_recipe(recipe.id).approved
+    # ... but data can change after approval: cleaning then fails safely
+    repo.update_unapproved_recipe(recipe.id, {"status": "ready"})
+    repo.approve_recipe(recipe.id, "Tester")
     outcome = pipeline.clean_dataset(repo, ds_id, noop)
     assert not outcome.passed and outcome.parquet_path is None
     assert not any(bucket == "clean" for bucket, _ in repo.objects)
@@ -98,7 +111,7 @@ def test_approve_twice_and_without_name(
     repo_with_dataset: tuple[MemRepo, str], tmp_path: Path
 ) -> None:
     repo, _ = repo_with_dataset
-    pipeline.import_recipe(repo, DRAFT.read_text(encoding="utf-8"))
+    pipeline.import_recipe(repo, relaxed_text())
     with pytest.raises(pipeline.PipelineError, match="--by"):
         pipeline.approve_recipe(repo, SLUG, 1, "  ", tmp_path)
     pipeline.approve_recipe(repo, SLUG, 1, "A", tmp_path)
@@ -163,7 +176,7 @@ def test_replace_only_works_on_unapproved(
     repo_with_dataset: tuple[MemRepo, str], tmp_path: Path
 ) -> None:
     repo, _ = repo_with_dataset
-    text = DRAFT.read_text(encoding="utf-8")
+    text = relaxed_text()
     first = pipeline.import_recipe(repo, text)
     changed = text.replace("tolerance: 0.05", "tolerance: 0.04")
     replaced = pipeline.import_recipe(repo, changed, replace=True)

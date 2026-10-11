@@ -455,3 +455,13 @@ label.inline {
 .msg.warn {
   border-left: 3px solid var(--warn, #eda100);
 }
+
+/* recipe test-run preview */
+table.preview th,
+table.preview td {
+  white-space: nowrap;
+  padding: 0.2rem 0.5rem;
+}
+.table-scroll {
+  overflow-x: auto;
+}

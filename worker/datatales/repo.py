@@ -35,6 +35,11 @@ class Recipe:
     spec: dict[str, Any]
     approved_at: str | None
     approved_by: str | None
+    status: str = "draft"  # draft | ready (passed its test run) | failed | rejected
+    drafted_by: str | None = None
+    dataset_id: str | None = None
+    test_report: dict[str, Any] | None = None
+    reject_note: str | None = None
 
     @property
     def approved(self) -> bool:
@@ -62,9 +67,17 @@ class Repo(Protocol):
     def list_datasets(self, source_id: str | None = None, limit: int = 20) -> list[Dataset]: ...
     def set_profile(self, dataset_id: str, profile: dict[str, Any]) -> None: ...
     def list_recipes(self, source_id: str) -> list[Recipe]: ...
-    def insert_recipe(self, source_id: str, version: int, spec: dict[str, Any]) -> Recipe: ...
+    def insert_recipe(
+        self,
+        source_id: str,
+        version: int,
+        spec: dict[str, Any],
+        meta: dict[str, Any] | None = None,
+    ) -> Recipe: ...
     def approve_recipe(self, recipe_id: str, approved_by: str) -> Recipe: ...
     def replace_unapproved_spec(self, recipe_id: str, spec: dict[str, Any]) -> Recipe: ...
+    def update_unapproved_recipe(self, recipe_id: str, fields: dict[str, Any]) -> Recipe: ...
+    def get_recipe(self, recipe_id: str) -> Recipe: ...
     def upsert_clean_table(
         self,
         dataset_id: str,
@@ -121,6 +134,11 @@ def _recipe(row: dict[str, Any]) -> Recipe:
         spec=row["spec"],
         approved_at=row.get("approved_at"),
         approved_by=row.get("approved_by"),
+        status=row.get("status") or "draft",
+        drafted_by=row.get("drafted_by"),
+        dataset_id=row.get("dataset_id"),
+        test_report=row.get("test_report"),
+        reject_note=row.get("reject_note"),
     )
 
 
@@ -204,14 +222,39 @@ class SupabaseRepo:
         )
         return [_recipe(r) for r in res.data]
 
-    def insert_recipe(self, source_id: str, version: int, spec: dict[str, Any]) -> Recipe:
-        row = {"source_id": source_id, "version": version, "spec": spec}
+    def insert_recipe(
+        self,
+        source_id: str,
+        version: int,
+        spec: dict[str, Any],
+        meta: dict[str, Any] | None = None,
+    ) -> Recipe:
+        row = {"source_id": source_id, "version": version, "spec": spec, **(meta or {})}
         return _recipe(self.db.table("recipes").insert(row).execute().data[0])
+
+    def get_recipe(self, recipe_id: str) -> Recipe:
+        res = self.db.table("recipes").select("*").eq("id", recipe_id).execute()
+        if not res.data:
+            raise ValueError(f"recipe {recipe_id} not found")
+        return _recipe(res.data[0])
+
+    def update_unapproved_recipe(self, recipe_id: str, fields: dict[str, Any]) -> Recipe:
+        res = (
+            self.db.table("recipes")
+            .update(fields)
+            .eq("id", recipe_id)
+            .is_("approved_at", "null")  # never touch an approved recipe
+            .execute()
+        )
+        if not res.data:
+            raise ValueError(f"recipe {recipe_id} is approved or missing; it cannot be changed")
+        return _recipe(res.data[0])
 
     def replace_unapproved_spec(self, recipe_id: str, spec: dict[str, Any]) -> Recipe:
         res = (
             self.db.table("recipes")
-            .update({"spec": spec})
+            # a changed spec has not been tested: back to draft
+            .update({"spec": spec, "status": "draft", "test_report": None})
             .eq("id", recipe_id)
             .is_("approved_at", "null")  # never touch an approved recipe
             .execute()

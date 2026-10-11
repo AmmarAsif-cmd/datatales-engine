@@ -1,6 +1,7 @@
 """In-memory `Repo` for tests. Mirrors the constraints of migration 0001 that matter here."""
 
 import uuid
+from dataclasses import replace
 from datetime import datetime
 from typing import Any
 
@@ -77,23 +78,41 @@ class MemRepo:
         found = [r for r in self.recipes.values() if r.source_id == source_id]
         return sorted(found, key=lambda r: r.version)
 
-    def insert_recipe(self, source_id: str, version: int, spec: dict[str, Any]) -> Recipe:
+    def insert_recipe(
+        self,
+        source_id: str,
+        version: int,
+        spec: dict[str, Any],
+        meta: dict[str, Any] | None = None,
+    ) -> Recipe:
         if any(r.version == version for r in self.list_recipes(source_id)):
             raise ValueError("duplicate (source_id, version)")
-        recipe = Recipe(str(uuid.uuid4()), source_id, version, spec, None, None)
+        recipe = Recipe(str(uuid.uuid4()), source_id, version, spec, None, None, **(meta or {}))
         self.recipes[recipe.id] = recipe
         return recipe
+
+    def get_recipe(self, recipe_id: str) -> Recipe:
+        return self.recipes[recipe_id]
+
+    def update_unapproved_recipe(self, recipe_id: str, fields: dict[str, Any]) -> Recipe:
+        r = self.recipes[recipe_id]
+        if r.approved:
+            raise ValueError(f"recipe {recipe_id} is approved or missing; it cannot be changed")
+        self.recipes[recipe_id] = replace(r, **fields)
+        return self.recipes[recipe_id]
 
     def replace_unapproved_spec(self, recipe_id: str, spec: dict[str, Any]) -> Recipe:
         r = self.recipes[recipe_id]
         if r.approved:
             raise ValueError(f"recipe {recipe_id} is approved or missing; it cannot be replaced")
-        self.recipes[recipe_id] = Recipe(r.id, r.source_id, r.version, spec, None, None)
+        self.recipes[recipe_id] = replace(r, spec=spec, status="draft", test_report=None)
         return self.recipes[recipe_id]
 
     def approve_recipe(self, recipe_id: str, approved_by: str) -> Recipe:
         r = self.recipes[recipe_id]
-        approved = Recipe(r.id, r.source_id, r.version, r.spec, now_utc().isoformat(), approved_by)
+        if r.status != "ready":  # mirrors recipes_approved_only_when_ready
+            raise ValueError("violates recipes_approved_only_when_ready")
+        approved = replace(r, approved_at=now_utc().isoformat(), approved_by=approved_by)
         self.recipes[recipe_id] = approved
         return approved
 

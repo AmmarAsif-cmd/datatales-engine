@@ -15,6 +15,7 @@ export const WORKFLOWS = {
   publish: "publish.yml",
   storyNew: "story-new.yml",
   recipeApprove: "recipe-approve.yml",
+  recipeDraft: "recipe-draft.yml",
   pipeline: "pipeline.yml",
 } as const;
 

@@ -1,20 +1,153 @@
+import { RecipeDraftButton, RecipeReject } from "@/components/RecipeActions";
 import RecipeApprove from "@/components/RecipeApprove";
 import { db, must } from "@/lib/db";
-import { pageGate } from "@/lib/gate";
 import { when } from "@/lib/format";
+import { pageGate } from "@/lib/gate";
 import type { Json } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+type CheckRow = { name: string; passed: boolean; detail: string };
+type TestReport = {
+  passed: boolean;
+  error?: string;
+  row_count?: number;
+  columns?: string[];
+  checks?: CheckRow[];
+  preview?: Record<string, Json>[];
+  summary?: string[];
+};
 type Recipe = {
   id: string;
   version: number;
-  spec: { description?: string; steps?: { op: string }[]; checks?: Record<string, Json> };
+  spec: { description?: string; steps?: { op: string }[] };
+  status: "draft" | "ready" | "failed" | "rejected";
+  drafted_by: "claude" | "manual" | null;
+  dataset_id: string | null;
+  test_report: TestReport | null;
+  reject_note: string | null;
   approved_at: string | null;
   approved_by: string | null;
   created_at: string;
   sources: { slug: string } | null;
 };
+
+const cell = (v: Json | undefined) =>
+  v === null || v === undefined ? "–" : typeof v === "object" ? JSON.stringify(v) : String(v);
+
+function Report({ report }: { report: TestReport }) {
+  const failed = (report.checks ?? []).filter((c) => !c.passed);
+  const columns = report.columns ?? Object.keys(report.preview?.[0] ?? {});
+  return (
+    <>
+      {report.summary && report.summary.length > 0 && (
+        <>
+          <h3>What it does</h3>
+          <ul className="small">
+            {report.summary.map((line, i) => (
+              <li key={i}>{line}</li>
+            ))}
+          </ul>
+        </>
+      )}
+      {report.error && <p className="msg bad">Test run failed: {report.error}</p>}
+      {report.row_count !== undefined && (
+        <p className="small">
+          Test run: <b>{report.row_count.toLocaleString("en-GB")}</b> rows · {columns.length} columns ·{" "}
+          {failed.length ? (
+            <span className="badge bad">{failed.length} check(s) failed</span>
+          ) : (
+            <span className="badge ok">all {report.checks?.length ?? 0} checks passed</span>
+          )}
+        </p>
+      )}
+      {(report.checks ?? []).length > 0 && (
+        <details open={failed.length > 0}>
+          <summary className="small">Check results</summary>
+          <table className="stack small">
+            <tbody>
+              {(report.checks ?? []).map((c, i) => (
+                <tr key={i} className={c.passed ? undefined : "claim-bad"}>
+                  <td data-label="Result">
+                    <span className={`badge ${c.passed ? "ok" : "bad"}`}>{c.passed ? "pass" : "fail"}</span>
+                  </td>
+                  <td data-label="Check">{c.name}</td>
+                  <td data-label="Detail">{c.detail}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      )}
+      {(report.preview ?? []).length > 0 && (
+        <details>
+          <summary className="small">First {report.preview!.length} cleaned rows</summary>
+          <div className="table-scroll">
+            <table className="small preview">
+              <thead>
+                <tr>
+                  {columns.map((c) => (
+                    <th key={c}>{c}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {report.preview!.map((row, i) => (
+                  <tr key={i}>
+                    {columns.map((c) => (
+                      <td key={c}>{cell(row[c])}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
+    </>
+  );
+}
+
+function RecipeCard({ r }: { r: Recipe }) {
+  const slug = r.sources?.slug ?? "?";
+  const badge = r.approved_at
+    ? { cls: "ok", text: `approved by ${r.approved_by}, ${when(r.approved_at)}` }
+    : { ready: { cls: "ok", text: "ready to approve" }, failed: { cls: "bad", text: "test run failed" },
+        draft: { cls: "warn", text: "not test-run yet" }, rejected: { cls: "plain", text: "rejected" } }[r.status]; // prettier-ignore
+  return (
+    <div className="panel">
+      <div className="row">
+        <h2 style={{ margin: 0 }}>
+          {slug} v{r.version}
+        </h2>
+        <span className={`badge ${badge.cls}`}>{badge.text}</span>
+        {r.drafted_by === "claude" && <span className="badge claude">Drafted by Claude</span>}
+        <span className="small muted">{when(r.created_at)}</span>
+      </div>
+      {r.spec.description && <p>{r.spec.description}</p>}
+      {r.reject_note && <p className="small">Rejected: {r.reject_note}</p>}
+      {r.test_report ? (
+        <Report report={r.test_report} />
+      ) : (
+        <p className="small">Steps: {(r.spec.steps ?? []).map((s) => s.op).join(" → ")}</p>
+      )}
+      {!r.approved_at && r.status !== "rejected" && (
+        <div className="row" style={{ marginTop: "0.75rem", gap: "1.5rem" }}>
+          {(r.status === "ready" || r.status === "draft") && <RecipeApprove source={slug} version={r.version} />}
+          <RecipeReject recipeId={r.id} />
+          {r.status === "failed" && r.dataset_id && <RecipeDraftButton datasetId={r.dataset_id} label="Draft again with Claude" />}
+        </div>
+      )}
+      {r.status === "draft" && !r.approved_at && (
+        <p className="small muted">Approving test-runs it first; it is only approved if every check passes.</p>
+      )}
+      <details>
+        <summary className="small">Full recipe</summary>
+        <pre className="box small">{JSON.stringify(r.spec, null, 2)}</pre>
+      </details>
+    </div>
+  );
+}
 
 export default async function RecipesPage() {
   const gate = await pageGate();
@@ -22,42 +155,40 @@ export default async function RecipesPage() {
   const recipes = await must<Recipe[]>(
     db()
       .from("recipes")
-      .select("id, version, spec, approved_at, approved_by, created_at, sources(slug)")
+      .select(
+        "id, version, spec, status, drafted_by, dataset_id, test_report, reject_note, approved_at, approved_by, created_at, sources(slug)",
+      )
       .order("created_at", { ascending: false }),
   );
+  const groups: [string, Recipe[], string][] = [
+    ["Ready to approve", recipes.filter((r) => !r.approved_at && r.status === "ready"), "Passed every check in a test run on real data. Approve to let it run in the pipeline."],
+    ["Needs attention", recipes.filter((r) => !r.approved_at && (r.status === "failed" || r.status === "draft")), "Failed its test run, or not test-run yet."],
+    ["Approved", recipes.filter((r) => r.approved_at), "These run in the weekly pipeline. Approved versions never change."],
+    ["Rejected", recipes.filter((r) => !r.approved_at && r.status === "rejected"), ""],
+  ]; // prettier-ignore
+
   return (
     <>
       <h1>Recipes</h1>
       <p className="small muted">
-        Recipes are declarative cleaning steps. Only approved recipes run; approved versions are
-        immutable. Approving writes <code>worker/recipes/&lt;source&gt;.v&lt;N&gt;.yaml</code>: commit
-        it.
+        Recipes are declarative cleaning steps from a fixed whitelist; Claude drafts them, a test run checks them, and
+        only recipes you approve ever run. Approving commits{" "}
+        <code>worker/recipes/&lt;source&gt;.v&lt;N&gt;.yaml</code>.
       </p>
-      {recipes.map((r) => (
-        <div className="panel" key={r.id}>
-          <div className="row">
-            <h2 style={{ margin: 0 }}>
-              {r.sources?.slug} v{r.version}
+      {groups.map(([title, list, help]) =>
+        list.length ? (
+          <section key={title}>
+            <h2>
+              {title} <span className="small muted">({list.length})</span>
             </h2>
-            {r.approved_at ? (
-              <span className="badge ok">
-                approved by {r.approved_by}, {when(r.approved_at)}
-              </span>
-            ) : (
-              <span className="badge warn">not approved</span>
-            )}
-          </div>
-          {r.spec.description && <p>{r.spec.description}</p>}
-          <p className="small">
-            Steps: {(r.spec.steps ?? []).map((s) => s.op).join(" → ")}
-          </p>
-          {!r.approved_at && r.sources && <RecipeApprove source={r.sources.slug} version={r.version} />}
-          <details>
-            <summary className="small">Full spec</summary>
-            <pre className="box small">{JSON.stringify(r.spec, null, 2)}</pre>
-          </details>
-        </div>
-      ))}
+            {help && <p className="small muted">{help}</p>}
+            {list.map((r) => (
+              <RecipeCard key={r.id} r={r} />
+            ))}
+          </section>
+        ) : null,
+      )}
+      {!recipes.length && <p>No recipes yet.</p>}
     </>
   );
 }

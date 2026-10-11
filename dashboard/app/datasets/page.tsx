@@ -1,3 +1,4 @@
+import { RecipeDraftButton } from "@/components/RecipeActions";
 import { db, must } from "@/lib/db";
 import { pageGate } from "@/lib/gate";
 import { short, when } from "@/lib/format";
@@ -11,6 +12,7 @@ type Dataset = {
   fetched_at: string;
   checksum: string;
   profile: { sheets?: { sheet: string | null; rows: number; flags?: Record<string, Json> }[] } | null;
+  source_id: string;
   sources: { slug: string; name: string } | null;
 };
 
@@ -37,11 +39,11 @@ type Job = {
 export default async function DatasetsPage() {
   const gate = await pageGate();
   if (gate) return gate;
-  const [datasets, tables, jobs] = await Promise.all([
+  const [datasets, tables, jobs, recipes] = await Promise.all([
     must<Dataset[]>(
       db()
         .from("datasets")
-        .select("id, raw_path, fetched_at, checksum, profile, sources(slug, name)")
+        .select("id, raw_path, fetched_at, checksum, profile, source_id, sources(slug, name)")
         .order("fetched_at", { ascending: false }),
     ),
     must<CleanTable[]>(
@@ -51,7 +53,14 @@ export default async function DatasetsPage() {
         .order("created_at", { ascending: false }),
     ),
     must<Job[]>(db().from("jobs").select("*").order("started_at", { ascending: false }).limit(50)),
+    must<{ source_id: string; status: string; approved_at: string | null }[]>(
+      db().from("recipes").select("source_id, status, approved_at"),
+    ),
   ]);
+  // a source needs a recipe when none is approved and none is waiting for review
+  const covered = new Set(
+    recipes.filter((r) => r.approved_at || r.status === "ready" || r.status === "draft").map((r) => r.source_id),
+  );
 
   return (
     <>
@@ -84,6 +93,9 @@ export default async function DatasetsPage() {
                     <code title={d.checksum}>{d.checksum.slice(0, 12)}</code>
                   </td>
                   <td className="small">
+                    {sheets.length > 0 && !covered.has(d.source_id) && (
+                      <RecipeDraftButton datasetId={d.id} label="Draft recipe with Claude" />
+                    )}
                     {sheets.length === 0
                       ? "not profiled"
                       : sheets.map((s, i) => (

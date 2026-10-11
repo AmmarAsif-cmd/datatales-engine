@@ -107,6 +107,19 @@ def cmd_auto_draft(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_recipe_draft(args: argparse.Namespace) -> int:
+    """Draft a cleaning recipe with Claude for a profiled dataset, then test-run it."""
+    from datatales.llm import LLMClient
+    from datatales.recipedraft import draft_recipe
+
+    repo = _repo()
+    outcome = draft_recipe(repo, LLMClient(repo), args.dataset_id)
+    print(f"{outcome.status}: v{outcome.version} {outcome.detail}".rstrip())
+    if outcome.recipe_id:
+        print(f"recipe_id: {outcome.recipe_id}")
+    return 0 if outcome.status == "ready" else 1
+
+
 def cmd_db_check(_args: argparse.Namespace) -> int:
     from datatales.db import get_client, run_db_check
 
@@ -404,6 +417,12 @@ def build_parser() -> argparse.ArgumentParser:
         cmd_llm_check,
         "Make one tiny Claude API call (logged) to confirm the key works.",
     )
+    p = add(
+        "recipe-draft",
+        cmd_recipe_draft,
+        "Draft a recipe with Claude for a dataset, then test-run it.",
+    )
+    p.add_argument("dataset_id")
     p = add("story-draft", cmd_story_draft, "Draft or redraft one story with Claude, then verify.")
     p.add_argument("story_id")
     p = add("auto-draft", cmd_auto_draft, "Create and Claude-draft stories for a clean table.")
