@@ -163,6 +163,19 @@ def load_api_key(env_file: Path | None = DEFAULT_ENV_FILE) -> str | None:
     return key.strip() if key and key.strip() else None
 
 
+def missing_key_message() -> str:
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        return (
+            f"{KEY_VAR} is empty in this GitHub Actions job. Add it under Settings > Secrets and "
+            "variables > Actions > Repository secrets, named exactly ANTHROPIC_API_KEY (not an "
+            "Environment, Dependabot or Codespaces secret). Use the copy-paste flow until then."
+        )
+    return (
+        f"{KEY_VAR} is not set (GitHub Actions secret, or worker/.env locally). "
+        "Use the copy-paste flow instead."
+    )
+
+
 def redact(text: str, key: str | None = None) -> str:
     out = KEY_PATTERN.sub("[redacted]", text)
     if key:
@@ -217,10 +230,7 @@ class LLMClient:
     def _sdk(self) -> Any:
         if self._client is None:
             if not self._key:
-                raise LLMError(
-                    f"{KEY_VAR} is not set (GitHub Actions secret, or worker/.env locally). "
-                    "Use the copy-paste flow instead."
-                )
+                raise LLMError(missing_key_message())
             import anthropic
 
             self._client = anthropic.Anthropic(api_key=self._key, max_retries=MAX_RETRIES)

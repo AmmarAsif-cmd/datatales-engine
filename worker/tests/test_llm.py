@@ -255,3 +255,12 @@ def test_dashboard_config_copy_is_in_sync() -> None:
     assert DASHBOARD_CONFIG.read_text(encoding="utf-8") == dashboard_config_json(), (
         "run: uv run python -m datatales llm-config-sync"
     )
+
+
+def test_missing_key_message_points_to_the_right_secret(monkeypatch: pytest.MonkeyPatch) -> None:
+    from datatales.llm import missing_key_message
+
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    assert "Repository secrets" in missing_key_message()
+    monkeypatch.delenv("GITHUB_ACTIONS")
+    assert "worker/.env" in missing_key_message()
