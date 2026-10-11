@@ -18,6 +18,7 @@ from typing import Any
 from datatales.candidates import shortlist
 from datatales.chartfacts import evaluate, facts_for
 from datatales.narrate import (
+    STORY_REQUEST,
     NarrationError,
     build_prompt,
     narration_data,
@@ -686,6 +687,7 @@ def build() -> dict[str, Any]:
                     "chart_spec": real["chart_spec"],
                     "prompt": build_prompt(real["numbers"], real["chart_data"], real["chart_spec"]),
                     "instructions": narration_instructions(),
+                    "request": STORY_REQUEST,
                     "data": narration_data(real["numbers"], real["chart_data"], real["chart_spec"]),
                 },
                 {
@@ -710,6 +712,7 @@ def build() -> dict[str, Any]:
                         },
                     ),
                     "instructions": narration_instructions(),
+                    "request": STORY_REQUEST,
                     "data": narration_data(
                         CAVEAT_NUMBERS,
                         BIG_CHART,

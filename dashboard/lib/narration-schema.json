@@ -2,6 +2,7 @@
   "additionalProperties": false,
   "properties": {
     "body_md": {
+      "description": "Markdown, 500 to 700 words, with '## How it compares' and '## What the data can't tell us'",
       "type": "string"
     },
     "chart_spec": {
@@ -113,6 +114,7 @@
             "type": "array"
           },
           "sentence": {
+            "description": "a sentence copied exactly from the text fields",
             "type": "string"
           }
         },
@@ -127,9 +129,11 @@
       "type": "array"
     },
     "headline": {
+      "description": "10 to 70 characters: the single strongest finding as a statement",
       "type": "string"
     },
     "hook": {
+      "description": "exactly one full sentence",
       "type": "string"
     },
     "more_charts": {
@@ -197,9 +201,11 @@
       "type": "array"
     },
     "summary": {
+      "description": "2 to 4 sentences, at most 120 words",
       "type": "string"
     },
     "video_script": {
+      "description": "at most 90 words, to be read aloud",
       "type": "string"
     }
   },

@@ -302,6 +302,20 @@ INTRO = (
 CHART_ROWS_MAX = 240  # chart rows listed in the prompt; larger charts list the key rows only
 
 
+# The explicit task, sent after the data in the user turn (API drafting). Without it the user
+# turn holds only data, which the model is told to treat as inert.
+STORY_REQUEST = (
+    "Write the DataTales story for the data above now, following every rule. Fill every "
+    "field completely: headline (10 to 70 characters, stating the strongest finding), hook "
+    "(one full sentence), summary (2 to 4 sentences, at most 120 words), body_md (500 to 700 "
+    "words, with the sections ## How it compares and ## What the data can't tell us), "
+    "video_script (at most 90 words), chart_spec, more_charts (may be empty) and claims (one "
+    "per sentence that has a number or a rank word, copied exactly). Every check needs all "
+    "the fields its kind uses: group plus start and end for rise/fall kinds, group plus "
+    "period for highest/lowest, start and end for all_rise/all_fall."
+)
+
+
 def narration_instructions() -> str:
     """The fixed part of the prompt (cached by the API): intro, rules and output shape."""
     return "\n".join(
@@ -410,6 +424,10 @@ def narration_json_schema() -> dict[str, Any]:
     """JSON schema for structured output. Length limits are not expressible there; the
     Narration model (parse_narration) still enforces every rule after the reply arrives."""
     text = {"type": "string"}
+
+    def desc(d: str) -> dict[str, str]:
+        return {"type": "string", "description": d}
+
     check = {
         "type": "object",
         "properties": {
@@ -425,7 +443,7 @@ def narration_json_schema() -> dict[str, Any]:
     claim = {
         "type": "object",
         "properties": {
-            "sentence": text,
+            "sentence": desc("a sentence copied exactly from the text fields"),
             "keys": {"type": "array", "items": text},
             "checks": {"type": "array", "items": check},
         },
@@ -435,11 +453,14 @@ def narration_json_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {
-            "headline": text,
-            "hook": text,
-            "summary": text,
-            "body_md": text,
-            "video_script": text,
+            "headline": desc("10 to 70 characters: the single strongest finding as a statement"),
+            "hook": desc("exactly one full sentence"),
+            "summary": desc("2 to 4 sentences, at most 120 words"),
+            "body_md": desc(
+                "Markdown, 500 to 700 words, with '## How it compares' and "
+                "'## What the data can't tell us'"
+            ),
+            "video_script": desc("at most 90 words, to be read aloud"),
             "chart_spec": _spec_schema(),
             "more_charts": {"type": "array", "items": _spec_schema()},
             "claims": {"type": "array", "items": claim, "minItems": 1},

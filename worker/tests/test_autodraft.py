@@ -171,3 +171,34 @@ def test_rejected_story_is_not_redrafted(repo_ct: tuple[MemRepo, str]) -> None: 
     summary = autodraft.auto_draft_clean_table(repo, ct, lambda _m: None, llm(repo, sdk))
     mine = next(o for o in summary.outcomes if o.story_id == story["id"])
     assert mine.status == "skipped" and "rejected" in mine.detail
+
+
+def test_two_rejected_replies_change_nothing(repo_ct: tuple[MemRepo, str]) -> None:  # noqa: F811
+    repo, ct = repo_ct
+    story = stories.create_story(repo, ct, 1)
+    good = riser_reply(story)
+    stories.paste_narration(repo, story["id"], json.dumps(good))  # verified manual text
+    empty = {**good, "summary": "", "video_script": ""}
+    sdk = FakeSDK(sdk_reply(empty))
+    out = autodraft.draft_story(repo, llm(repo, sdk), story["id"], lambda _m: None)
+    assert out.status == "failed" and out.detail == autodraft.NOTE_REJECTED
+    saved = repo.get_story(story["id"])
+    assert saved["status"] == "draft" and saved["verify_status"] == "passed"  # untouched
+    assert saved["drafted_by"] == "manual" and saved["summary"] == good["summary"]
+    assert saved["draft_note"] == autodraft.NOTE_REJECTED
+    # the start of each rejected reply is logged so the failure can be diagnosed
+    errors = [c["error"] for c in repo.llm_calls.values()]
+    assert all("--- reply (start) ---" in e and '"summary": ""' in e for e in errors)
+
+
+def test_the_user_turn_asks_for_the_story(repo_ct: tuple[MemRepo, str]) -> None:  # noqa: F811
+    from datatales.narrate import STORY_REQUEST
+
+    repo, ct = repo_ct
+    story = stories.create_story(repo, ct, 1)
+    sdk = FakeSDK(sdk_reply(riser_reply(story)))
+    autodraft.draft_story(repo, llm(repo, sdk), story["id"], lambda _m: None)
+    content = sdk.requests[0]["messages"][0]["content"]
+    assert content.endswith(STORY_REQUEST) and content.index("</data>") < content.index("Write the")
+    props = sdk.requests[0]["output_config"]["format"]["schema"]["properties"]
+    assert "strongest finding" in props["headline"]["description"]

@@ -19,6 +19,7 @@ from typing import Any
 
 from datatales.llm import BudgetReached, InvalidOutput, LLMClient, LLMError, untrusted
 from datatales.narrate import (
+    STORY_REQUEST,
     narration_data,
     narration_instructions,
     narration_json_schema,
@@ -39,6 +40,10 @@ MAX_ATTEMPTS = 2  # first draft + one retry with the verify report / rejection r
 
 NOTE_BUDGET = "Claude budget reached this month: use Copy prompt / Paste result."
 NOTE_NO_KEY = "Claude is not configured (ANTHROPIC_API_KEY): use Copy prompt / Paste result."
+NOTE_REJECTED = (
+    "Claude's replies were rejected twice (incomplete or malformed), so nothing was changed. "
+    "Try Regenerate with Claude again, or use Copy prompt / Paste result."
+)
 NOTE_FAILED = (
     "Claude's draft failed verification twice. The report shows what to fix; edit and "
     "re-verify, regenerate, or use Copy prompt / Paste result."
@@ -86,6 +91,7 @@ def draft_story(
         "story_data", narration_data(story["numbers"], story["chart_data"], story["chart_spec"])
     )
     feedback = ""
+    saved_text = False  # did Claude's narration get saved on the story in this run?
     for attempt in range(1, MAX_ATTEMPTS + 1):
         data = base + (f"\n\n{feedback}" if feedback else "")
         try:
@@ -96,6 +102,7 @@ def draft_story(
                 schema=narration_json_schema(),
                 validate=lambda d: parse_narration(json.dumps(d), story["chart_data"]),
                 related_id=story_id,
+                request=STORY_REQUEST,
             )
         except BudgetReached as exc:
             repo.update_story(story_id, {"draft_note": NOTE_BUDGET})
@@ -113,6 +120,7 @@ def draft_story(
             return DraftOutcome(story_id, "error", str(exc), attempt - 1)
 
         _, report = apply_narration(repo, story_id, result.value, drafted_by="claude")
+        saved_text = True
         if report.passed:
             log(f"  attempt {attempt}: verified ({report.checked} numbers checked)")
             return DraftOutcome(story_id, "passed", "", attempt)
@@ -123,12 +131,12 @@ def draft_story(
             + untrusted("verify_report", _report_feedback(report))
         )
 
-    current = repo.get_story(story_id)
-    fields: dict[str, Any] = {"draft_note": NOTE_FAILED}
-    if current.get("verify_report"):  # a narration was saved: keep it, mark the story failed
-        fields["status"] = "failed"
-    repo.update_story(story_id, fields)
-    return DraftOutcome(story_id, "failed", NOTE_FAILED, MAX_ATTEMPTS)
+    if saved_text:  # Claude's text is on the story but failed verification
+        repo.update_story(story_id, {"status": "failed", "draft_note": NOTE_FAILED})
+        return DraftOutcome(story_id, "failed", NOTE_FAILED, MAX_ATTEMPTS)
+    # Both replies were rejected before verification: the story keeps whatever it had.
+    repo.update_story(story_id, {"draft_note": NOTE_REJECTED})
+    return DraftOutcome(story_id, "failed", NOTE_REJECTED, MAX_ATTEMPTS)
 
 
 def _story_key(repo: Repo, story: dict[str, Any]) -> str | None:

@@ -3,7 +3,14 @@ import "server-only";
 import { db } from "./db";
 import { claude } from "./llm";
 import { BudgetReached, InvalidOutput, untrusted } from "./logic/llm.ts";
-import { NarrationError, narrationData, narrationInstructions, parseChecks, parseNarration } from "./logic/narrate.ts";
+import {
+  NarrationError,
+  narrationData,
+  narrationInstructions,
+  parseChecks,
+  parseNarration,
+  STORY_REQUEST,
+} from "./logic/narrate.ts";
 import NARRATION_SCHEMA from "./narration-schema.json" with { type: "json" };
 import { slugify } from "./logic/stories.ts";
 import { chartText, type Claim, type Report, TEXT_FIELDS, type TextField, verifyText } from "./logic/verify.ts";
@@ -106,6 +113,8 @@ export async function pasteNarration(id: string, reply: string): Promise<{ story
 // ---- Claude drafting (same flow as worker/datatales/autodraft.py) ----
 
 export const NOTE_BUDGET = "Claude budget reached this month: use Copy prompt / Paste result.";
+export const NOTE_REJECTED =
+  "Claude's replies were rejected twice (incomplete or malformed), so nothing was changed. Try Regenerate with Claude again, or use Copy prompt / Paste result.";
 export const NOTE_FAILED =
   "Claude's draft failed verification twice. The report shows what to fix; edit and re-verify, regenerate, or use Copy prompt / Paste result.";
 const MAX_ATTEMPTS = 2;
@@ -129,6 +138,7 @@ export async function draftWithClaude(id: string): Promise<DraftOutcome> {
   const chartData = story.chart_data ?? [];
   const base = untrusted("story_data", narrationData(story.numbers ?? {}, chartData, story.chart_spec ?? {}));
   let feedback = "";
+  let savedText = false; // did Claude's narration get saved on the story in this run?
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     let narration: Narration;
     try {
@@ -139,6 +149,7 @@ export async function draftWithClaude(id: string): Promise<DraftOutcome> {
         schema: NARRATION_SCHEMA as Record<string, unknown>,
         validate: (value) => parseNarration(JSON.stringify(value), chartData),
         relatedId: id,
+        request: STORY_REQUEST,
       });
       narration = res.value;
     } catch (e) {
@@ -156,14 +167,19 @@ export async function draftWithClaude(id: string): Promise<DraftOutcome> {
     }
     const { story: saved, report } = await applyNarration(story, narration, "claude");
     story = saved;
+    savedText = true;
     if (report.status === "passed") return { status: "passed", message: `Verified (${report.checked} numbers checked).`, story };
     feedback =
       "Your previous draft failed verification. Fix every problem in this report and return the whole reply again (all fields, all claims):\n" +
       untrusted("verify_report", reportFeedback(report));
   }
-  story = await loadStory(id);
-  const saved = await save(id, story.verify_report ? { status: "failed", draft_note: NOTE_FAILED } : { draft_note: NOTE_FAILED });
-  return { status: "failed", message: NOTE_FAILED, story: saved };
+  if (savedText) {
+    const saved = await save(id, { status: "failed", draft_note: NOTE_FAILED });
+    return { status: "failed", message: NOTE_FAILED, story: saved };
+  }
+  // Both replies were rejected before verification: the story keeps whatever it had.
+  const saved = await save(id, { draft_note: NOTE_REJECTED });
+  return { status: "failed", message: NOTE_REJECTED, story: saved };
 }
 
 export function validateClaims(raw: unknown): Claim[] {

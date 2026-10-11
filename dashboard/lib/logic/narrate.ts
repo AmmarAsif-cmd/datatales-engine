@@ -456,6 +456,17 @@ const INTRO = [
 ].join("\n");
 export const CHART_ROWS_MAX = 240; // chart rows listed in the prompt; larger charts list key rows only
 
+/** The explicit task, sent after the data in the user turn (API drafting). Same as narrate.py. */
+export const STORY_REQUEST =
+  "Write the DataTales story for the data above now, following every rule. Fill every " +
+  "field completely: headline (10 to 70 characters, stating the strongest finding), hook " +
+  "(one full sentence), summary (2 to 4 sentences, at most 120 words), body_md (500 to 700 " +
+  "words, with the sections ## How it compares and ## What the data can't tell us), " +
+  "video_script (at most 90 words), chart_spec, more_charts (may be empty) and claims (one " +
+  "per sentence that has a number or a rank word, copied exactly). Every check needs all " +
+  "the fields its kind uses: group plus start and end for rise/fall kinds, group plus " +
+  "period for highest/lowest, start and end for all_rise/all_fall.";
+
 /** The fixed part of the prompt (cached by the API): intro, rules and output shape. */
 export function narrationInstructions(): string {
   return [INTRO, "", RULES, "## Output JSON shape", pyDumps(OUTPUT_SCHEMA, 1)].join("\n");

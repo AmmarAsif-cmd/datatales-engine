@@ -257,6 +257,7 @@ class LLMClient:
         schema: dict[str, Any],
         validate: Callable[[Any], T],
         related_id: str | None = None,
+        request: str = "",
     ) -> LLMResult[T]:
         cfg = self.config.task(task)
         base = {"task": task, "model": cfg.model, "related_id": related_id}
@@ -297,7 +298,7 @@ class LLMClient:
                         "cache_control": {"type": "ephemeral"},
                     }
                 ],
-                messages=[{"role": "user", "content": data}],
+                messages=[{"role": "user", "content": f"{data}\n\n{request}" if request else data}],
                 output_config={
                     "effort": cfg.effort,
                     "format": {"type": "json_schema", "schema": schema},
@@ -332,6 +333,7 @@ class LLMClient:
         }
 
         # 4. strict validation: JSON only, then the caller's schema checks
+        text = ""
         try:
             if response.stop_reason == "max_tokens":
                 raise InvalidOutput("reply was cut off at max_tokens")
@@ -339,8 +341,10 @@ class LLMClient:
             value = validate(json.loads(text))
         except (InvalidOutput, ValueError, TypeError, ValidationError, UserError) as exc:
             message = redact(str(exc), self._key)
+            # keep the start of the rejected reply so the failure can be diagnosed
+            logged_error = f"{message}\n--- reply (start) ---\n{redact(text[:2500], self._key)}"
             self.repo.update_llm_call(
-                call_id, {**logged, "status": "invalid_output", "error": message}
+                call_id, {**logged, "status": "invalid_output", "error": logged_error}
             )
             raise InvalidOutput(f"Claude's reply was rejected: {message}") from None
 

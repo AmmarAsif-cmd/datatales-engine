@@ -9,7 +9,7 @@ import { test } from "node:test";
 
 import { evaluate, fmtG } from "../lib/logic/chartfacts.ts";
 import { decKey, decToString, parseDec } from "../lib/logic/decimal.ts";
-import { buildPrompt, narrationData, narrationInstructions, NarrationError, parseNarration, wordCount } from "../lib/logic/narrate.ts";
+import { buildPrompt, narrationData, narrationInstructions, NarrationError, parseNarration, STORY_REQUEST, wordCount } from "../lib/logic/narrate.ts";
 import { shortlist, slugify, type FindingRow } from "../lib/logic/stories.ts";
 import { chartKeys, chartText, extractTokens, flattenNumbers, verifyText, type Claim } from "../lib/logic/verify.ts";
 
@@ -106,6 +106,7 @@ test("prompt (numbers compared by value: 7.0 and 7 are the same)", () => {
   for (const c of golden.prompt) {
     assert.equal(norm(buildPrompt(c.numbers, c.chart_data, c.chart_spec)), norm(c.prompt));
     assert.equal(norm(narrationInstructions()), norm(c.instructions));
+    assert.equal(STORY_REQUEST, c.request);
     assert.equal(norm(narrationData(c.numbers, c.chart_data, c.chart_spec)), norm(c.data));
   }
 });

@@ -92,6 +92,8 @@ export type CallArgs<T> = {
   schema: Record<string, unknown>;
   validate: (value: unknown) => T;
   relatedId?: string | null;
+  /** The explicit task, sent after the data in the user turn. */
+  request?: string;
 };
 
 export type Deps = {
@@ -143,7 +145,7 @@ export async function callClaude<T>(deps: Deps, args: CallArgs<T>): Promise<Call
           cache_control: { type: "ephemeral" },
         },
       ],
-      messages: [{ role: "user", content: args.data }],
+      messages: [{ role: "user", content: args.request ? `${args.data}\n\n${args.request}` : args.data }],
       output_config: { effort: task.effort, format: { type: "json_schema", schema: args.schema } },
     });
   } catch (e) {
@@ -170,13 +172,16 @@ export async function callClaude<T>(deps: Deps, args: CallArgs<T>): Promise<Call
 
   // 4. strict validation (JSON.parse only; output is never executed)
   let value: T;
+  let text = "";
   try {
     if (res.stop_reason === "max_tokens") throw new InvalidOutput("reply was cut off at max_tokens");
-    const text = res.content.filter((b) => b.type === "text").map((b) => b.text ?? "").join("");
+    text = res.content.filter((b) => b.type === "text").map((b) => b.text ?? "").join("");
     value = args.validate(JSON.parse(text));
   } catch (e) {
     const message = redact((e as Error).message ?? String(e), deps.key);
-    await deps.log.update(callId, { ...logged, status: "invalid_output", error: message });
+    // keep the start of the rejected reply so the failure can be diagnosed
+    const error = `${message}\n--- reply (start) ---\n${redact(text.slice(0, 2500), deps.key)}`;
+    await deps.log.update(callId, { ...logged, status: "invalid_output", error });
     throw new InvalidOutput(`Claude's reply was rejected: ${message}`);
   }
   await deps.log.update(callId, { ...logged, status: "ok" });

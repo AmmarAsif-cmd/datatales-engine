@@ -153,6 +153,7 @@ for (const [name, msg, why] of [
     });
     assert.equal(rows[0].status, "invalid_output");
     assert.equal(rows[0].output_tokens, 20);
+    assert.match(String(rows[0].error), /--- reply \(start\) ---/);
   });
 }
 
@@ -178,6 +179,14 @@ test("missing key: clean error, nothing billed", async () => {
   await assert.rejects(callClaude({ log, sdk, key: null, now: () => NOW }, args), /copy-paste/);
   assert.equal(rows[0].status, "error");
   assert.equal(rows[0].estimated_cost, 0);
+});
+
+test("the request goes after the data in the user turn", async () => {
+  const { log } = memLog();
+  const f = fakeSdk(reply());
+  await callClaude({ log, sdk: f.sdk, key: KEY, now: () => NOW }, { ...args, request: "Write it now." });
+  const messages = (f.requests[0] as { messages: { content: string }[] }).messages;
+  assert.ok(messages[0].content.endsWith("</data>\n\nWrite it now."));
 });
 
 test("untrusted data cannot close its block", () => {
