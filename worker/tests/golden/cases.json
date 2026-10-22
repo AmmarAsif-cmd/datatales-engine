@@ -5861,6 +5861,177 @@
    }
   },
   {
+   "name": "quarter_labels_years_inside",
+   "fields": {
+    "body_md": "Between 2014 and 2026 it changed."
+   },
+   "numbers": {
+    "data_period": {
+     "first": "2014 Q3",
+     "last": "2026 Q2"
+    },
+    "findings": [
+     {
+      "group": "Fakeshire",
+      "start_period": "2011-12",
+      "end_period": "2022-23",
+      "start_value": 34.11,
+      "end_value": 39.53,
+      "start_ci": [
+       31.96,
+       36.27
+      ],
+      "change": 5.42,
+      "pct_change": 15.89,
+      "start_rank": 4,
+      "end_rank": 1,
+      "groups_compared": 4,
+      "unit": "average score out of 10",
+      "median_change": -0.24,
+      "good_news": true,
+      "tiny": 1e-05,
+      "whole": 7.0,
+      "half": 34.25
+     }
+    ],
+    "series": [
+     {
+      "points": [
+       {
+        "period": "2019-20",
+        "value": 40.54,
+        "ci": [
+         39.0,
+         42.08
+        ]
+       },
+       {
+        "period": "2020-21",
+        "value": 35.94,
+        "ci": [
+         34.0,
+         37.88
+        ]
+       }
+      ],
+      "notable_moves": [
+       {
+        "period": "2020-21",
+        "change": -4.6,
+        "kind": "dip"
+       }
+      ]
+     }
+    ]
+   },
+   "claims": null,
+   "report": {
+    "status": "passed",
+    "checked": 2,
+    "unmatched": [],
+    "years_out_of_range": [],
+    "data_years": [
+     2014,
+     2026
+    ],
+    "allowed_values": 20,
+    "claims_checked": false,
+    "claims": [],
+    "uncovered": [],
+    "format_issues": []
+   }
+  },
+  {
+   "name": "quarter_labels_year_outside",
+   "fields": {
+    "body_md": "Back in 2010 it was different."
+   },
+   "numbers": {
+    "data_period": {
+     "first": "2014 Q3",
+     "last": "2026 Q2"
+    },
+    "findings": [
+     {
+      "group": "Fakeshire",
+      "start_period": "2011-12",
+      "end_period": "2022-23",
+      "start_value": 34.11,
+      "end_value": 39.53,
+      "start_ci": [
+       31.96,
+       36.27
+      ],
+      "change": 5.42,
+      "pct_change": 15.89,
+      "start_rank": 4,
+      "end_rank": 1,
+      "groups_compared": 4,
+      "unit": "average score out of 10",
+      "median_change": -0.24,
+      "good_news": true,
+      "tiny": 1e-05,
+      "whole": 7.0,
+      "half": 34.25
+     }
+    ],
+    "series": [
+     {
+      "points": [
+       {
+        "period": "2019-20",
+        "value": 40.54,
+        "ci": [
+         39.0,
+         42.08
+        ]
+       },
+       {
+        "period": "2020-21",
+        "value": 35.94,
+        "ci": [
+         34.0,
+         37.88
+        ]
+       }
+      ],
+      "notable_moves": [
+       {
+        "period": "2020-21",
+        "change": -4.6,
+        "kind": "dip"
+       }
+      ]
+     }
+    ]
+   },
+   "claims": null,
+   "report": {
+    "status": "failed",
+    "checked": 1,
+    "unmatched": [],
+    "years_out_of_range": [
+     {
+      "field": "body_md",
+      "text": "2010",
+      "allowed": [
+       2014,
+       2026
+      ]
+     }
+    ],
+    "data_years": [
+     2014,
+     2026
+    ],
+    "allowed_values": 20,
+    "claims_checked": false,
+    "claims": [],
+    "uncovered": [],
+    "format_issues": []
+   }
+  },
+  {
    "name": "real_ni_story",
    "fields": {
     "headline": "Northern Ireland is the only UK nation where very low anxiety rose",

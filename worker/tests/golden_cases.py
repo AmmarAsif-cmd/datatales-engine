@@ -687,6 +687,18 @@ def build() -> dict[str, Any]:
     verify_cases = (
         [{**c, "numbers": FAKE_NUMBERS, "claims": c.get("claims")} for c in VERIFY_CASES]
         + [{**c, "numbers": CAVEAT_NUMBERS, "chart_data": FAKE_CHART} for c in RANK_CASES]
+        + [  # quarterly data: the period's years come from labels like "2014 Q3"
+            {
+                "name": name,
+                "fields": {"body_md": text},
+                "numbers": {**FAKE_NUMBERS, "data_period": {"first": "2014 Q3", "last": "2026 Q2"}},
+                "claims": None,
+            }
+            for name, text in (
+                ("quarter_labels_years_inside", "Between 2014 and 2026 it changed."),
+                ("quarter_labels_year_outside", "Back in 2010 it was different."),
+            )
+        ]
         + [
             {
                 "name": "real_ni_story",

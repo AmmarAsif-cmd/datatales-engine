@@ -287,8 +287,12 @@ def _data_years(numbers: dict[str, Any], fallback: set[int]) -> tuple[int | None
     period = numbers.get("data_period") or {}
     years: set[int] = set()
     for label in (period.get("first"), period.get("last")):
-        for a, b in YEAR_PERIOD.findall(str(label or "")):
+        text = str(label or "")
+        pairs = YEAR_PERIOD.findall(text)
+        for a, b in pairs:
             years.update({int(a), int(a[:2] + b)})
+        if not pairs:  # a plain year or a quarter/month label: 2023, 2026 Q2, 2024-01-01
+            years.update(int(y) for y in PLAIN_YEAR.findall(text)[:1])
     years = years or fallback
     return (min(years), max(years)) if years else (None, None)
 

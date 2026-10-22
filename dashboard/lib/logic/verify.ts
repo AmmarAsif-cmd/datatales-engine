@@ -286,7 +286,15 @@ function sentenceAround(text: string, pos: number): string {
 function dataYears(numbers: { [k: string]: JsonValue }, fallback: Set<number>): [number | null, number | null] {
   const period = (numbers.data_period ?? {}) as { [k: string]: JsonValue };
   const years = new Set<number>();
-  for (const label of [period.first, period.last]) yearsFromLabel(String(label ?? ""), years);
+  for (const label of [period.first, period.last]) {
+    const text = String(label ?? "");
+    if ([...text.matchAll(YEAR_PERIOD)].length) yearsFromLabel(text, years);
+    else {
+      // a plain year or a quarter/month label: 2023, 2026 Q2, 2024-01-01
+      const first = [...text.matchAll(PLAIN_YEAR)][0];
+      if (first) years.add(Number(first[1]));
+    }
+  }
   const use = years.size ? years : fallback;
   return use.size ? [Math.min(...use), Math.max(...use)] : [null, null];
 }
