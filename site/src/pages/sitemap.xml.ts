@@ -7,8 +7,17 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
 export async function GET() {
   const [posts, stories] = await Promise.all([getPosts(), getStories()]);
+  const live = stories.filter((s) => !s.data.sample);
+  // The home page and archive change whenever a post or story is added or updated.
+  const newest = [...posts, ...live]
+    .map((e) => e.data.updated ?? e.data.date)
+    .reduce<Date | undefined>((a, b) => (a && a > b ? a : b), undefined);
+  const LISTING_PAGES = new Set(['', '/archive']);
   const entries: { loc: string; lastmod?: Date }[] = [
-    ...STATIC_PAGES.map((p) => ({ loc: SITE.url + p })),
+    ...STATIC_PAGES.map((p) => ({
+      loc: SITE.url + p,
+      ...(LISTING_PAGES.has(p) && newest ? { lastmod: newest } : {}),
+    })),
     ...posts.map((p) => ({ loc: `${SITE.url}/${p.id}`, lastmod: p.data.updated ?? p.data.date })),
     ...stories
       .filter((s) => !s.data.sample)

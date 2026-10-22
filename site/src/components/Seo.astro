@@ -36,7 +36,11 @@ const path = Astro.url.pathname
   .replace(/\/$/, '');
 const canonical = path ? new URL(path, SITE.url).href : SITE.url;
 const imageUrl = new URL(image, SITE.url).href;
-const fullTitle = title === SITE.name ? title : `${title} | ${SITE.name}`;
+// The home page gets the tagline too, so search results say what the site is.
+const fullTitle =
+  title === SITE.name
+    ? `${SITE.name}: ${SITE.tagline.replace(/\.$/, '')}`
+    : `${title} | ${SITE.name}`;
 const ld = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
 const toJson = (obj: unknown) => JSON.stringify(obj).replace(/</g, '\\u003c');
 ---
