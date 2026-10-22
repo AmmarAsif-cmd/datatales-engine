@@ -11680,6 +11680,42 @@
      "good_news": true,
      "measure": "Happiness"
     }
+   },
+   {
+    "id": "v1",
+    "detector": "biggest_change",
+    "title_hint": "Wales x",
+    "score": 0.45,
+    "numbers": {
+     "group": "Wales",
+     "geo_level": "country",
+     "good_news": true,
+     "slice_by": [
+      "body_type",
+      "fuel_type",
+      "geo_level"
+     ],
+     "body_type": "Cars",
+     "fuel_type": "Diesel"
+    }
+   },
+   {
+    "id": "v2",
+    "detector": "biggest_change",
+    "title_hint": "Wales x",
+    "score": 0.44,
+    "numbers": {
+     "group": "Wales",
+     "geo_level": "country",
+     "good_news": true,
+     "slice_by": [
+      "body_type",
+      "fuel_type",
+      "geo_level"
+     ],
+     "body_type": "Cars",
+     "fuel_type": "Petrol"
+    }
    }
   ],
   "shortlist": [
@@ -11718,6 +11754,21 @@
     "title": "North (region): bad news on M1, M3, M5"
    },
    {
+    "geography": "Wales",
+    "geo_level": "country",
+    "good_news": true,
+    "finding_ids": [
+     "v1",
+     "v2"
+    ],
+    "measures": [
+     "Cars/Diesel",
+     "Cars/Petrol"
+    ],
+    "score": 0.5175,
+    "title": "Wales (country): good news on Cars/Diesel, Cars/Petrol"
+   },
+   {
     "geography": "Place0",
     "geo_level": "region",
     "good_news": true,
@@ -11742,19 +11793,6 @@
     ],
     "score": 0.49,
     "title": "Place1 (region): good news on Happiness"
-   },
-   {
-    "geography": "Place2",
-    "geo_level": "region",
-    "good_news": true,
-    "finding_ids": [
-     "x2"
-    ],
-    "measures": [
-     "Happiness"
-    ],
-    "score": 0.48,
-    "title": "Place2 (region): good news on Happiness"
    }
   ]
  },

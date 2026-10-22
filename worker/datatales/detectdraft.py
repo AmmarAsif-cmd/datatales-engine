@@ -13,6 +13,7 @@ the recipe. Approving the recipe writes it into worker/sources.d/<slug>.yaml.
 """
 
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
@@ -29,6 +30,14 @@ MAX_ATTEMPTS = 2
 SAMPLE_ROWS = 15
 MAX_DISTINCT_SHOWN = 30
 MIN_GROUPS = 3
+# Detectors compare UK, countries and regions only (user rule, 2026-10-10). ONS code prefix
+# -> geography level, for tables whose `group_code` holds ONS codes.
+ONS_CODE = re.compile(r"^[EKNSW]\d{8}$")
+ONS_LEVELS = {
+    "K02": "uk", "K03": "great_britain", "K04": "england_and_wales",
+    "E92": "country", "W92": "country", "S92": "country", "N92": "country", "E12": "region",
+}  # fmt: skip
+IN_SCOPE = {"uk", "country", "region"}
 
 EXAMPLE = {
     "group": "geography",
@@ -58,7 +67,7 @@ DETECT_INSTRUCTIONS = "\n".join(
         "   region, nation). `group_code`: its code column (e.g. E09000001), if there is one.",
         "2. `period`: the column that orders time (a year number, a date, or a sortable label",
         "   like 2024 Q1). `period_label`: the human-readable version, if it is a different",
-        "   column.",
+        "   column; required when `period` is a date.",
         "3. `value`: the numeric column being measured.",
         "4. `lower` / `upper`: confidence-interval columns, only if the table has them. If it",
         "   has none (exact administrative counts), set `precision_pct` instead: 2 for exact",
@@ -68,7 +77,12 @@ DETECT_INSTRUCTIONS = "\n".join(
         "   appear exactly once after the filters; the code rejects the config otherwise.",
         "6. `filters`: keep only rows worth comparing, e.g. one geography level so like is",
         "   compared with like, and drop rows that are totals of other rows. Use only values",
-        "   that appear in the column listings, spelled exactly.",
+        "   that appear in the column listings, spelled exactly. Places must be the UK,",
+        "   countries or regions only (filter `geo_level` to uk/country/region and add",
+        "   `geo_level` to `slice_by`); local authorities are not compared yet.",
+        "   Prefer a percentage or per-head column over raw counts when the table has one.",
+        "   Where the notes say figures are recorded at a registered address (company",
+        "   fleets, head offices), prefer the private/household rows.",
         "7. `units`: a short plain unit per series, e.g. 'vehicles', '% of households'.",
         "   `default_unit` for the rest. `units` and `polarity` rules may only test `slice_by`",
         "   columns.",
@@ -177,6 +191,12 @@ def check_config(clean: pd.DataFrame, config: DetectConfig) -> pd.DataFrame:
             f"{len(dup):,} rows share the same (group, period, slice_by) values, e.g. "
             f"{example}: add the column that tells them apart to `slice_by`, or filter it"
         )
+    if pd.api.types.is_datetime64_any_dtype(frame["period"]) and not config.period_label:
+        raise DetectDraftError(
+            f"`period` ('{config.period}') is a date: set `period_label` to the column with "
+            "the readable label (e.g. 2026 Q2), or charts and stories show raw dates"
+        )
+    _check_geography(frame, config)
     widest = int(frame.groupby(["period", *config.slice_by], dropna=False)["group"].nunique().max())
     if widest < MIN_GROUPS:
         raise DetectDraftError(
@@ -184,6 +204,29 @@ def check_config(clean: pd.DataFrame, config: DetectConfig) -> pd.DataFrame:
             "places (or other things) being compared"
         )
     return frame
+
+
+def _check_geography(frame: pd.DataFrame, config: DetectConfig) -> None:
+    """With ONS codes: only UK/country/region places, and one level per slice."""
+    if not config.group_code:
+        return
+    codes = frame["group_code"].astype(str)
+    if not codes.str.match(ONS_CODE).mean() >= 0.5:  # not (mostly) ONS codes
+        return
+    levels = codes.str[:3].map(ONS_LEVELS).fillna("other")
+    outside = frame.loc[~levels.isin(IN_SCOPE), "group"].drop_duplicates().tolist()
+    if outside:
+        raise DetectDraftError(
+            f"{len(outside)} place(s) are not the UK, a country or a region (e.g. "
+            f"{outside[:3]}): detectors compare those levels only, so filter the rest out "
+            "(e.g. `geo_level` in `filters`)"
+        )
+    mixed = levels.groupby([frame[c] for c in config.slice_by] or [0], dropna=False).nunique()
+    if (mixed > 1).any():
+        raise DetectDraftError(
+            "a series mixes geography levels (e.g. the UK with its countries, or countries "
+            "with regions): add `geo_level` to `slice_by`"
+        )
 
 
 @dataclass

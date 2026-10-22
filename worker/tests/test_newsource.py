@@ -213,6 +213,43 @@ def test_check_config_rejects_bad_settings() -> None:
             check_config(table, DetectConfig.model_validate(spec))
 
 
+def ons_table(codes: list[str]) -> pd.DataFrame:
+    """fake_table with FAKE places given ONS-shaped codes."""
+    table = fake_table()
+    mapping = dict(zip([c for c, _ in AREAS], codes, strict=True))
+    return table.assign(area_code=table.area_code.map(mapping))
+
+
+def test_check_config_keeps_to_uk_countries_and_regions() -> None:
+    config = DetectConfig.model_validate(good_detect())
+    regions = [f"E1200000{i}" for i in range(1, 7)]
+    check_config(ons_table(regions), config)  # all regions: fine
+    with_council = ["E06000001", *regions[1:]]
+    with pytest.raises(ValueError, match="not the UK, a country or a region"):
+        check_config(ons_table(with_council), config)
+    mixed = ["E92000001", "W92000004", *regions[2:]]
+    with pytest.raises(ValueError, match="mixes geography levels"):
+        check_config(ons_table(mixed), config)
+    # ... unless the level is part of the series
+    by_level = ons_table(mixed).assign(
+        geo_level=lambda d: d.area_code.str[:3].map({"E92": "country", "W92": "country"})
+        .fillna("region")
+    )  # fmt: skip
+    check_config(by_level, DetectConfig.model_validate(
+        {**good_detect(), "slice_by": ["vehicle", "geo_level"]}
+    ))  # fmt: skip
+
+
+def test_check_config_wants_a_label_for_date_periods() -> None:
+    table = fake_table().assign(
+        when=lambda d: pd.to_datetime(d.year.astype(str) + "-01-01"), label=lambda d: d.year
+    )
+    spec = {**good_detect(), "period": "when"}
+    with pytest.raises(ValueError, match="period_label"):
+        check_config(table, DetectConfig.model_validate(spec))
+    check_config(table, DetectConfig.model_validate({**spec, "period_label": "label"}))
+
+
 def test_trial_run_finds_the_jump() -> None:
     trial = trial_run(fake_table(), DetectConfig.model_validate(good_detect()), 3)
     assert trial.passed and trial.candidates > 0

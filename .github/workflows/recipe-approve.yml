@@ -1,7 +1,9 @@
 name: recipe-approve
 
 # Triggered by the dashboard's recipe Approve button. Marks the recipe approved in Supabase
-# and commits worker/recipes/<source>.v<N>.yaml so approved recipes are versioned in git.
+# and commits worker/recipes/<source>.v<N>.yaml so approved recipes are versioned in git,
+# then starts the pipeline so the source is cleaned, detected and drafted straight away
+# (instead of waiting for Monday's run).
 on:
   workflow_dispatch:
     inputs:
@@ -20,6 +22,7 @@ on:
 
 permissions:
   contents: write
+  actions: write # starts pipeline.yml after the approval is committed
 
 concurrency:
   group: repo-writes
@@ -65,3 +68,8 @@ jobs:
           git commit -m "Approve recipe ${SOURCE} v${VERSION}"
           git pull --rebase origin main
           git push origin HEAD:main
+
+      - name: Start the pipeline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pipeline.yml --ref main

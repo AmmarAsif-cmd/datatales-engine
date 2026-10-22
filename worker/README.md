@@ -75,7 +75,7 @@ By hand:
 Recipes are **declarative YAML**: a list of whitelisted steps (`select_sheet`, `skip_rows`,
 `use_header_row`, `rename_columns`, `drop_columns`, `select_columns`, `drop_rows_where`, `filter`,
 `strip_footnotes`, `parse_number`, `parse_date`, `melt`, `cast`, `dedupe`, `sort`,
-`classify_prefix`, `derive_flag`) plus `checks` (expected columns, row count, not-null, unique,
+`classify_prefix`, `derive_flag`, `share_of_total`) plus `checks` (expected columns, row count, not-null, unique,
 `ranges`, `ranges_where` for per-category ranges, and `sums` with a multi-column `where` filter). The schema is in `datatales/clean/schema.py`. They're loaded with
 `yaml.safe_load` and never executed as code.
 

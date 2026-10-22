@@ -13,6 +13,15 @@ MAX_PER_GEOGRAPHY = 2
 CORROBORATION_BONUS = 0.15  # per extra distinct measure, multiplicative
 
 
+def measure_of(numbers: dict[str, Any]) -> str:
+    """The finding's series: its `measure`, or (for tables without one) its slice values
+    apart from the geography level, e.g. "Cars, Diesel"."""
+    if "measure" in numbers:
+        return str(numbers["measure"])
+    cols = [c for c in numbers.get("slice_by") or [] if c != "geo_level"]
+    return "/".join(str(numbers.get(c)) for c in cols) if cols else "None"
+
+
 @dataclass
 class Candidate:
     geography: str
@@ -26,7 +35,7 @@ class Candidate:
 
     @property
     def measures(self) -> list[str]:
-        return sorted({str(f["numbers"].get("measure")) for f in self.findings})
+        return sorted({measure_of(f["numbers"]) for f in self.findings})
 
     @property
     def finding_ids(self) -> list[str]:

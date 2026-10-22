@@ -134,6 +134,12 @@ def describe_step(step: dict[str, Any]) -> str:
         return f"Adds '{step['into']}' from the start of '{step['column']}' ({n} codes)"
     if op == "derive_flag":
         return f"Adds true/false '{step['into']}' where {_cond(step['where'])}"
+    if op == "share_of_total":
+        total = step.get("total", "Total")
+        return (
+            f"Adds '{step['into']}': '{step['value']}' as a % of the '{total}' row of "
+            f"'{step['of']}' (same {_cols(step['keys'])})"
+        )
     return op
 
 

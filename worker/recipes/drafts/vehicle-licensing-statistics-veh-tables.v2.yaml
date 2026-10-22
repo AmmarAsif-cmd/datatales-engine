@@ -1,0 +1,138 @@
+source: vehicle-licensing-statistics-veh-tables
+version: 2
+description: 'VEH0105: licensed vehicles (thousands) at the end of each quarter by body type, fuel type,
+  keepership and UK geography. v2 (reviewed by hand): keeps the DfT quarter label (2026 Q2 = end of June)
+  next to a sortable quarter_start date, tags each row with its geography level from the ONS code, drops
+  "District unknown" rows (no code) and starts at 2014 Q3, when the table starts covering the whole UK
+  (Great Britain only before that). Adds fuel_share_pct: each fuel type as a % of all
+  vehicles of that body type, keepership, place and quarter, so places of different sizes compare fairly.'
+steps:
+- op: select_sheet
+  sheet: VEH0105
+- op: skip_rows
+  count: 4
+- op: use_header_row
+- op: strip_footnotes
+- op: rename_columns
+  mapping:
+    Fuel: fuel_type
+    Units: units
+    BodyType: body_type
+    ONS Code: ons_code
+    ONS Sort: ons_sort
+    Keepership: keepership
+    ONS Geography: geography
+- op: drop_columns
+  columns:
+  - units
+- op: drop_rows_where
+  where:
+    column: ons_code
+    op: eq
+    value: '[z]'
+- op: melt
+  id_columns:
+  - body_type
+  - fuel_type
+  - keepership
+  - ons_sort
+  - ons_code
+  - geography
+  var_name: quarter
+  value_name: vehicles
+- op: drop_rows_where
+  where:
+    column: quarter
+    op: in
+    value: ['2009 Q4', '2010 Q1', '2010 Q2', '2010 Q3', '2010 Q4', '2011 Q1', '2011 Q2', '2011 Q3',
+      '2011 Q4', '2012 Q1', '2012 Q2', '2012 Q3', '2012 Q4', '2013 Q1', '2013 Q2', '2013 Q3', '2013 Q4',
+      '2014 Q1', '2014 Q2']
+- op: parse_number
+  columns:
+  - vehicles
+  markers:
+  - '[x]'
+  - '[z]'
+  - '[c]'
+  - '[u]'
+  - '[w]'
+  - ..
+  - ':'
+- op: parse_date
+  column: quarter
+  format: quarter_start
+  into: quarter_start
+- op: cast
+  columns:
+    ons_sort: int
+- op: share_of_total
+  value: vehicles
+  of: fuel_type
+  total: Total
+  into: fuel_share_pct
+  keys:
+  - body_type
+  - keepership
+  - ons_code
+  - quarter
+- op: classify_prefix
+  column: ons_code
+  into: geo_level
+  mapping:
+    K02: uk
+    K03: great_britain
+    E92: country
+    W92: country
+    S92: country
+    N92: country
+    E12: region
+    E10: county
+    E11: metropolitan_county
+    E13: london_inner_outer
+    E06: local_authority
+    E07: local_authority
+    E08: local_authority
+    E09: local_authority
+    W06: local_authority
+    S12: local_authority
+    N09: local_authority
+  default: other
+checks:
+  expected_columns:
+  - body_type
+  - fuel_type
+  - keepership
+  - ons_sort
+  - ons_code
+  - geography
+  - geo_level
+  - quarter
+  - quarter_start
+  - vehicles
+  - fuel_share_pct
+  row_count:
+    min: 1000000
+    max: 4000000
+  not_null:
+  - body_type
+  - fuel_type
+  - keepership
+  - ons_sort
+  - ons_code
+  - geography
+  - geo_level
+  - quarter
+  - quarter_start
+  unique:
+  - body_type
+  - fuel_type
+  - keepership
+  - ons_code
+  - quarter_start
+  ranges:
+    vehicles:
+      min: 0.0
+      max: 100000.0
+    fuel_share_pct:
+      min: 0.0
+      max: 100.0

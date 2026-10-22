@@ -32,6 +32,19 @@ function cmp<T>(a: T, b: T): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
+/** The finding's series: its `measure`, or (tables without one) its slice values apart from
+ * the geography level, e.g. "Cars/Diesel". Mirrors candidates.measure_of. */
+export function measureOf(n: Record<string, unknown>): string {
+  if ("measure" in n) return String(n.measure ?? "None");
+  const sliceBy = Array.isArray(n.slice_by)
+    ? (n.slice_by as unknown[]).map(String)
+    : [];
+  const cols = sliceBy.filter((c) => c !== "geo_level");
+  return cols.length
+    ? cols.map((c) => String(n[c] ?? "None")).join("/")
+    : "None";
+}
+
 export function groupFindings(findings: FindingRow[]): Candidate[] {
   const groups = new Map<string, Candidate>();
   for (const f of findings) {
@@ -48,19 +61,31 @@ export function groupFindings(findings: FindingRow[]): Candidate[] {
     groups.get(key)!.findings.push(f);
   }
   for (const c of groups.values()) {
-    c.findings.sort((a, b) => b.score - a.score || cmp(a.detector, b.detector) || cmp(a.id, b.id));
-    c.measures = [...new Set(c.findings.map((f) => String(f.numbers.measure ?? "None")))].sort();
+    c.findings.sort(
+      (a, b) =>
+        b.score - a.score || cmp(a.detector, b.detector) || cmp(a.id, b.id),
+    );
+    c.measures = [
+      ...new Set(c.findings.map((f) => measureOf(f.numbers))),
+    ].sort();
     c.finding_ids = c.findings.map((f) => f.id);
     const bonus = 1 + CORROBORATION_BONUS * (c.measures.length - 1);
     c.score = round4(Math.min(1, c.findings[0].score * bonus));
     c.title = `${c.geography} (${c.geo_level ?? "None"}): ${c.good_news ? "good news" : "bad news"} on ${c.measures.join(", ")}`;
   }
   return [...groups.values()].sort(
-    (a, b) => b.score - a.score || cmp(a.geography, b.geography) || Number(!a.good_news) - Number(!b.good_news),
+    (a, b) =>
+      b.score - a.score ||
+      cmp(a.geography, b.geography) ||
+      Number(!a.good_news) - Number(!b.good_news),
   );
 }
 
-export function shortlist(findings: FindingRow[], size = SHORTLIST_SIZE, perGeo = MAX_PER_GEOGRAPHY): Candidate[] {
+export function shortlist(
+  findings: FindingRow[],
+  size = SHORTLIST_SIZE,
+  perGeo = MAX_PER_GEOGRAPHY,
+): Candidate[] {
   const picked: Candidate[] = [];
   const count = new Map<string, number>();
   for (const c of groupFindings(findings)) {
@@ -75,6 +100,9 @@ export function shortlist(findings: FindingRow[], size = SHORTLIST_SIZE, perGeo 
 export function slugify(text: string, maxLen = 80): string {
   const spaced = text.replace(/[‐-―−/]/g, " ");
   const ascii = spaced.normalize("NFKD").replace(/[^\x00-\x7F]/g, "");
-  const slug = ascii.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const slug = ascii
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
   return slug.slice(0, maxLen).replace(/-+$/, "") || "story";
 }

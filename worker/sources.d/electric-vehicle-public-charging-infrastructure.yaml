@@ -7,7 +7,13 @@ url: https://www.gov.uk/government/collections/electric-vehicle-charging-infrast
 licence: Open Government Licence v3.0
 refresh_schedule: quarterly
 relatability: 3
-caveats: []
+caveats:
+- These are official statistics in development, based on charger data from Zapmap.
+- In June 2026 one charge point operator removed private chargers that it had wrongly
+  listed as public, so falls from April to July 2026 partly reflect better reporting,
+  not chargers being taken out.
+- Rates per head of population use ONS mid-year population estimates for 2024; places
+  with very small populations, such as the City of London, have very high rates.
 fetch:
   type: catalogue_file
   kind: govuk
@@ -15,47 +21,3 @@ fetch:
   file_match: evci0102_ev_chargers_by_local_authority_uk
   format: ODS
 backlog_id: f0b31d6a-ef4f-47e4-b82d-b356e997b803
-detect:
-  group: local_authority
-  group_code: local_authority_code
-  period: date
-  value: value
-  precision_pct: 2.0
-  slice_by:
-  - measure
-  filters: {}
-  units:
-  - when:
-      measure:
-      - 50kW+ EV chargers
-      - EV chargers
-    unit: chargers
-  - when:
-      measure:
-      - 50kW+ EV chargers per 100k
-      - EV chargers per 100k
-    unit: chargers per 100,000 people
-  default_unit: chargers
-  polarity: []
-  labels:
-  - when:
-      measure:
-      - EV chargers
-    label: Public EV chargers
-  - when:
-      measure:
-      - EV chargers per 100k
-    label: Public EV chargers per 100,000 people
-  - when:
-      measure:
-      - 50kW+ EV chargers
-    label: Rapid (50kW+) EV chargers
-  - when:
-      measure:
-      - 50kW+ EV chargers per 100k
-    label: Rapid (50kW+) EV chargers per 100,000 people
-  default_higher_is_better: true
-  min_groups_rank: 3
-  min_groups_outlier: 5
-  outlier_z: 2.5
-  top_n: 20

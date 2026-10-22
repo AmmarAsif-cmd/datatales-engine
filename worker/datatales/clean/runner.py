@@ -255,6 +255,18 @@ def apply_step(df: pd.DataFrame, step: Any) -> pd.DataFrame:
             out = df.copy()
             out[into] = _mask(df, cond).astype(bool)
             return out
+        case s.ShareOfTotal(value=val, of=of, total=total, into=into, keys=keys):
+            _require(df, [val, of, *keys])
+            is_total = _text(df[of]) == str(total)
+            totals = df.loc[is_total, [*keys, val]].rename(columns={val: "__total"})
+            if totals.duplicated(keys).any():
+                raise ValueError(f"more than one '{total}' row for the same {keys}")
+            merged = df.merge(totals, on=keys, how="left", validate="many_to_one")
+            num = pd.to_numeric(merged[val], errors="coerce")
+            den = pd.to_numeric(merged["__total"], errors="coerce")
+            out = df.copy()
+            out[into] = (num / den.where(den != 0) * 100).round(6).to_numpy()
+            return out
     raise ValueError(f"unsupported step {step!r}")  # pragma: no cover - schema prevents this
 
 

@@ -171,10 +171,32 @@ class DeriveFlag(_Step):
     where: Condition
 
 
+class ShareOfTotal(_Step):
+    """New column: each row's `value` as a percentage of its 'Total' row.
+
+    The total is the row with the same values in every other column except `of` (and
+    `value`), whose `of` column equals `total`, e.g. diesel cars as a % of all cars in the
+    same place and quarter. Rows without a total (or a zero/empty total) get null.
+    """
+
+    op: Literal["share_of_total"]
+    value: Col
+    of: Col
+    total: Scalar = "Total"
+    into: Col
+    keys: Cols  # the columns (besides `of`) that identify a total, e.g. place, period, type
+
+    @model_validator(mode="after")
+    def _distinct(self) -> "ShareOfTotal":
+        if self.of in self.keys or self.value in self.keys or self.value == self.of:
+            raise ValueError("`value`, `of` and `keys` must be different columns")
+        return self
+
+
 Step = Annotated[
     SelectSheet | SkipRows | UseHeaderRow | RenameColumns | DropColumns | SelectColumns
     | DropRowsWhere | Filter | StripFootnotes | ParseNumber | ParseDate | Melt | Cast
-    | Dedupe | Sort | ClassifyPrefix | DeriveFlag,
+    | Dedupe | Sort | ClassifyPrefix | DeriveFlag | ShareOfTotal,
     Field(discriminator="op"),
 ]  # fmt: skip
 

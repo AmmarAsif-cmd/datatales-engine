@@ -54,6 +54,16 @@ Rules:
    a realistic row_count range, not_null and unique for the key columns, ranges for numeric
    columns, and a sums check where categories should add up to a total (e.g. 100%).
 9. Do not invent columns or values that are not in the profile.
+10. ONS geography codes (E12000001, K02000001, ...): add a `geo_level` column with
+   classify_prefix (K02 uk, K03 great_britain, E92/W92/S92/N92 country, E12 region,
+   E06/E07/E08/E09/W06/S12/N09 local_authority, E10 county, E11 metropolitan_county,
+   E13 london_inner_outer, default other), and drop rows whose code is a marker such as
+   [z] (unknown or unallocated areas).
+11. Periods: parse_date with `into` (a new column such as quarter_start) so the original
+   label (2026 Q2, 2011-12) stays for display. Read the notes: a quarter label may mean the
+   END of the quarter; say so in `description`.
+12. Counts for places of very different size are not comparable. When a category column has
+   a total row (e.g. fuel type 'Total'), add a percentage with share_of_total.
 """
 
 

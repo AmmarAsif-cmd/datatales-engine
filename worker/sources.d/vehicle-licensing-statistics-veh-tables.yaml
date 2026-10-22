@@ -7,7 +7,20 @@ url: https://www.gov.uk/government/statistical-data-sets/vehicle-licensing-stati
 licence: Open Government Licence v3.0
 refresh_schedule: quarterly
 relatability: 3
-caveats: []
+caveats:
+- The figures count licensed cars kept by private individuals at the end of each quarter
+  (Q2 means the end of June). Company cars are left out because DfT counts them at
+  the company's registered address, which for leasing and rental fleets is often far
+  from where the cars are used.
+- Cars are counted at the registered keeper's postcode, which is not necessarily where
+  the car is driven.
+- In this table DfT groups fuel as petrol, diesel, petrol hybrid and other fuel types.
+  Other fuel types covers every fuel not in the first three, including fully electric
+  cars; DfT publishes electric vehicles in more detail in a separate table (VEH0142).
+- The series here starts in 2014 Q3, the first quarter the table covers the whole
+  UK, including Northern Ireland.
+- The data shows which cars are licensed, not how far they are driven or why people
+  chose them.
 fetch:
   type: catalogue_file
   kind: govuk
@@ -18,57 +31,56 @@ backlog_id: fb2f4bb5-c10d-4aad-906c-73717616bdd5
 detect:
   group: geography
   group_code: ons_code
-  period: quarter
-  value: vehicles
+  period: quarter_start
+  period_label: quarter
+  value: fuel_share_pct
   precision_pct: 2.0
   slice_by:
   - body_type
   - fuel_type
-  - keepership
+  - geo_level
   filters:
+    geo_level:
+    - country
+    - region
+    keepership:
+    - Private
     body_type:
-    - Buses and coaches
     - Cars
-    - Heavy goods vehicles
-    - Light goods vehicles
-    - Motorcycles
-    - Other vehicles
     fuel_type:
+    - Petrol
     - Diesel
     - Hybrid electric (petrol)
     - Other fuel types
-    - Petrol
-    keepership:
-    - Company
-    - Private
-  units: []
-  default_unit: thousand vehicles
-  polarity: []
-  labels:
-  - when:
-      body_type:
-      - Buses and coaches
-    label: Licensed buses and coaches
+  units:
   - when:
       body_type:
       - Cars
-    label: Licensed cars
+    unit: '% of privately kept cars'
+  default_unit: '% of privately kept cars'
+  polarity:
   - when:
-      body_type:
-      - Heavy goods vehicles
-    label: Licensed heavy goods vehicles
+      fuel_type:
+      - Petrol
+      - Diesel
+    higher_is_better: false
+  labels:
   - when:
-      body_type:
-      - Light goods vehicles
-    label: Licensed light goods vehicles
+      fuel_type:
+      - Petrol
+    label: 'Share of private cars: petrol'
   - when:
-      body_type:
-      - Motorcycles
-    label: Licensed motorcycles
+      fuel_type:
+      - Diesel
+    label: 'Share of private cars: diesel'
   - when:
-      body_type:
-      - Other vehicles
-    label: Other licensed vehicles
+      fuel_type:
+      - Hybrid electric (petrol)
+    label: 'Share of private cars: petrol hybrids'
+  - when:
+      fuel_type:
+      - Other fuel types
+    label: 'Share of private cars: other fuel types'
   default_higher_is_better: true
   min_groups_rank: 3
   min_groups_outlier: 5

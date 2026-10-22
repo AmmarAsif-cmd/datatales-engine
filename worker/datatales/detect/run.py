@@ -56,5 +56,10 @@ def finding_record(f: Finding) -> dict[str, Any]:
         "detector": f.detector,
         "title_hint": f.title_hint,
         "score": f.score,
-        "numbers": {**f.numbers, "score_parts": f.score_parts, "effect_size": round(f.effect, 4)},
+        "numbers": {
+            **f.numbers,
+            "slice_by": list(f.slice),  # which columns name the series (candidates.measure_of)
+            "score_parts": f.score_parts,
+            "effect_size": round(f.effect, 4),
+        },
     }

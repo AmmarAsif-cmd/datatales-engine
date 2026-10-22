@@ -234,6 +234,7 @@ def test_whitelisted_ops_are_exactly_these() -> None:
             "select_sheet", "skip_rows", "use_header_row", "rename_columns", "drop_columns",
             "select_columns", "drop_rows_where", "filter", "strip_footnotes", "parse_number",
             "parse_date", "melt", "cast", "dedupe", "sort", "classify_prefix", "derive_flag",
+            "share_of_total",
         ]
     )  # fmt: skip
 
@@ -286,3 +287,54 @@ def test_derive_flag_true_where_condition_matches_including_nulls() -> None:
     )
     out = apply_step(df, s)
     assert out.ok.tolist() == [True, False, True] and out.ok.dtype == bool
+
+
+def share_frame() -> pd.DataFrame:
+    # Hand-made fixture (not real data): two places, fuel split plus its Total row.
+    return pd.DataFrame(
+        {
+            "place": ["A", "A", "A", "B", "B", "B", "C"],
+            "fuel": ["Total", "Diesel", "Petrol", "Total", "Diesel", "Petrol", "Diesel"],
+            "n": [200.0, 50.0, 150.0, 0.0, 0.0, 0.0, 7.0],
+        }
+    )
+
+
+def share_step(extra: str = ""):  # noqa: ANN201
+    return step(
+        lines(
+            "  - op: share_of_total",
+            "    value: n",
+            "    of: fuel",
+            "    into: share",
+            "    keys: [place]",
+            *([extra] if extra else []),
+        )
+    )
+
+
+def test_share_of_total_percent_of_matching_total_row() -> None:
+    out = apply_step(share_frame(), share_step())
+    a = out[out.place == "A"].set_index("fuel").share
+    assert a.to_dict() == {"Total": 100.0, "Diesel": 25.0, "Petrol": 75.0}
+    # zero total and missing total both give null, never a division error
+    assert out[out.place.isin(["B", "C"])].share.isna().all()
+    assert out.n.tolist() == share_frame().n.tolist()  # input column untouched
+
+
+def test_share_of_total_custom_total_label() -> None:
+    df = share_frame().replace({"fuel": {"Total": "All fuels"}})
+    out = apply_step(df, share_step('    total: "All fuels"'))
+    assert out[(out.place == "A") & (out.fuel == "Diesel")].share.item() == 25.0
+
+
+def test_share_of_total_refuses_duplicate_totals() -> None:
+    df = pd.concat([share_frame(), share_frame().iloc[[0]]], ignore_index=True)
+    with pytest.raises(ValueError, match="more than one 'Total' row"):
+        apply_step(df, share_step())
+
+
+def test_share_of_total_columns_must_differ() -> None:
+    with pytest.raises(ValueError, match="must be different"):
+        step(lines("  - op: share_of_total", "    value: n", "    of: fuel", "    into: s",
+                   "    keys: [place, fuel]"))  # fmt: skip

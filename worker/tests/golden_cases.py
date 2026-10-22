@@ -646,6 +646,22 @@ CANDIDATE_FINDINGS = [
     *[_finding(f"x{i}", f"Place{i}", round(0.5 - i / 100, 4), True, "Happiness") for i in range(6)],
     _finding("u1", "United Kingdom", 0.2, True, "Worthwhile", "uk"),
     _finding("u2", "United Kingdom", 0.19, True, "Happiness", "uk"),
+    # a table without a `measure` column: the series comes from the slice values
+    *[
+        {
+            **f,
+            "numbers": {k: v for k, v in f["numbers"].items() if k != "measure"}
+            | {
+                "slice_by": ["body_type", "fuel_type", "geo_level"],
+                "body_type": "Cars",
+                "fuel_type": fuel,
+            },
+        }
+        for f, fuel in (
+            (_finding("v1", "Wales", 0.45, True, "x", "country"), "Diesel"),
+            (_finding("v2", "Wales", 0.44, True, "x", "country"), "Petrol"),
+        )
+    ],  # fmt: skip
 ]
 
 

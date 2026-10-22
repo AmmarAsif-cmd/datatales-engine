@@ -118,6 +118,12 @@ Every Monday at 06:00 UTC, `.github/workflows/pipeline.yml` runs these steps in 
 approved (which publishes them) on **Stories**. The **Overview** page starts with a weekly
 summary of what is waiting for you.
 
+Approving a recipe starts the pipeline straight away, so its story drafts appear within
+minutes rather than the next Monday. Before approving a new source, open its notes sheet
+and check the drafted detector settings: places at one level (UK, countries or regions),
+shares or per-head figures rather than raw counts, readable period labels, and any
+data-quality note turned into a caveat.
+
 To run the whole flow now: GitHub → Actions → **pipeline** → *Run workflow*, and tick
 `new_datasets`. The dashboard's **Run pipeline now** button runs step 3 only.
 
