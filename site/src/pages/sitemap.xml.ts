@@ -1,7 +1,7 @@
 import { getPosts, getStories } from '../lib/content';
 import { SITE } from '../lib/site';
 
-const STATIC_PAGES = ['', '/archive', '/about', '/contact'];
+const STATIC_PAGES = ['', '/archive', '/about', '/contact', '/privacy'];
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 

@@ -10,4 +10,6 @@ export const SITE = {
   logo: '/images/logo.png',
   defaultOgImage: '/images/og-default.png',
   locale: 'en_GB',
+  /** Google Analytics 4. Loaded only after the visitor accepts (AnalyticsConsent.astro). */
+  gaId: 'G-T613P7KVNQ',
 } as const;

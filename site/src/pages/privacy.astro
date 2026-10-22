@@ -1,0 +1,50 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { SITE } from '../lib/site';
+---
+
+<BaseLayout
+  title="Privacy and cookies"
+  description="What DataTales records about visits, and how to change your cookie choice."
+>
+  <div class="container measure">
+    <h1>Privacy and cookies</h1>
+    <div class="prose">
+      <p>
+        DataTales has no accounts, comments or sign-up forms, so it does not ask for your name or
+        email address.
+      </p>
+
+      <h2>Google Analytics (only if you accept)</h2>
+      <p>
+        With your permission, the site uses Google Analytics to count visits and see which stories
+        are read. If you accept, your browser loads Google's analytics script, and Google sets
+        cookies whose names start with <code>_ga</code> to tell repeat visits apart. Google then
+        receives details such as the pages you view, your browser and device type, and your
+        approximate location. Google Analytics is provided by Google; see{' '}
+        <a href="https://policies.google.com/privacy">Google's privacy policy</a>.
+      </p>
+      <p>
+        If you reject, or make no choice, the analytics script is never loaded and no analytics
+        cookie is set.
+      </p>
+
+      <h2>Your choice</h2>
+      <p>
+        You can change your mind at any time with <strong>Cookie settings</strong> at the bottom of
+        every page. Choosing Reject removes the analytics cookies from this site.
+      </p>
+
+      <h2>Other things the site stores</h2>
+      <p>
+        Your browser's local storage keeps your light/dark theme and your cookie choice. These stay
+        on your device and are not sent anywhere.
+      </p>
+
+      <h2>Questions</h2>
+      <p>
+        This site is run by {SITE.author}. See the <a href="/contact">contact page</a>.
+      </p>
+    </div>
+  </div>
+</BaseLayout>

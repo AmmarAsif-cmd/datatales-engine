@@ -2,6 +2,7 @@
 import '../styles/global.css';
 import Seo, { type Props as SeoProps } from '../components/Seo.astro';
 import ThemeToggle from '../components/ThemeToggle.astro';
+import AnalyticsConsent from '../components/AnalyticsConsent.astro';
 import { SITE } from '../lib/site';
 
 export type Props = SeoProps;
@@ -79,12 +80,17 @@ const here = Astro.url.pathname.replace(/\.html$/, '');
           <a href="/archive">Archive</a>
           <a href="/about">About</a>
           <a href="/contact">Contact</a>
+          <a href="/privacy">Privacy</a>
+          <button type="button" class="link-button" data-cookie-settings>
+            Cookie settings
+          </button>
         </p>
         <p class="meta">
           {`© ${year} ${SITE.author}. Source data remains under each publisher's licence.`}
         </p>
       </div>
     </footer>
+    <AnalyticsConsent />
   </body>
 </html>
 
@@ -149,6 +155,15 @@ const here = Astro.url.pathname.replace(/\.html$/, '');
   }
   .site-footer p {
     margin: 0.5rem 0;
+  }
+  .link-button {
+    font: inherit;
+    color: var(--link);
+    background: none;
+    border: 0;
+    padding: 0;
+    text-decoration: underline;
+    cursor: pointer;
   }
   .links {
     display: flex;

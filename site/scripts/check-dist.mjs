@@ -23,6 +23,7 @@ for (const f of [
   'archive.html',
   'about.html',
   'contact.html',
+  'privacy.html',
   'rss.xml',
   'sitemap.xml',
   'robots.txt',
@@ -61,6 +62,13 @@ for (const f of files.filter((p) => /\.(html|js|xml|txt|json|css)$/.test(p))) {
     !/SAMPLE STORY|sample-fake-data-demo|"sample":\s*true/.test(text),
     `sample content found in ${rel}`,
   );
+  // 4b. Google Analytics only after consent: never a <script src> to Google in the HTML
+  // (AnalyticsConsent.astro adds it at runtime once the visitor accepts).
+  if (rel.endsWith('.html'))
+    must(
+      !/<script[^>]+googletagmanager\.com/i.test(text),
+      `analytics script loaded without consent in ${rel}`,
+    );
   for (const re of SECRET_PATTERNS)
     must(!re.test(text), `possible secret/Supabase reference (${re}) in ${rel}`);
 }

@@ -1,0 +1,162 @@
+---
+// Cookie consent for Google Analytics (UK PECR / UK GDPR): nothing is requested from Google
+// and no analytics cookie is set until the visitor clicks Accept. The choice is kept in
+// localStorage ('analytics-consent' = granted | denied); the footer's "Cookie settings"
+// button ([data-cookie-settings]) shows the banner again.
+import { SITE } from '../lib/site';
+---
+
+<div class="consent" data-consent data-ga-id={SITE.gaId} hidden>
+  <div class="container consent-inner" role="region" aria-label="Cookie choice">
+    <p>
+      May we use Google Analytics cookies to count visits and see which stories are read? Nothing is
+      tracked unless you accept. <a href="/privacy">Privacy and cookies</a>
+    </p>
+    <div class="consent-buttons">
+      <button type="button" class="btn primary" data-consent-choice="granted">
+        Accept
+      </button>
+      <button type="button" class="btn" data-consent-choice="denied">
+        Reject
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const KEY = 'analytics-consent';
+  const banner = document.querySelector<HTMLElement>('[data-consent]');
+  const gaId = banner?.dataset.gaId ?? '';
+
+  const read = (): string | null => {
+    try {
+      return localStorage.getItem(KEY);
+    } catch {
+      return null; // storage blocked: ask on each page, track nothing
+    }
+  };
+
+  const save = (value: string) => {
+    try {
+      localStorage.setItem(KEY, value);
+    } catch {
+      // storage blocked: the choice applies to this page only
+    }
+  };
+
+  let loaded = false;
+  const loadAnalytics = () => {
+    if (loaded || !/^G-[A-Z0-9]+$/.test(gaId)) return;
+    loaded = true;
+    const w = window as unknown as { dataLayer: unknown[]; gtag: (...args: unknown[]) => void };
+    w.dataLayer = w.dataLayer || [];
+    w.gtag = function gtag() {
+      // eslint-disable-next-line prefer-rest-params -- gtag expects the arguments object
+      w.dataLayer.push(arguments);
+    };
+    w.gtag('js', new Date());
+    w.gtag('config', gaId);
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaId)}`;
+    document.head.appendChild(s);
+  };
+
+  // Clears GA's first-party cookies after a change from Accept to Reject.
+  const clearCookies = () => {
+    const host = location.hostname.replace(/^www\./, '');
+    for (const c of document.cookie.split(';')) {
+      const name = c.split('=')[0].trim();
+      if (!/^_ga/.test(name)) continue;
+      for (const domain of ['', `; domain=${host}`, `; domain=.${host}`])
+        document.cookie = `${name}=; max-age=0; path=/${domain}`;
+    }
+  };
+
+  const choice = read();
+  if (choice === 'granted') loadAnalytics();
+  else if (choice !== 'denied' && banner) banner.hidden = false;
+
+  for (const btn of document.querySelectorAll<HTMLButtonElement>('[data-consent-choice]')) {
+    btn.addEventListener('click', () => {
+      const value = btn.dataset.consentChoice === 'granted' ? 'granted' : 'denied';
+      const before = read();
+      save(value);
+      if (banner) banner.hidden = true;
+      if (value === 'granted') loadAnalytics();
+      else {
+        clearCookies();
+        if (before === 'granted') location.reload(); // stop the already-loaded script
+      }
+    });
+  }
+
+  for (const btn of document.querySelectorAll<HTMLButtonElement>('[data-cookie-settings]')) {
+    btn.addEventListener('click', () => {
+      if (!banner) return;
+      banner.hidden = false;
+      banner.querySelector<HTMLButtonElement>('[data-consent-choice]')?.focus();
+    });
+  }
+</script>
+
+<style>
+  .consent {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 50;
+    background: var(--surface);
+    border-top: 1px solid var(--rule-strong);
+    box-shadow: 0 -4px 16px rgb(0 0 0 / 0.08);
+    padding-block: 0.9rem;
+  }
+  .consent[hidden] {
+    display: none;
+  }
+  .consent-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.25rem;
+  }
+  .consent p {
+    flex: 1 1 22rem;
+    margin: 0;
+    color: var(--ink);
+    font-size: 0.95rem;
+  }
+  .consent-buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .btn {
+    font: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding: 0.5rem 1.1rem;
+    border-radius: 999px;
+    border: 1px solid var(--rule-strong);
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .btn:hover {
+    border-color: var(--ink-2);
+  }
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg); /* dark text on the light dark-theme accent */
+  }
+  .btn:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+</style>
+
+<style is:global>
+  /* keep the footer readable above the fixed banner while it is shown */
+  body:has([data-consent]:not([hidden])) {
+    padding-bottom: 9rem;
+  }
+</style>
