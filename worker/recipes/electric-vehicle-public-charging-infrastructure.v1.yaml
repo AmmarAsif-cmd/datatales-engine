@@ -1,0 +1,75 @@
+# Approved by Ammar Asif at 2026-10-22T17:45:46.00221+00:00.
+# Do not edit: approved recipes are immutable. Import a new version instead.
+source: electric-vehicle-public-charging-infrastructure
+version: 1
+description: 'Long-format table from sheet EVCI0102e: public EV chargers by local authority, per quarter
+  and measure (count, 50kW+, per 100k population).'
+steps:
+- op: select_sheet
+  sheet: EVCI0102e
+- op: skip_rows
+  count: 2
+- op: use_header_row
+- op: strip_footnotes
+- op: rename_columns
+  mapping:
+    Key: measure
+    Date: date
+    Notes: notes
+    Value: value
+    Local authority: local_authority
+    Local authority code: local_authority_code
+- op: drop_columns
+  columns:
+  - notes
+- op: parse_date
+  column: date
+  format: yyyy-mm-dd
+- op: parse_number
+  columns:
+  - value
+  markers:
+  - '[c]'
+  - '[x]'
+  - '[u]'
+  - '[w]'
+  - ..
+  - ':'
+- op: sort
+  by:
+  - date
+  - measure
+  - local_authority_code
+checks:
+  expected_columns:
+  - date
+  - local_authority_code
+  - local_authority
+  - measure
+  - value
+  row_count:
+    min: 4000
+    max: 4700
+  not_null:
+  - date
+  - local_authority_code
+  - local_authority
+  - measure
+  - value
+  unique:
+  - date
+  - local_authority_code
+  - measure
+  ranges:
+    value:
+      min: 0.0
+      max: 5000.0
+  ranges_where:
+  - name: per_100k_chargers_upper_bound
+    column: value
+    where:
+      measure:
+      - EV chargers per 100k
+      - 50kW+ EV chargers per 100k
+    min: 0.0
+    max: 2000.0
