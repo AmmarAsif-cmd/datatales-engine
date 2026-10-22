@@ -368,6 +368,9 @@ def run_scheduled(repo: Repo, log: Callable[[str], None]) -> bool:
                 log(f"[{slug}] no `detect` settings yet: cleaned, detectors skipped")
             elif repo.list_findings(ct.id):
                 log(f"[{slug}] findings already exist for clean table {ct.id}")
+                # drafting skips stories it already has, so this only fills gaps (e.g. a
+                # previous run whose drafting step stopped part-way)
+                draft_new_stories(repo, ct.id, log)
             else:
                 detect_clean_table(repo, ct.id, log)
                 draft_new_stories(repo, ct.id, log)

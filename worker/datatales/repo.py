@@ -57,6 +57,15 @@ class CleanTable:
     checks_passed: bool
 
 
+# What list_stories returns. autodraft matches existing stories by candidate_key /
+# data_version / finding_ids and works out older keys from numbers; MemRepo returns the
+# same columns so tests catch a missing one.
+STORY_LIST_COLUMNS = (
+    "id, slug, headline, status, verify_status, updated_at, candidate_key, data_version, "
+    "finding_ids, numbers, draft_note, drafted_by"
+)
+
+
 class Repo(Protocol):
     def upsert_source(self, source: SourceDef) -> str: ...
     def get_source_id(self, slug: str) -> str | None: ...
@@ -383,7 +392,7 @@ class SupabaseRepo:
     def list_stories(self, limit: int = 50) -> list[dict[str, Any]]:
         res = (
             self.db.table("stories")
-            .select("id, slug, headline, status, verify_status, updated_at")
+            .select(STORY_LIST_COLUMNS)
             .order("updated_at", desc=True)
             .limit(limit)
             .execute()

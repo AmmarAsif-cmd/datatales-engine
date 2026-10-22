@@ -5,7 +5,15 @@ from dataclasses import replace
 from datetime import datetime
 from typing import Any
 
-from datatales.repo import Bucket, CleanTable, Dataset, JobStatus, Recipe, now_utc
+from datatales.repo import (
+    STORY_LIST_COLUMNS,
+    Bucket,
+    CleanTable,
+    Dataset,
+    JobStatus,
+    Recipe,
+    now_utc,
+)
 from datatales.sources import SourceDef
 
 
@@ -219,7 +227,8 @@ class MemRepo:
         return next((k for k, s in self.stories.items() if s.get("slug") == slug), None)
 
     def list_stories(self, limit: int = 50) -> list[dict[str, Any]]:
-        return list(self.stories.values())[:limit]
+        cols = [c.strip() for c in STORY_LIST_COLUMNS.split(",")]
+        return [{c: s.get(c) for c in cols} for s in list(self.stories.values())[:limit]]
 
     def count_stories_using(self, finding_ids: list[str]) -> int:
         wanted = set(finding_ids)
