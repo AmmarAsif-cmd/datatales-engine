@@ -15,3 +15,62 @@ fetch:
   file_match: veh0105
   format: ODS
 backlog_id: fb2f4bb5-c10d-4aad-906c-73717616bdd5
+detect:
+  group: geography
+  group_code: ons_code
+  period: quarter
+  value: vehicles
+  precision_pct: 2.0
+  slice_by:
+  - body_type
+  - fuel_type
+  - keepership
+  filters:
+    body_type:
+    - Buses and coaches
+    - Cars
+    - Heavy goods vehicles
+    - Light goods vehicles
+    - Motorcycles
+    - Other vehicles
+    fuel_type:
+    - Diesel
+    - Hybrid electric (petrol)
+    - Other fuel types
+    - Petrol
+    keepership:
+    - Company
+    - Private
+  units: []
+  default_unit: thousand vehicles
+  polarity: []
+  labels:
+  - when:
+      body_type:
+      - Buses and coaches
+    label: Licensed buses and coaches
+  - when:
+      body_type:
+      - Cars
+    label: Licensed cars
+  - when:
+      body_type:
+      - Heavy goods vehicles
+    label: Licensed heavy goods vehicles
+  - when:
+      body_type:
+      - Light goods vehicles
+    label: Licensed light goods vehicles
+  - when:
+      body_type:
+      - Motorcycles
+    label: Licensed motorcycles
+  - when:
+      body_type:
+      - Other vehicles
+    label: Other licensed vehicles
+  default_higher_is_better: true
+  min_groups_rank: 3
+  min_groups_outlier: 5
+  outlier_z: 2.5
+  top_n: 20

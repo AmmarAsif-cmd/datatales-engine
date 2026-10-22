@@ -1,0 +1,83 @@
+# Approved by Ammar Asif at 2026-10-22T17:46:11.601574+00:00.
+# Do not edit: approved recipes are immutable. Import a new version instead.
+source: vehicle-licensing-statistics-veh-tables
+version: 1
+description: 'VEH0105: licensed vehicles (thousands) at the end of each quarter by body type, fuel type,
+  keepership and UK geography (ONS). Title rows skipped, wide quarter columns melted to long format, suppression
+  markers set to null.'
+steps:
+- op: select_sheet
+  sheet: VEH0105
+- op: skip_rows
+  count: 4
+- op: use_header_row
+- op: strip_footnotes
+- op: rename_columns
+  mapping:
+    Fuel: fuel_type
+    Units: units
+    BodyType: body_type
+    ONS Code: ons_code
+    ONS Sort: ons_sort
+    Keepership: keepership
+    ONS Geography: geography
+- op: melt
+  id_columns:
+  - units
+  - body_type
+  - fuel_type
+  - keepership
+  - ons_sort
+  - ons_code
+  - geography
+  var_name: quarter
+  value_name: vehicles
+- op: parse_number
+  columns:
+  - vehicles
+  markers:
+  - '[x]'
+  - '[z]'
+  - '[c]'
+  - '[u]'
+  - '[w]'
+  - ..
+  - ':'
+- op: parse_date
+  column: quarter
+  format: quarter_start
+- op: cast
+  columns:
+    ons_sort: int
+checks:
+  expected_columns:
+  - units
+  - body_type
+  - fuel_type
+  - keepership
+  - ons_sort
+  - ons_code
+  - geography
+  - quarter
+  - vehicles
+  row_count:
+    min: 1000000
+    max: 4000000
+  not_null:
+  - units
+  - body_type
+  - fuel_type
+  - keepership
+  - ons_sort
+  - geography
+  - quarter
+  unique:
+  - body_type
+  - fuel_type
+  - keepership
+  - ons_sort
+  - quarter
+  ranges:
+    vehicles:
+      min: 0.0
+      max: 100000.0
