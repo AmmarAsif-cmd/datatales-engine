@@ -4,5 +4,13 @@
 /sitemap-index.xml  /sitemap.xml  301
 /members            /             301
 /newsletter         /             301
+/page/about         /about        301
+/page/contact       /contact      301
+# Hashnode also served each post as raw Markdown at /<slug>.md
+/are-petrol-cars-still-king-in-uk.md  /are-petrol-cars-still-king-in-uk  301
+/uk-laptop-imports-vs-exports.md  /uk-laptop-imports-vs-exports  301
+/welcome-to-datatales-where-your-data-speaks.md  /welcome-to-datatales-where-your-data-speaks  301
+/wellbeing-in-the-uk.md  /wellbeing-in-the-uk  301
 /series/*           /archive      301
 /tag/*              /archive      301
+/page/*             /             301
