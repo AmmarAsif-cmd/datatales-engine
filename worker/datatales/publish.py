@@ -63,29 +63,52 @@ def rank_card(numbers: dict[str, Any]) -> dict[str, str] | None:
     }
 
 
+def _with_unit(note: str, unit: str) -> str:
+    return note + (f" ({unit})" if unit and not unit.startswith("%") else "")
+
+
+def _change_card(config: DetectConfig, f: dict[str, Any]) -> dict[str, str]:
+    unit = str(f.get("unit", ""))
+    note = _with_unit(f"From {format_value(f['start_value'], unit)} in {f['start_period']}", unit)
+    return {
+        "label": f"{label_for(config, f)}, {f['end_period']}",
+        "value": format_value(f["end_value"], unit),
+        "note": note,
+    }
+
+
+def _standout_card(config: DetectConfig, f: dict[str, Any]) -> dict[str, str] | None:
+    """An outlier finding (one period): its value, with the nearest other place as the note."""
+    if "value" not in f or "nearest_value" not in f or "period" not in f:
+        return None
+    unit = str(f.get("unit", ""))
+    side = "highest" if f.get("direction") == "above" else "lowest"
+    note = f"Next {side}: {f['nearest_group']}, {format_value(f['nearest_value'], unit)}"
+    return {
+        "label": f"{label_for(config, f)}, {f['period']}",
+        "value": format_value(f["value"], unit),
+        "note": _with_unit(note, unit),
+    }
+
+
 def key_numbers(numbers: dict[str, Any], config: DetectConfig) -> list[dict[str, str]]:
-    """Cards from the story's findings: latest value, with where it started as the note. A rank
-    card follows the first card when the story has a rank shift. At most 4 cards."""
+    """Cards from the story's findings: latest value, with where it started as the note (or, for
+    a place that stands out, the next place's value). A rank card follows the first card when
+    the story has a rank shift. At most 4 cards."""
     cards: list[dict[str, str]] = []
     seen: set[str] = set()
     for f in numbers.get("findings", []):
-        if "end_value" not in f or len(cards) == MAX_KEY_NUMBERS:
+        card = _change_card(config, f) if "end_value" in f else _standout_card(config, f)
+        if card is None or len(cards) == MAX_KEY_NUMBERS or card["label"] in seen:
             continue
-        label = f"{label_for(config, f)}, {f['end_period']}"
-        if label in seen:
-            continue
-        seen.add(label)
-        unit = str(f.get("unit", ""))
-        note = f"From {format_value(f['start_value'], unit)} in {f['start_period']}"
-        if unit and not unit.startswith("%"):
-            note += f" ({unit})"
-        cards.append({"label": label, "value": format_value(f["end_value"], unit), "note": note})
+        seen.add(card["label"])
+        cards.append(card)
         if len(cards) == 1:
             rank = rank_card(numbers)
             if rank:
                 cards.append(rank)
     if not cards:
-        raise PublishError("story has no findings with start and end values for key numbers")
+        raise PublishError("story has no findings with values for key numbers")
     return cards[:MAX_KEY_NUMBERS]
 
 

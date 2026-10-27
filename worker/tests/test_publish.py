@@ -8,7 +8,7 @@ import pytest
 import yaml
 
 from datatales import pipeline, publish, stories
-from datatales.sources import get_source
+from datatales.sources import DetectConfig, get_source
 from tests.memrepo import MemRepo
 from tests.test_stories import repo_ct, riser_reply  # noqa: F401  (fixture re-export)
 
@@ -89,6 +89,34 @@ def test_labels_respect_anxiety_polarity() -> None:
     assert label(config, {"measure": "Worthwhile", "estimate": "Average (mean)"}) == (
         "Average worthwhile score"
     )
+
+
+def test_key_numbers_from_a_place_that_stands_out() -> None:
+    config = DetectConfig.model_validate(
+        {
+            "group": "geography", "period": "quarter_start", "value": "fuel_share_pct",
+            "precision_pct": 2, "slice_by": ["fuel_type"],
+            "labels": [{"when": {"fuel_type": ["Hybrid electric (petrol)"]},
+                        "label": "Share of private cars: petrol hybrids"}],
+        }
+    )  # fmt: skip
+    standout = {  # FAKE outlier finding (shape of detect/outlier.py)
+        "body_type": "Cars", "fuel_type": "Hybrid electric (petrol)", "geo_level": "region",
+        "group": "Fakeshire", "period": "2026 Q2", "value": 11.07, "direction": "above",
+        "nearest_group": "Otherland", "nearest_value": 8.4, "unit": "% of privately kept cars",
+    }  # fmt: skip
+    cards = publish.key_numbers({"findings": [standout]}, config)
+    assert cards == [
+        {
+            "label": "Share of private cars: petrol hybrids, 2026 Q2",
+            "value": "11.07%",
+            "note": "Next highest: Otherland, 8.40%",
+        }
+    ]
+    below = {**standout, "direction": "below"}
+    assert publish.key_numbers({"findings": [below]}, config)[0]["note"].startswith("Next lowest")
+    with pytest.raises(publish.PublishError, match="no findings with values"):
+        publish.key_numbers({"findings": [{"group": "Fakeshire"}]}, config)
 
 
 def test_format_value_and_first_sentence() -> None:
