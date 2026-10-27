@@ -2,7 +2,7 @@
 safety. No network: the fake client records requests and returns canned responses."""
 
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -104,6 +104,7 @@ def call(c: LLMClient, **over: Any) -> Any:
 def test_config_file_is_valid_and_complete() -> None:
     cfg = load_llm_config(CONFIG_PATH)
     assert cfg.monthly_budget_gbp == 5
+    assert (cfg.topup_gbp, cfg.max_topup_gbp_per_month) == (5, 20)
     assert cfg.task("story").model == "claude-opus-5-5"
     assert cfg.task("recipe").model == "claude-sonnet-5-5"
     assert cfg.task("discovery").model == "claude-haiku-5-5"
@@ -163,6 +164,22 @@ def test_budget_guard_blocks_before_any_request() -> None:
     assert sdk.requests == []
     blocked = [r for r in repo.llm_calls.values() if r["status"] == "budget_blocked"]
     assert len(blocked) == 1 and blocked[0]["estimated_cost"] == 0
+
+
+def test_this_months_top_ups_raise_the_budget_up_to_the_cap() -> None:
+    repo = MemRepo()
+    repo.insert_llm_call({"task": "story", "model": "m", "status": "ok", "estimated_cost": 5.0})
+    this_month, last_month = NOW.date().replace(day=1), date(2026, 9, 1)
+    repo.llm_topups += [(last_month, 5.0)]  # an old top-up never carries over
+    with pytest.raises(BudgetReached):
+        call(client(FakeSDK(response()), repo))
+    repo.llm_topups += [(this_month, 5.0)]
+    c = client(FakeSDK(response()), repo)
+    assert c.budget().budget_gbp == 10.0
+    assert call(c).value == {"ok": True}
+    repo.llm_topups += [(this_month, 5.0)] * 10  # far past the cap
+    cap = load_llm_config().max_topup_gbp_per_month
+    assert client(FakeSDK(), repo).budget().budget_gbp == 5.0 + cap
 
 
 def test_last_months_spend_does_not_count() -> None:

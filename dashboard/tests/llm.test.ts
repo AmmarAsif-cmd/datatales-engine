@@ -7,6 +7,7 @@ import { test } from "node:test";
 import {
   BudgetReached,
   budgetStatus,
+  nextTopup,
   callClaude,
   costGbp,
   InvalidOutput,
@@ -207,4 +208,22 @@ test("narration schema: claims last, same order as the worker, no union fields",
           Object.values(n).reduce((a: number, v) => a + unions(v), 0)
         : 0;
   assert.equal(unions(schema), 0);
+});
+
+test("top-ups raise this month's budget up to the cap", async () => {
+  const cfg = { ...LLM_CONFIG, monthly_budget_gbp: 5, topup_gbp: 5, max_topup_gbp_per_month: 20 };
+  const log = (spent: number, topups: number) => ({
+    insert: async () => "x",
+    update: async () => {},
+    spendSince: async () => ({ spent, calls: 1 }),
+    topupsSince: async () => topups,
+  });
+  const none = await budgetStatus(log(4.89, 0), NOW, cfg);
+  assert.deepEqual([none.budget, none.reached, none.nextTopup], [5, false, 5]);
+  const one = await budgetStatus(log(5.2, 5), NOW, cfg);
+  assert.deepEqual([one.budget, one.reached, one.topups, one.nextTopup], [10, false, 5, 5]);
+  const capped = await budgetStatus(log(30, 35), NOW, cfg);
+  assert.deepEqual([capped.budget, capped.reached, capped.nextTopup], [25, true, 0]);
+  assert.equal(nextTopup(cfg, 17), 3); // only what is left of the cap
+  assert.equal(nextTopup({ ...cfg, topup_gbp: 0 }, 0), 0); // button off
 });

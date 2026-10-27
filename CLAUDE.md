@@ -201,6 +201,7 @@ npm run dev | npm run build | npm run check | npm run lint | npm run format
 - `recipes` gained (migration 0004) `status`, `drafted_by`, `dataset_id`, `test_report`, `reject_note`; approval requires `status = 'ready'`. Migration 0006 added `detect_spec` (drafted detector settings for a new source).
 - `stories` gained (migration 0003) status `failed`, `drafted_by` (claude|manual), `candidate_key`, `data_version`, `draft_note`.
 - `llm_calls` (migration 0002): one row per Claude call or blocked attempt; statuses reserved/ok/error/invalid_output/budget_blocked; `estimated_cost` in GBP.
+- `llm_budget_topups` (migration 0007, user 2026-10-27): dashboard "Add £5 this month" rows (`month`, `step`, `amount_gbp`, `added_by`; unique (month, step) so concurrent clicks cannot overshoot). Budget = `monthly_budget_gbp` + this month's top-ups capped at `max_topup_gbp_per_month` (`llm.month_budget` / TS `budgetStatus`, both treat a missing table as 0).
 - DB-level rule: a story cannot be `approved`/`published` unless `verify_status = 'passed'`.
 - Config is read by `datatales.config.load_settings()` (env vars override `worker/.env`). The key is a `SecretStr`, so never call `get_secret_value()` except when creating the client.
 

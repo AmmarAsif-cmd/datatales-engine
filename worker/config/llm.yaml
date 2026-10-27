@@ -7,6 +7,10 @@
 # checked 2026-10-11). Thinking tokens are billed as output tokens.
 
 monthly_budget_gbp: 5
+# Dashboard "Add £5 this month" button (table llm_budget_topups, migration 0007): each
+# click adds topup_gbp for the current calendar month only, up to max_topup_gbp_per_month.
+topup_gbp: 5
+max_topup_gbp_per_month: 20
 usd_to_gbp: 0.79 # update now and then; only used to estimate spend in GBP
 
 tasks:

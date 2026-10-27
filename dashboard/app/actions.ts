@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { AccessDenied, requireUser } from "@/lib/access";
 import { db } from "@/lib/db";
 import { dispatch, WORKFLOWS } from "@/lib/github";
+import { LLM_CONFIG, monthStart, nextTopup } from "@/lib/logic/llm.ts";
 import type { VerifyReport } from "@/lib/types";
 import {
   draftWithClaude,
@@ -230,5 +231,41 @@ export async function runPipeline(): Promise<ActionState> {
   return guarded(async () => {
     await dispatch(WORKFLOWS.pipeline);
     return { ok: true, message: "Pipeline started. Progress shows under Jobs and Automation runs." };
+  });
+}
+
+/** "Add £5 this month": one llm_budget_topups row for the current UTC month, within the
+ * monthly cap from llm.yaml. The unique (month, step) pair stops two clicks at once from
+ * both being counted. */
+export async function addBudgetTopUp(): Promise<ActionState> {
+  return guarded(async () => {
+    const user = await requireUser();
+    const month = monthStart(new Date()).toISOString().slice(0, 10);
+    const { data, error } = await db().from("llm_budget_topups").select("step, amount_gbp").eq("month", month);
+    if (error) {
+      if (/llm_budget_topups/.test(error.message)) {
+        return {
+          ok: false,
+          message: "Run supabase/migrations/0007_budget_topups.sql in the Supabase SQL Editor first.",
+        };
+      }
+      throw new Error(error.message);
+    }
+    const rows = (data ?? []) as { step: number; amount_gbp: number | string }[];
+    const added = rows.reduce((s, r) => s + Number(r.amount_gbp), 0);
+    const amount = nextTopup(LLM_CONFIG, added);
+    if (amount <= 0) {
+      return { ok: false, message: "This month's top-up limit is used up. The budget resets on the 1st." };
+    }
+    const step = rows.reduce((m, r) => Math.max(m, r.step), 0) + 1;
+    const { error: insertError } = await db()
+      .from("llm_budget_topups")
+      .insert({ month, step, amount_gbp: amount, added_by: user.email.slice(0, 200) });
+    if (insertError) {
+      if (insertError.code === "23505") return { ok: false, message: "A top-up was just added. Refresh the page." };
+      throw new Error(insertError.message);
+    }
+    revalidatePath("/", "layout");
+    return { ok: true, message: `Added £${amount.toFixed(2)} to this month's Claude budget.` };
   });
 }

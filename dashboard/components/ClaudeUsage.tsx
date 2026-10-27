@@ -1,7 +1,13 @@
+import BudgetTopUp from "@/components/BudgetTopUp";
 import { claudeBudget, claudeConfigured } from "@/lib/llm";
+import { LLM_CONFIG } from "@/lib/logic/llm.ts";
 
 /** This month's Claude API spend vs budget (from llm_calls), with a banner when reached. */
-export default async function ClaudeUsage({ compact = false }: { compact?: boolean }) {
+export default async function ClaudeUsage({
+  compact = false,
+}: {
+  compact?: boolean;
+}) {
   let status;
   try {
     status = await claudeBudget();
@@ -18,19 +24,34 @@ export default async function ClaudeUsage({ compact = false }: { compact?: boole
       </div>
     );
   }
-  const pct = status.budget ? Math.min(100, (status.spent / status.budget) * 100) : 100;
+  const pct = status.budget
+    ? Math.min(100, (status.spent / status.budget) * 100)
+    : 100;
+  const cap = LLM_CONFIG.max_topup_gbp_per_month ?? 0;
+  const topUp =
+    status.nextTopup > 0 && pct >= 80 ? (
+      <BudgetTopUp amount={status.nextTopup} cap={cap} />
+    ) : null;
   if (compact) {
     // story pages: only speak up when Claude cannot draft
     if (status.reached) {
       return (
-        <p className="msg bad" role="alert">
-          Monthly Claude budget reached (£{status.spent.toFixed(2)} of £{status.budget.toFixed(2)}). Use Copy prompt /
-          Paste result until next month.
-        </p>
+        <div className="msg bad" role="alert">
+          <p>
+            Monthly Claude budget reached (£{status.spent.toFixed(2)} of £
+            {status.budget.toFixed(2)}).{" "}
+            {status.nextTopup > 0 ? "Add more below, or use" : "Use"} Copy
+            prompt / Paste result until next month.
+          </p>
+          {topUp}
+        </div>
       );
     }
     return claudeConfigured() ? null : (
-      <p className="msg bad">ANTHROPIC_API_KEY is not set on this Worker: use Copy prompt / Paste result.</p>
+      <p className="msg bad">
+        ANTHROPIC_API_KEY is not set on this Worker: use Copy prompt / Paste
+        result.
+      </p>
     );
   }
   return (
@@ -38,21 +59,40 @@ export default async function ClaudeUsage({ compact = false }: { compact?: boole
       <h2 className="first">Claude API</h2>
       {status.reached && (
         <p className="msg bad" role="alert">
-          Monthly budget reached. Automatic drafting is paused until next month; use Copy prompt / Paste
-          result instead (or raise <code>monthly_budget_gbp</code> in worker/config/llm.yaml).
+          Monthly budget reached. Automatic drafting is paused until next month
+          or until you add more below; meanwhile use Copy prompt / Paste result.
         </p>
       )}
       {!claudeConfigured() && (
-        <p className="msg bad">ANTHROPIC_API_KEY is not set on this Worker: Claude buttons will fall back to copy-paste.</p>
+        <p className="msg bad">
+          ANTHROPIC_API_KEY is not set on this Worker: Claude buttons will fall
+          back to copy-paste.
+        </p>
       )}
       <p>
-        <b>£{status.spent.toFixed(2)}</b> of £{status.budget.toFixed(2)} this month · {status.calls} call
+        <b>£{status.spent.toFixed(2)}</b> of £{status.budget.toFixed(2)} this
+        month · {status.calls} call
         {status.calls === 1 ? "" : "s"}
+        {status.topups > 0 && (
+          <span className="muted">
+            {" "}
+            (includes £{status.topups.toFixed(2)} added this month)
+          </span>
+        )}
       </p>
-      <div className="meter" aria-label={`${pct.toFixed(0)}% of the monthly budget used`}>
-        <span style={{ width: `${pct}%` }} className={status.reached ? "full" : pct > 80 ? "high" : ""} />
+      <div
+        className="meter"
+        aria-label={`${pct.toFixed(0)}% of the monthly budget used`}
+      >
+        <span
+          style={{ width: `${pct}%` }}
+          className={status.reached ? "full" : pct > 80 ? "high" : ""}
+        />
       </div>
-      <p className="small muted">Estimated from token usage logged in llm_calls (UTC calendar month).</p>
+      {topUp}
+      <p className="small muted">
+        Estimated from token usage logged in llm_calls (UTC calendar month).
+      </p>
     </div>
   );
 }

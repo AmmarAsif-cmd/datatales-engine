@@ -12,6 +12,8 @@ type Prices = { input: number; output: number; cache_write: number; cache_read: 
 type ModelPrices = Prices & { long_context_over?: number; long?: Prices };
 export type LLMConfig = {
   monthly_budget_gbp: number;
+  topup_gbp?: number;
+  max_topup_gbp_per_month?: number;
   usd_to_gbp: number;
   tasks: Record<string, { model: string; max_tokens: number; effort: string }>;
   pricing: Record<string, ModelPrices>;
@@ -28,6 +30,8 @@ export type LlmLog = {
   insert(row: Record<string, unknown>): Promise<string>;
   update(id: string, fields: Record<string, unknown>): Promise<void>;
   spendSince(since: Date): Promise<{ spent: number; calls: number }>;
+  /** GBP added on the dashboard for the month starting `since` (llm_budget_topups). */
+  topupsSince?(since: Date): Promise<number>;
 };
 
 type ContentBlock = { type: string; text?: string };
@@ -78,11 +82,30 @@ export function costGbp(cfg: LLMConfig, model: string, u: Usage): number {
   return round6(usd * cfg.usd_to_gbp);
 }
 
-export type BudgetStatus = { budget: number; spent: number; calls: number; reached: boolean };
+export type BudgetStatus = {
+  budget: number;
+  spent: number;
+  calls: number;
+  reached: boolean;
+  /** Added this month with the top-up button (already included in `budget`). */
+  topups: number;
+  /** GBP the next click would add; 0 when the button is off or this month's cap is used up. */
+  nextTopup: number;
+};
+
+/** The next top-up: `topup_gbp`, or less when only part of the monthly cap is left. Mirrors
+ * the cap in worker/datatales/llm.py month_budget. */
+export function nextTopup(cfg: LLMConfig, topups: number): number {
+  const left = (cfg.max_topup_gbp_per_month ?? 0) - topups;
+  return Math.max(0, Math.round(Math.min(cfg.topup_gbp ?? 0, left) * 100) / 100);
+}
 
 export async function budgetStatus(log: LlmLog, now: Date, cfg: LLMConfig = LLM_CONFIG): Promise<BudgetStatus> {
-  const { spent, calls } = await log.spendSince(monthStart(now));
-  return { budget: cfg.monthly_budget_gbp, spent: round6(spent), calls, reached: spent >= cfg.monthly_budget_gbp };
+  const month = monthStart(now);
+  const [{ spent, calls }, added] = await Promise.all([log.spendSince(month), log.topupsSince?.(month) ?? 0]);
+  const topups = Math.min(added, cfg.max_topup_gbp_per_month ?? 0);
+  const budget = Math.round((cfg.monthly_budget_gbp + topups) * 100) / 100;
+  return { budget, spent: round6(spent), calls, reached: spent >= budget, topups, nextTopup: nextTopup(cfg, topups) };
 }
 
 export type CallArgs<T> = {

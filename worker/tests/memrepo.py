@@ -2,7 +2,7 @@
 
 import uuid
 from dataclasses import replace
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from datatales.repo import (
@@ -26,6 +26,7 @@ class MemRepo:
         self.objects: dict[tuple[str, str], tuple[bytes, str]] = {}
         self.jobs: dict[str, dict[str, Any]] = {}
         self.llm_calls: dict[str, dict[str, Any]] = {}
+        self.llm_topups: list[tuple[date, float]] = []  # (month, amount_gbp)
         self.backlog: dict[str, dict[str, Any]] = {}
         self.findings: dict[str, dict[str, Any]] = {}
         self.stories: dict[str, dict[str, Any]] = {}
@@ -266,6 +267,9 @@ class MemRepo:
         rows = [r for r in self.llm_calls.values() if r["created_at"] >= since]
         spent = sum(float(r.get("estimated_cost") or 0) for r in rows)
         return spent, sum(1 for r in rows if r["status"] in ("ok", "invalid_output"))
+
+    def llm_topups_since(self, since: datetime) -> float:
+        return sum(a for month, a in self.llm_topups if month >= since.date())
 
     def list_llm_calls(self, since: datetime) -> list[dict[str, Any]]:
         return [dict(r) for r in self.llm_calls.values() if r["created_at"] >= since]

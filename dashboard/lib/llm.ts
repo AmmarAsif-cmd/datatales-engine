@@ -37,6 +37,17 @@ export const supabaseLlmLog: LlmLog = {
       calls: rows.filter((r) => r.status === "ok" || r.status === "invalid_output").length,
     };
   },
+  async topupsSince(since) {
+    const { data, error } = await db()
+      .from("llm_budget_topups")
+      .select("amount_gbp")
+      .gte("month", since.toISOString().slice(0, 10));
+    if (error) {
+      if (/llm_budget_topups/.test(error.message)) return 0; // migration 0007 not run yet
+      throw new LLMError(error.message);
+    }
+    return ((data ?? []) as { amount_gbp: number | string }[]).reduce((s, r) => s + Number(r.amount_gbp), 0);
+  },
 };
 
 /** The key lives only in the Worker secret (or .dev.vars locally) and in this module. */

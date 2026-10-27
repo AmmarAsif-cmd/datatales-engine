@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
 
+from postgrest.exceptions import APIError
 from supabase import Client
 
 from datatales.sources import SourceDef
@@ -118,6 +119,7 @@ class Repo(Protocol):
     def insert_llm_call(self, row: dict[str, Any]) -> str: ...
     def update_llm_call(self, call_id: str, fields: dict[str, Any]) -> None: ...
     def llm_spend_since(self, since: datetime) -> tuple[float, int]: ...
+    def llm_topups_since(self, since: datetime) -> float: ...
     def list_llm_calls(self, since: datetime) -> list[dict[str, Any]]: ...
     def list_backlog(self, status: str | None = None) -> list[dict[str, Any]]: ...
     def insert_backlog(self, rows: list[dict[str, Any]]) -> None: ...
@@ -444,6 +446,21 @@ class SupabaseRepo:
         spent = sum(float(r["estimated_cost"] or 0) for r in rows)
         calls = sum(1 for r in rows if r["status"] in ("ok", "invalid_output"))
         return spent, calls
+
+    def llm_topups_since(self, since: datetime) -> float:
+        """GBP added to this month's budget on the dashboard (0 before migration 0007)."""
+        try:
+            res = (
+                self.db.table("llm_budget_topups")
+                .select("amount_gbp")
+                .gte("month", since.date().isoformat())
+                .execute()
+            )
+        except APIError as exc:
+            if "llm_budget_topups" in str(exc):  # table not created yet
+                return 0.0
+            raise
+        return sum(float(r["amount_gbp"]) for r in res.data or [])
 
     def list_llm_calls(self, since: datetime) -> list[dict[str, Any]]:
         res = (

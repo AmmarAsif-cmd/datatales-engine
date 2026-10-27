@@ -92,6 +92,8 @@ class TaskConfig(BaseModel):
 class LLMConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     monthly_budget_gbp: float = Field(ge=0)
+    topup_gbp: float = Field(default=0, ge=0, le=50)  # 0 = no top-up button
+    max_topup_gbp_per_month: float = Field(default=0, ge=0, le=200)
     usd_to_gbp: float = Field(gt=0)
     tasks: dict[str, TaskConfig]
     pricing: dict[str, ModelPrices]
@@ -229,6 +231,12 @@ class BudgetStatus:
         return max(0.0, self.budget_gbp - self.spent_gbp)
 
 
+def month_budget(config: LLMConfig, repo: Repo, month: datetime) -> float:
+    """Base monthly budget plus this month's dashboard top-ups (capped)."""
+    extra = min(repo.llm_topups_since(month), config.max_topup_gbp_per_month)
+    return round(config.monthly_budget_gbp + extra, 2)
+
+
 class LLMClient:
     def __init__(
         self,
@@ -254,8 +262,9 @@ class LLMClient:
         return self._client
 
     def budget(self) -> BudgetStatus:
-        spent, calls = self.repo.llm_spend_since(month_start(self._now()))
-        return BudgetStatus(self.config.monthly_budget_gbp, round(spent, 6), calls)
+        month = month_start(self._now())
+        spent, calls = self.repo.llm_spend_since(month)
+        return BudgetStatus(month_budget(self.config, self.repo, month), round(spent, 6), calls)
 
     def call[T](
         self,

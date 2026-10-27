@@ -17,6 +17,7 @@ EXPECTED_TABLES = (
     "jobs",
     "llm_calls",
     "dataset_backlog",
+    "llm_budget_topups",
 )
 EXPECTED_BUCKETS = ("raw", "clean")
 

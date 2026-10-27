@@ -73,17 +73,18 @@ def cmd_llm_report(args: argparse.Namespace) -> int:
     """Actual Claude cost from llm_calls, by task and model."""
     from datetime import UTC, datetime, timedelta
 
-    from datatales.llm import load_llm_config, month_start
+    from datatales.llm import load_llm_config, month_budget, month_start
     from datatales.llmreport import build_report, format_report
 
+    repo = _repo()
     now = datetime.now(UTC)
     if args.days:
         since, period = now - timedelta(days=args.days), f"last {args.days} day(s)"
         budget = None
     else:
         since, period = month_start(now), f"{now:%B %Y} so far"
-        budget = load_llm_config().monthly_budget_gbp
-    report = build_report(_repo().list_llm_calls(since))
+        budget = month_budget(load_llm_config(), repo, since)
+    report = build_report(repo.list_llm_calls(since))
     print(format_report(report, period, budget))
     return 0
 

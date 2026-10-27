@@ -171,9 +171,12 @@ logged, and work carries on without Claude:
 - Recipes are not drafted. Use `recipe-prompt` and copy-paste instead, or wait until next month.
 - Stories are still created, but wait for **Copy prompt / Paste result** on the dashboard.
 
-The dashboard shows a red banner. You can wait for the 1st of the month (UTC), or raise
-`monthly_budget_gbp` as described above. To be safe, also set a hard spending limit in the
-Anthropic Console.
+The dashboard shows a red banner. You can wait for the 1st of the month (UTC), click
+**Add £5 this month** (shown on the Claude API panel from 80% used), or raise
+`monthly_budget_gbp` as described above. Top-ups (`topup_gbp`, capped at
+`max_topup_gbp_per_month` in `worker/config/llm.yaml`) count for the current month only, for
+the dashboard and the pipeline alike; they are stored in `llm_budget_topups` (migration 0007).
+To be safe, also set a hard spending limit in the Anthropic Console.
 
 ### Rotating `ANTHROPIC_API_KEY`
 
