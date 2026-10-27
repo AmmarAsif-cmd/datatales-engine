@@ -15,3 +15,35 @@ fetch:
   file_match: older-people-economic-activity
   format: CSV
 backlog_id: c3eb6e7b-8bbe-471d-a38b-269287829aab
+detect:
+  group: area
+  group_code: area_code
+  period: year
+  value: value
+  precision_pct: 5.0
+  slice_by:
+  - measure
+  - sex
+  - geo_level
+  filters:
+    geo_level:
+    - uk
+    - country
+    - region
+  units: []
+  default_unit: '% of people aged 50-64'
+  polarity: []
+  labels:
+  - when:
+      measure:
+      - '% 50-64 economic activity'
+    label: Economic activity rate, ages 50-64
+  - when:
+      measure:
+      - '% 50-64 employment rate'
+    label: Employment rate, ages 50-64
+  default_higher_is_better: true
+  min_groups_rank: 3
+  min_groups_outlier: 5
+  outlier_z: 2.5
+  top_n: 20

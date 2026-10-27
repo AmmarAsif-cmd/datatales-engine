@@ -1,0 +1,105 @@
+# Approved by Ammar Asif at 2026-10-27T11:40:42.775966+00:00.
+# Do not edit: approved recipes are immutable. Import a new version instead.
+source: local-authority-ageing-statistics-older-people-economic-acti
+version: 1
+description: 'ONS local authority ageing statistics: employment rate and economic activity rate (percentage
+  of people aged 50-64) by local authority, sex and calendar year (2019). Slug/code duplicate columns
+  are dropped in favour of the human-readable labels; the geography code is kept. The ''Data Marking''
+  column holds the suppression marker x, and those values are null in the value column. Each row is a
+  percentage rate, so no share_of_total is needed (there is no Total category row).'
+steps:
+- op: drop_columns
+  columns:
+  - calendar-years
+  - sex
+  - economic-activity
+  - Data Marking
+- op: rename_columns
+  mapping:
+    Sex: sex
+    Time: year
+    V4_1: value
+    Geography: area
+    EconomicActivity: measure
+    administrative-geography: area_code
+- op: drop_rows_where
+  where:
+    column: area_code
+    op: eq
+    value: '[z]'
+- op: parse_number
+  columns:
+  - value
+  markers:
+  - x
+  - '[x]'
+- op: classify_prefix
+  column: area_code
+  into: geo_level
+  mapping:
+    E06: local_authority
+    E07: local_authority
+    E08: local_authority
+    E09: local_authority
+    E10: county
+    E11: metropolitan_county
+    E12: region
+    E13: london_inner_outer
+    E92: country
+    K02: uk
+    K03: great_britain
+    N09: local_authority
+    N92: country
+    S12: local_authority
+    S92: country
+    W06: local_authority
+    W92: country
+  default: other
+- op: cast
+  columns:
+    year: int
+- op: select_columns
+  columns:
+  - area_code
+  - area
+  - geo_level
+  - year
+  - sex
+  - measure
+  - value
+- op: sort
+  by:
+  - area_code
+  - measure
+  - sex
+checks:
+  expected_columns:
+  - area_code
+  - area
+  - geo_level
+  - year
+  - sex
+  - measure
+  - value
+  row_count:
+    min: 2000
+    max: 2600
+  not_null:
+  - area_code
+  - area
+  - geo_level
+  - year
+  - sex
+  - measure
+  unique:
+  - area_code
+  - year
+  - sex
+  - measure
+  ranges:
+    year:
+      min: 2019.0
+      max: 2019.0
+    value:
+      min: 0.0
+      max: 100.0
