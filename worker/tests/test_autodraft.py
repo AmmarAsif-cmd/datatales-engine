@@ -4,10 +4,26 @@ import json
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 from datatales import autodraft, stories
 from datatales.llm import LLMClient, load_llm_config
 from tests.memrepo import MemRepo
 from tests.test_stories import repo_ct, riser_reply  # noqa: F401  (fixture re-export)
+
+# The FAKE fixture data is from 2011-12 to 2014-15: most tests switch the quality rules off.
+LENIENT = autodraft.StoryRules(
+    min_periods=1,
+    max_data_age_years=100,
+    max_new_drafts_per_run=5,
+    covered_days=0,
+    distinct_series=False,
+)
+
+
+@pytest.fixture(autouse=True)
+def lenient_rules(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(autodraft, "load_story_rules", lambda: LENIENT)
 
 
 def sdk_reply(payload: dict[str, Any] | str) -> SimpleNamespace:
@@ -334,3 +350,59 @@ def test_good_redraft_replaces_verified_text(repo_ct: tuple[MemRepo, str]) -> No
         repo, llm(repo, FakeSDK(sdk_reply(better))), story["id"], lambda _m: None
     )
     assert out.status == "passed" and repo.get_story(story["id"])["drafted_by"] == "claude"
+
+
+# ---- quality and variety rules (config/stories.yaml) ----
+
+
+def test_old_or_short_data_gets_no_drafts(repo_ct: tuple[MemRepo, str]) -> None:  # noqa: F811
+    repo, ct = repo_ct
+    logs: list[str] = []
+    strict = LENIENT.model_copy(update={"max_data_age_years": 3})
+    out = autodraft.auto_draft_clean_table(repo, ct, logs.append, None, rules=strict)
+    assert out.outcomes == [] and repo.list_stories() == []
+    assert "too old to be news" in logs[-1]
+    short = LENIENT.model_copy(update={"min_periods": 50})
+    autodraft.auto_draft_clean_table(repo, ct, logs.append, None, rules=short)
+    assert "a story needs at least 50" in logs[-1]
+
+
+def test_drafts_per_run_are_capped(repo_ct: tuple[MemRepo, str]) -> None:  # noqa: F811
+    repo, ct = repo_ct
+    picks = stories.candidates_for(repo, ct)
+    assert len(picks) >= 2
+    one = LENIENT.model_copy(update={"max_new_drafts_per_run": 1})
+    out = autodraft.auto_draft_clean_table(repo, ct, lambda _m: None, None, rules=one)
+    assert len(repo.list_stories()) == 1
+    assert [o.status for o in out.outcomes].count("skipped") == len(picks) - 1
+
+
+def test_never_drafted_stories_are_drafted_once_claude_is_back(
+    repo_ct: tuple[MemRepo, str],  # noqa: F811
+) -> None:
+    repo, ct = repo_ct
+    autodraft.auto_draft_clean_table(repo, ct, lambda _m: None, None)  # no key: empty drafts
+    waiting = repo.list_stories()
+    assert waiting and all(s["verify_status"] == "pending" for s in waiting)
+    probe = repo.get_story(waiting[-1]["id"])
+    sdk = FakeSDK(sdk_reply(riser_reply(probe)))
+    again = autodraft.auto_draft_clean_table(repo, ct, lambda _m: None, llm(repo, sdk))
+    assert sdk.requests and "skipped" not in {o.status for o in again.outcomes}
+    assert all(repo.get_story(s["id"])["drafted_by"] == "claude" for s in waiting)
+
+
+def test_an_angle_already_published_is_not_drafted_again(
+    repo_ct: tuple[MemRepo, str],  # noqa: F811
+) -> None:
+    repo, ct = repo_ct
+    story = stories.create_story(repo, ct, 1)
+    stories.paste_narration(repo, story["id"], json.dumps(riser_reply(story)))
+    repo.update_story(story["id"], {"status": "published", "published_at": "2026-11-02T09:00:00Z"})
+    published = repo.get_story(story["id"])
+    series = autodraft._series_of(published)
+    rules = LENIENT.model_copy(update={"covered_days": 180})
+    out = autodraft.auto_draft_clean_table(repo, ct, lambda _m: None, None, rules=rules)
+    same = [o for o in out.outcomes if "already covered" in o.detail]
+    assert same and all(story["id"] in o.detail for o in same)
+    others = [s for s in repo.list_stories() if s["id"] != story["id"]]
+    assert all(autodraft._series_of(repo.get_story(s["id"])) != series for s in others)

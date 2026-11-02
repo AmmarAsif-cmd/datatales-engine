@@ -1,0 +1,16 @@
+# Quality and variety rules for automatic story drafting (worker/datatales/autodraft.py).
+# They decide which candidates get a Claude draft; nothing here changes a story's numbers.
+
+# A trend, not a snapshot: the table must have at least this many time points.
+min_periods: 3
+# Old data makes old news: skip tables whose latest data is from more than this many years ago
+# (by the year in the period labels, e.g. 2019 or 2022-23).
+max_data_age_years: 3
+# Variety: at most this many new drafts per dataset in one pipeline run...
+max_new_drafts_per_run: 2
+# ...and never a second story on the same angle (same dataset and series, e.g. "petrol hybrid
+# share of private cars") while one is published or approved from the last this many days.
+covered_days: 180
+# Within one run, at most one draft per series (e.g. not London AND Scotland on the same
+# petrol hybrid share); the other places come up in later runs if still newsworthy.
+distinct_series: true

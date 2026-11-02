@@ -292,6 +292,22 @@ RANK_CASES: list[dict[str, Any]] = [
         "fields": {"body_md": "All areas fell in 2020-21. Overall it was small."},
         "claims": [],
     },
+    {  # everyday "only"/"all" make no ranking claim (real failures, 2026-10/11)
+        "name": "rank_everyday_only_all",
+        "fields": {
+            "body_md": "It covers only men. Employment counts only people in work, not only "
+            "those looking. Prices and policy may all play a part."
+        },
+        "claims": [],
+    },
+    {  # ...but ranking phrases still need a check
+        "name": "rank_phrases_still_count",
+        "fields": {
+            "body_md": "North was the only one to rise. Only one region fell. All nine regions "
+            "rose. In all the UK nations it rose. It is the only region above 40."
+        },
+        "claims": [],
+    },
     {
         "name": "rank_words_mixed_case",
         "fields": {"summary": "The LARGEST rise and the Lowest score."},

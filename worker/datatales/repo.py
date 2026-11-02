@@ -5,7 +5,7 @@ tests/memrepo.py and never touch the network.
 """
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, Protocol
 
 from postgrest.exceptions import APIError
@@ -65,6 +65,20 @@ STORY_LIST_COLUMNS = (
     "id, slug, headline, status, verify_status, updated_at, candidate_key, data_version, "
     "finding_ids, numbers, draft_note, drafted_by"
 )
+
+
+# A `reserved` llm_calls row holds a call's worst-case cost while it runs. One still reserved
+# after this long was cut off (e.g. a timed-out web request) and no longer counts.
+STALE_RESERVATION = timedelta(minutes=30)
+
+
+def stale_reservation(row: dict[str, Any], now: datetime | None = None) -> bool:
+    if row.get("status") != "reserved":
+        return False
+    created = row["created_at"]
+    if isinstance(created, str):
+        created = datetime.fromisoformat(created)
+    return (now or datetime.now(UTC)) - created > STALE_RESERVATION
 
 
 class Repo(Protocol):
@@ -438,11 +452,11 @@ class SupabaseRepo:
         """(GBP spent or reserved since `since`, number of completed calls)."""
         res = (
             self.db.table("llm_calls")
-            .select("estimated_cost,status")
+            .select("estimated_cost,status,created_at")
             .gte("created_at", since.isoformat())
             .execute()
         )
-        rows = res.data or []
+        rows = [r for r in res.data or [] if not stale_reservation(r)]
         spent = sum(float(r["estimated_cost"] or 0) for r in rows)
         calls = sum(1 for r in rows if r["status"] in ("ok", "invalid_output"))
         return spent, calls

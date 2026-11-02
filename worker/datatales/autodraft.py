@@ -9,14 +9,29 @@ After `detect`, each shortlisted candidate (top 5, max 2 per place) gets a story
   cached; numbers and chart data as untrusted data). The reply is validated strictly and the
   full verifier runs (numbers, claims, rank words, chart titles).
 * Verification failed -> one retry with the verify report -> else status `failed`, with the
-  report on the story. Budget reached or no key -> the draft waits for copy-paste.
+  report on the story. Budget reached or no key -> the draft waits for copy-paste; a later
+  run drafts it once Claude is available again.
+* Quality and variety (config/stories.yaml): a table needs a trend (>= min_periods time
+  points) and recent data (latest year within max_data_age_years); at most
+  max_new_drafts_per_run drafts per dataset per run; no second story on an angle (same
+  dataset and series) that is already published or approved.
 """
 
+import io
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pandas as pd
+import yaml
+from pydantic import BaseModel, ConfigDict, Field
+
+from datatales.candidates import measure_of
+from datatales.config import WORKER_DIR
+from datatales.detect.prepare import prepare
 from datatales.llm import BudgetReached, InvalidOutput, LLMClient, LLMError, untrusted
 from datatales.narrate import (
     STORY_REQUEST,
@@ -26,7 +41,8 @@ from datatales.narrate import (
     normalise_api_reply,
     parse_narration,
 )
-from datatales.repo import Repo
+from datatales.repo import CleanTable, Repo
+from datatales.sources import get_source
 from datatales.stories import (
     StoryError,
     apply_narration,
@@ -54,6 +70,86 @@ NOTE_FAILED = (
     "Claude's draft failed verification twice. The report shows what to fix; edit and "
     "re-verify, regenerate, or use Copy prompt / Paste result."
 )
+
+
+RULES_PATH = WORKER_DIR / "config" / "stories.yaml"
+YEAR = re.compile(r"(?<!\d)((?:19|20)\d{2})(?!\d)")
+
+
+class StoryRules(BaseModel):
+    """config/stories.yaml: which candidates are worth a Claude draft."""
+
+    model_config = ConfigDict(extra="forbid")
+    min_periods: int = Field(3, ge=1)
+    max_data_age_years: int = Field(3, ge=1)
+    max_new_drafts_per_run: int = Field(2, ge=1, le=5)
+    covered_days: int = Field(180, ge=0)
+    distinct_series: bool = True  # one draft per series (angle) per dataset per run
+
+
+def load_story_rules() -> StoryRules:
+    return StoryRules.model_validate(yaml.safe_load(RULES_PATH.read_text(encoding="utf-8")))
+
+
+def table_gate(
+    repo: Repo, ct: CleanTable, slug: str, rules: StoryRules, today: datetime | None = None
+) -> str | None:
+    """Why this clean table should get no drafts at all (None = fine): too few time points
+    for a trend, or data too old to be news."""
+    source = get_source(slug)
+    if source.detect is None or not ct.parquet_path:
+        return None
+    clean = pd.read_parquet(io.BytesIO(repo.get_object("clean", ct.parquet_path)))
+    frame, _ = prepare(clean, source.detect)
+    labels = sorted({str(v) for v in frame["period_label"].unique()})
+    if len(labels) < rules.min_periods:
+        shown = ", ".join(labels[:3])
+        return (
+            f"the data has {len(labels)} time point(s) ({shown}); a story needs at least "
+            f"{rules.min_periods} to show a trend"
+        )
+    years = [int(y) for label in labels for y in YEAR.findall(label)]
+    year_now = (today or datetime.now(UTC)).year
+    if years and max(years) < year_now - rules.max_data_age_years:
+        return f"the latest data is from {max(years)}, too old to be news"
+    return None
+
+
+def _undrafted(story: dict[str, Any]) -> bool:
+    """A draft that never got text (budget reached or no key at the time)."""
+    return (
+        story.get("status") == "draft"
+        and story.get("verify_status") == "pending"
+        and not story.get("drafted_by")
+    )
+
+
+def _series_of(story: dict[str, Any]) -> str | None:
+    findings = (story.get("numbers") or {}).get("findings") or []
+    return measure_of(findings[0]) if findings else None
+
+
+def covered_angles(
+    stories: list[dict[str, Any]],
+    keys: dict[str, str],
+    rules: StoryRules,
+    now: datetime | None = None,
+) -> dict[tuple[str, str], str]:
+    """(source, series) -> id of a published/approved story on that angle, recent enough."""
+    since = (now or datetime.now(UTC)) - timedelta(days=rules.covered_days)
+    out: dict[tuple[str, str], str] = {}
+    for s in stories:
+        if s.get("status") not in ("published", "approved"):
+            continue
+        updated = s.get("updated_at")
+        if isinstance(updated, str):
+            updated = datetime.fromisoformat(updated)
+        if updated is not None and updated < since:
+            continue
+        series, key = _series_of(s), keys.get(s["id"])
+        if series and key:
+            out.setdefault((key.split("|", 1)[0], series), s["id"])
+    return out
 
 
 @dataclass
@@ -187,31 +283,61 @@ def auto_draft_clean_table(
     clean_table_id: str,
     log: Callable[[str], None] = print,
     llm: LLMClient | None = None,
+    rules: StoryRules | None = None,
 ) -> AutoDraftSummary:
     """Create and draft stories for the shortlist of one clean table (see module docstring)."""
     summary = AutoDraftSummary()
+    rules = rules or load_story_rules()
     ct = repo.get_clean_table(clean_table_id)
     slug = repo.get_dataset(ct.dataset_id).source_slug
+    gate = table_gate(repo, ct, slug, rules)
+    if gate:
+        log(f"No story drafts for {slug}: {gate}")
+        return summary
+    stories_list = repo.list_stories(limit=500)
+    keys: dict[str, str] = {}
     existing: dict[str, dict[str, Any]] = {}
-    for s in repo.list_stories(limit=500):
+    for s in stories_list:
         key = _story_key(repo, s)
-        if key and key not in existing:  # list is newest first
-            existing[key] = s
+        if key:
+            keys[s["id"]] = key
+            existing.setdefault(key, s)  # list is newest first
+    covered = covered_angles(stories_list, keys, rules)
 
     budget_hit = False
+    drafted = 0
+    angles_this_run: set[tuple[str, str]] = set()
     for i, cand in enumerate(candidates_for(repo, clean_table_id), 1):
         key = candidate_key(slug, cand)
         label = f"[{i}] {cand.title}"
         story = existing.get(key)
+        angle = (slug, measure_of(cand.lead["numbers"]))
+        cover_id = covered.get(angle)
+        skip = ""
+        if cover_id and (story is None or story["id"] != cover_id):
+            skip = f"angle already covered by story {cover_id}"
+        elif rules.distinct_series and angle in angles_this_run:
+            skip = "same angle as another draft in this run"
+        elif drafted >= rules.max_new_drafts_per_run:
+            skip = f"{rules.max_new_drafts_per_run} drafts already made for this dataset this run"
+        if skip:
+            log(f"{label}: skipped ({skip})")
+            summary.outcomes.append(DraftOutcome(story["id"] if story else "", "skipped", skip))
+            continue
+        retry = False
         if story is not None:
             same_data = story.get("data_version") == clean_table_id or bool(
                 set(story["finding_ids"]) & set(cand.finding_ids)
             )
-            if same_data or story["status"] in ("rejected", "approved"):
+            retry = same_data and _undrafted(story) and llm is not None and not budget_hit
+            if retry:
+                log(f"{label}: drafting story {story['id']} (never drafted)")
+            elif same_data or story["status"] in ("rejected", "approved", "published"):
                 why = "same data" if same_data else f"story is {story['status']}"
                 log(f"{label}: skipped ({why}; story {story['id']})")
                 summary.outcomes.append(DraftOutcome(story["id"], "skipped", why))
                 continue
+        if story is not None and not retry:
             log(f"{label}: data changed: refreshing story {story['id']}")
             repo.update_story(
                 story["id"],
@@ -227,10 +353,12 @@ def auto_draft_clean_table(
                 log(f"{label}: could not refresh: {exc}")
                 summary.outcomes.append(DraftOutcome(story["id"], "skipped", str(exc)))
                 continue
-        else:
+        elif story is None:
             story = create_story_from_candidate(repo, clean_table_id, cand)
             log(f"{label}: new story {story['id']}")
 
+        drafted += 1
+        angles_this_run.add(angle)
         if llm is None or budget_hit:
             note = NOTE_BUDGET if budget_hit else NOTE_NO_KEY
             repo.update_story(story["id"], {"draft_note": note})

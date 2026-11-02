@@ -73,6 +73,14 @@ export function monthStart(now: Date): Date {
 
 const round6 = (v: number) => Math.round(v * 1e6) / 1e6;
 
+/** A `reserved` llm_calls row still reserved after 30 minutes was cut off (e.g. a timed-out
+ * request) and no longer counts. Mirrors repo.py stale_reservation. */
+export const STALE_RESERVATION_MS = 30 * 60 * 1000;
+export function staleReservation(row: { status: string; created_at?: string }, now: Date): boolean {
+  if (row.status !== "reserved" || !row.created_at) return false;
+  return now.getTime() - new Date(row.created_at).getTime() > STALE_RESERVATION_MS;
+}
+
 export function costGbp(cfg: LLMConfig, model: string, u: Usage): number {
   const m = cfg.pricing[model];
   if (!m) throw new LLMError(`no prices for model ${model}`);

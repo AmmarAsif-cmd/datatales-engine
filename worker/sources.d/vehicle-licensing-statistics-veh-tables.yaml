@@ -15,7 +15,7 @@ caveats:
 - Cars are counted at the registered keeper's postcode, which is not necessarily where
   the car is driven.
 - In this table DfT groups fuel as petrol, diesel, petrol hybrid and other fuel types.
-  Other fuel types covers every fuel not in the first three, including fully electric
+  Other fuel types covers every fuel apart from petrol, diesel and petrol hybrid, including fully electric
   cars; DfT publishes electric vehicles in more detail in a separate table (VEH0142).
 - The series here starts in 2014 Q3, the first quarter the table covers the whole
   UK, including Northern Ireland.

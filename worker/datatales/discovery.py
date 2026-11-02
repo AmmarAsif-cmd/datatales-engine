@@ -58,6 +58,7 @@ class DiscoveryConfig(BaseModel):
     min_score: int = Field(55, ge=0, le=100)
     max_to_score: int = Field(40, ge=1, le=100)
     recent_days: int = Field(180, ge=1)
+    max_age_days: int = Field(540, ge=30)  # any catalogue: last update at most this old
     ckan: CkanConfig
     ons: OnsConfig
     machine_readable_formats: list[str]
@@ -204,6 +205,17 @@ def is_ogl(licence: str) -> bool:
     return "uk-ogl" in lic or "open government licence" in lic or lic in ("ogl", "ogl-uk-3.0")
 
 
+def is_stale(last_updated: str | None, max_age_days: int, now: datetime | None = None) -> bool:
+    """True when the catalogue's last-updated date is older than `max_age_days` (no date: False)."""
+    if not last_updated:
+        return False
+    try:
+        when = datetime.fromisoformat(last_updated[:10]).replace(tzinfo=UTC)
+    except ValueError:
+        return False
+    return (now or datetime.now(UTC)) - when > timedelta(days=max_age_days)
+
+
 def hard_filter(
     item: Item, cfg: DiscoveryConfig, known_urls: set[str], known_titles: set[str]
 ) -> str | None:
@@ -220,6 +232,8 @@ def hard_filter(
         return "personal, individual-level or administrative data"
     if not (item.geography_levels or item.has_time_series):
         return "no time series or geographic breakdown"
+    if is_stale(item.last_updated, cfg.max_age_days):
+        return "not updated recently (old data makes old news)"
     if item.source_url in known_urls:
         return "already a source or in the backlog"
     if _norm(item.title) in known_titles:

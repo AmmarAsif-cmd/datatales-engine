@@ -99,7 +99,7 @@ def test_rank_word_needs_a_passing_check() -> None:
     assert report.claims[0]["status"] == "assertion_failed"
     assert report.claims[0]["checks"][0]["ok"] is False
     loose = verify_text({"body_md": "Highest of all."}, nums, [], CHART)
-    assert [u["text"] for u in loose.uncovered] == ["Highest", "all"]
+    assert [u["text"] for u in loose.uncovered] == ["Highest"]  # "of all" is emphasis
 
 
 def test_years_in_caveats_are_allowed() -> None:

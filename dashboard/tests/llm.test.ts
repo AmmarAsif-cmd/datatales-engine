@@ -8,6 +8,7 @@ import {
   BudgetReached,
   budgetStatus,
   nextTopup,
+  staleReservation,
   callClaude,
   costGbp,
   InvalidOutput,
@@ -226,4 +227,11 @@ test("top-ups raise this month's budget up to the cap", async () => {
   assert.deepEqual([capped.budget, capped.reached, capped.nextTopup], [25, true, 0]);
   assert.equal(nextTopup(cfg, 17), 3); // only what is left of the cap
   assert.equal(nextTopup({ ...cfg, topup_gbp: 0 }, 0), 0); // button off
+});
+
+test("a reservation left behind stops counting after 30 minutes", () => {
+  const at = (minutesAgo: number) => new Date(NOW.getTime() - minutesAgo * 60_000).toISOString();
+  assert.equal(staleReservation({ status: "reserved", created_at: at(10) }, NOW), false);
+  assert.equal(staleReservation({ status: "reserved", created_at: at(45) }, NOW), true);
+  assert.equal(staleReservation({ status: "ok", created_at: at(45) }, NOW), false);
 });

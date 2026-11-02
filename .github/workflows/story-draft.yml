@@ -1,0 +1,48 @@
+name: story-draft
+
+# Triggered by the dashboard's "Regenerate with Claude" button. Drafting (one or two Claude
+# calls of about a minute each, then the full number check) runs here rather than inside the
+# dashboard's web request, which Cloudflare cuts off after about 100 seconds.
+on:
+  workflow_dispatch:
+    inputs:
+      story_id:
+        description: Story id (uuid)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: story-draft-${{ inputs.story_id }}
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    env:
+      STORY_ID: ${{ inputs.story_id }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - name: Validate inputs
+        run: |
+          [[ "$STORY_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] \
+            || { echo "::error::story_id is not a uuid"; exit 1; }
+
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "worker/uv.lock"
+
+      - name: Draft with Claude and verify
+        working-directory: worker
+        run: |
+          uv sync --locked
+          # A draft that fails verification is a normal outcome: its report is on the story.
+          uv run python -m datatales story-draft "$STORY_ID" \
+            || echo "::warning::not verified or not drafted: see the story on the dashboard"

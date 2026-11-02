@@ -48,7 +48,28 @@ export const RANK_WORDS: Record<string, string[]> = {
   biggest: ["biggest_rise", "biggest_fall"],
   largest: ["biggest_rise", "biggest_fall"],
 };
-const RANK_SOURCE = `(?<![\\p{L}\\p{N}_])(${Object.keys(RANK_WORDS).join("|")})(?![\\p{L}\\p{N}_])`;
+// "only" and "all" are everyday words ("covers only men", "may all play a part"); they make a
+// ranking claim only in phrases about a group of places. Mirrors verify.py RANK_PHRASES.
+const GROUPS = String.raw`(?:nations?|regions?|countries|country|places?|areas?|councils?|local\s+authorit(?:y|ies)|parts?\s+of)`;
+const COUNT = String.raw`(?:\d+|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)`;
+const RANK_PHRASES = [
+  String.raw`\bthe\s+(only)\b`,
+  String.raw`\b(only)\s+(?:one|${GROUPS})\b`,
+  String.raw`\b(all)\s+(?:(?:of\s+)?the\s+)?(?:${COUNT}\s+)?(?:UK\s+)?${GROUPS}\b`,
+  String.raw`\b(highest|lowest|biggest|largest)\b`,
+];
+
+/** [rank word as written, its position] for each ranking use in `text`, in order. */
+export function rankMatches(text: string): [string, number][] {
+  const found = new Map<number, string>();
+  for (const src of RANK_PHRASES) {
+    for (const m of text.matchAll(new RegExp(src, "gid"))) {
+      const [start] = (m as RegExpMatchArray & { indices: [number, number][] }).indices[1];
+      if (!found.has(start)) found.set(start, m[1]);
+    }
+  }
+  return [...found.entries()].sort((a, b) => a[0] - b[0]).map(([i, w]) => [w, i]);
+}
 const CHECK_FIELDS = ["kind", "group", "period", "start", "end"] as const;
 
 export type Claim = { sentence: string; keys?: string[]; checks?: CheckInput[] };
@@ -420,7 +441,7 @@ function checkClaims(
         mismatched = mismatched || hit === null;
       }
       const kinds = new Set(checks.map((c) => c.kind));
-      const words = [...new Set([...sentence.matchAll(new RegExp(RANK_SOURCE, "giu"))].map((m) => m[1].toLowerCase()))].sort();
+      const words = [...new Set(rankMatches(sentence).map(([w]) => w.toLowerCase()))].sort();
       const missing = words.filter((w) => !RANK_WORDS[w].some((k) => kinds.has(k)));
       for (const c of checks) {
         const [ok, detail] = evaluate(c, chartData);
@@ -445,9 +466,9 @@ function checkClaims(
   }
 
   for (const name of TEXT_FIELDS) {
-    for (const m of texts[name].matchAll(new RegExp(RANK_SOURCE, "giu"))) {
-      if (!covered[name].some(([s, e]) => s <= m.index && m.index < e)) {
-        report.uncovered.push({ field: name, text: m[0], sentence: sentenceAround(texts[name], m.index) });
+    for (const [word, pos] of rankMatches(texts[name])) {
+      if (!covered[name].some(([s, e]) => s <= pos && pos < e)) {
+        report.uncovered.push({ field: name, text: word, sentence: sentenceAround(texts[name], pos) });
       }
     }
   }

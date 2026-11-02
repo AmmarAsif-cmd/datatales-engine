@@ -4781,6 +4781,341 @@
    }
   },
   {
+   "name": "rank_everyday_only_all",
+   "fields": {
+    "body_md": "It covers only men. Employment counts only people in work, not only those looking. Prices and policy may all play a part."
+   },
+   "claims": [],
+   "numbers": {
+    "data_period": {
+     "first": "2011-12",
+     "last": "2022-23"
+    },
+    "caveats": [
+     "Paused after April 2022 to March 2023; a review is due in 2026."
+    ],
+    "findings": [
+     {
+      "start_value": 30.0,
+      "end_value": 40.0,
+      "change": 10.0,
+      "groups_compared": 4
+     }
+    ]
+   },
+   "chart_data": [
+    {
+     "period": "2011-12",
+     "geography": "North",
+     "value": 30.0,
+     "lower": 29.0,
+     "upper": 31.0
+    },
+    {
+     "period": "2011-12",
+     "geography": "East",
+     "value": 35.0,
+     "lower": 34.0,
+     "upper": 36.0
+    },
+    {
+     "period": "2011-12",
+     "geography": "South",
+     "value": 32.0,
+     "lower": 31.0,
+     "upper": 33.0
+    },
+    {
+     "period": "2011-12",
+     "geography": "West",
+     "value": 28.0,
+     "lower": 27.0,
+     "upper": 29.0
+    },
+    {
+     "period": "2019-20",
+     "geography": "North",
+     "value": 33.0,
+     "lower": 32.0,
+     "upper": 34.0
+    },
+    {
+     "period": "2020-21",
+     "geography": "North",
+     "value": 25.0,
+     "lower": 24.0,
+     "upper": 26.0
+    },
+    {
+     "period": "2020-21",
+     "geography": "East",
+     "value": null,
+     "lower": null,
+     "upper": null
+    },
+    {
+     "period": "2020-21",
+     "geography": "South",
+     "value": 30.0,
+     "lower": 29.0,
+     "upper": 31.0
+    },
+    {
+     "period": "2020-21",
+     "geography": "West",
+     "value": 26.0,
+     "lower": 25.0,
+     "upper": 27.0
+    },
+    {
+     "period": "2021-22",
+     "geography": "North",
+     "value": 40.0,
+     "lower": null,
+     "upper": null
+    },
+    {
+     "period": "2021-22",
+     "geography": "East",
+     "value": 30.0,
+     "lower": 29.0,
+     "upper": 31.0
+    },
+    {
+     "period": "2022-23",
+     "geography": "North",
+     "value": 40.0,
+     "lower": 39.0,
+     "upper": 41.0
+    },
+    {
+     "period": "2022-23",
+     "geography": "East",
+     "value": 34.0,
+     "lower": 33.0,
+     "upper": 35.0
+    },
+    {
+     "period": "2022-23",
+     "geography": "South",
+     "value": 31.0,
+     "lower": 30.0,
+     "upper": 32.0
+    },
+    {
+     "period": "2022-23",
+     "geography": "West",
+     "value": 27.5,
+     "lower": 26.5,
+     "upper": 28.5
+    }
+   ],
+   "report": {
+    "status": "passed",
+    "checked": 0,
+    "unmatched": [],
+    "years_out_of_range": [],
+    "data_years": [
+     2011,
+     2023
+    ],
+    "allowed_values": 21,
+    "claims_checked": true,
+    "claims": [],
+    "uncovered": [],
+    "format_issues": []
+   }
+  },
+  {
+   "name": "rank_phrases_still_count",
+   "fields": {
+    "body_md": "North was the only one to rise. Only one region fell. All nine regions rose. In all the UK nations it rose. It is the only region above 40."
+   },
+   "claims": [],
+   "numbers": {
+    "data_period": {
+     "first": "2011-12",
+     "last": "2022-23"
+    },
+    "caveats": [
+     "Paused after April 2022 to March 2023; a review is due in 2026."
+    ],
+    "findings": [
+     {
+      "start_value": 30.0,
+      "end_value": 40.0,
+      "change": 10.0,
+      "groups_compared": 4
+     }
+    ]
+   },
+   "chart_data": [
+    {
+     "period": "2011-12",
+     "geography": "North",
+     "value": 30.0,
+     "lower": 29.0,
+     "upper": 31.0
+    },
+    {
+     "period": "2011-12",
+     "geography": "East",
+     "value": 35.0,
+     "lower": 34.0,
+     "upper": 36.0
+    },
+    {
+     "period": "2011-12",
+     "geography": "South",
+     "value": 32.0,
+     "lower": 31.0,
+     "upper": 33.0
+    },
+    {
+     "period": "2011-12",
+     "geography": "West",
+     "value": 28.0,
+     "lower": 27.0,
+     "upper": 29.0
+    },
+    {
+     "period": "2019-20",
+     "geography": "North",
+     "value": 33.0,
+     "lower": 32.0,
+     "upper": 34.0
+    },
+    {
+     "period": "2020-21",
+     "geography": "North",
+     "value": 25.0,
+     "lower": 24.0,
+     "upper": 26.0
+    },
+    {
+     "period": "2020-21",
+     "geography": "East",
+     "value": null,
+     "lower": null,
+     "upper": null
+    },
+    {
+     "period": "2020-21",
+     "geography": "South",
+     "value": 30.0,
+     "lower": 29.0,
+     "upper": 31.0
+    },
+    {
+     "period": "2020-21",
+     "geography": "West",
+     "value": 26.0,
+     "lower": 25.0,
+     "upper": 27.0
+    },
+    {
+     "period": "2021-22",
+     "geography": "North",
+     "value": 40.0,
+     "lower": null,
+     "upper": null
+    },
+    {
+     "period": "2021-22",
+     "geography": "East",
+     "value": 30.0,
+     "lower": 29.0,
+     "upper": 31.0
+    },
+    {
+     "period": "2022-23",
+     "geography": "North",
+     "value": 40.0,
+     "lower": 39.0,
+     "upper": 41.0
+    },
+    {
+     "period": "2022-23",
+     "geography": "East",
+     "value": 34.0,
+     "lower": 33.0,
+     "upper": 35.0
+    },
+    {
+     "period": "2022-23",
+     "geography": "South",
+     "value": 31.0,
+     "lower": 30.0,
+     "upper": 32.0
+    },
+    {
+     "period": "2022-23",
+     "geography": "West",
+     "value": 27.5,
+     "lower": 26.5,
+     "upper": 28.5
+    }
+   ],
+   "report": {
+    "status": "failed",
+    "checked": 2,
+    "unmatched": [
+     {
+      "field": "body_md",
+      "text": "nine",
+      "kind": "word",
+      "value": "9"
+     }
+    ],
+    "years_out_of_range": [],
+    "data_years": [
+     2011,
+     2023
+    ],
+    "allowed_values": 21,
+    "claims_checked": true,
+    "claims": [],
+    "uncovered": [
+     {
+      "field": "body_md",
+      "text": "only",
+      "sentence": "North was the only one to rise."
+     },
+     {
+      "field": "body_md",
+      "text": "Only",
+      "sentence": "Only one region fell."
+     },
+     {
+      "field": "body_md",
+      "text": "All",
+      "sentence": "All nine regions rose."
+     },
+     {
+      "field": "body_md",
+      "text": "all",
+      "sentence": "In all the UK nations it rose."
+     },
+     {
+      "field": "body_md",
+      "text": "only",
+      "sentence": "It is the only region above 40."
+     },
+     {
+      "field": "body_md",
+      "text": "nine",
+      "sentence": "All nine regions rose."
+     },
+     {
+      "field": "body_md",
+      "text": "40",
+      "sentence": "It is the only region above 40."
+     }
+    ],
+    "format_issues": []
+   }
+  },
+  {
    "name": "rank_words_mixed_case",
    "fields": {
     "summary": "The LARGEST rise and the Lowest score."

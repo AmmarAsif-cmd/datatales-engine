@@ -114,6 +114,12 @@ Every Monday at 06:00 UTC, `.github/workflows/pipeline.yml` runs these steps in 
    findings. Code checks every number in a draft against the data before you see it.
 4. **Commit.** New source files (`worker/sources.d/`) are committed to the repository.
 
+**Quality and variety.** Claude only drafts stories from datasets with at least three time
+points and data from the last three years, at most two per dataset per run, one per series,
+and never a second story on an angle that is already live. The rules are in
+`worker/config/stories.yaml`. "Regenerate with Claude" runs in GitHub Actions: the story
+says "Claude is drafting" and updates in about two minutes.
+
 **Nothing publishes without you.** Recipes are approved on **Recipes**, and stories are
 approved (which publishes them) on **Stories**. The **Overview** page starts with a weekly
 summary of what is waiting for you.

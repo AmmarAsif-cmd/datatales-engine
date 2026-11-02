@@ -1,6 +1,7 @@
 """Dataset discovery with fake catalogues and a fake Claude (no network)."""
 
 import json
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 
@@ -79,11 +80,19 @@ def rating(i: int, score: int, pitch: str = "Which places changed most, month by
         ({"title": "Spend over £25,000"}, "administrative"),
         ({"title": "A map layer", "description": "Polygons.", "update_frequency": None},
          "no time series or geographic breakdown"),
+        ({"last_updated": "2020-11-02T10:40:51Z"}, "not updated recently"),
     ],
 )  # fmt: skip
 def test_hard_filters(over: dict[str, Any], reason: str) -> None:
     it = d.annotate(item(1, **over))
     assert reason in (d.hard_filter(it, cfg(), set(), set()) or "")
+
+
+def test_is_stale() -> None:
+    now = datetime(2026, 11, 2, tzinfo=UTC)
+    assert d.is_stale("2024-01-09T10:10:57Z", 540, now)
+    assert not d.is_stale("2026-05-14", 540, now)
+    assert not d.is_stale(None, 540, now) and not d.is_stale("not a date", 540, now)
 
 
 def test_good_item_passes_and_known_ones_do_not() -> None:

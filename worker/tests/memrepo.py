@@ -13,6 +13,7 @@ from datatales.repo import (
     JobStatus,
     Recipe,
     now_utc,
+    stale_reservation,
 )
 from datatales.sources import SourceDef
 
@@ -27,6 +28,7 @@ class MemRepo:
         self.jobs: dict[str, dict[str, Any]] = {}
         self.llm_calls: dict[str, dict[str, Any]] = {}
         self.llm_topups: list[tuple[date, float]] = []  # (month, amount_gbp)
+        self.clock: datetime | None = None  # 'now' for stale reservations (None = real time)
         self.backlog: dict[str, dict[str, Any]] = {}
         self.findings: dict[str, dict[str, Any]] = {}
         self.stories: dict[str, dict[str, Any]] = {}
@@ -265,6 +267,7 @@ class MemRepo:
 
     def llm_spend_since(self, since: datetime) -> tuple[float, int]:
         rows = [r for r in self.llm_calls.values() if r["created_at"] >= since]
+        rows = [r for r in rows if not stale_reservation(r, self.clock)]
         spent = sum(float(r.get("estimated_cost") or 0) for r in rows)
         return spent, sum(1 for r in rows if r["status"] in ("ok", "invalid_output"))
 

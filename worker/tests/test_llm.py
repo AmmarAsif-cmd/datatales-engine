@@ -189,6 +189,18 @@ def test_last_months_spend_does_not_count() -> None:
     assert call(client(FakeSDK(response()), repo)).value == {"ok": True}
 
 
+def test_a_reservation_left_behind_stops_counting_after_30_minutes() -> None:
+    repo = MemRepo()
+    stuck = repo.insert_llm_call({"task": "story", "model": "m", "status": "reserved",
+                                  "estimated_cost": 5.0})  # fmt: skip
+    repo.llm_calls[stuck]["created_at"] = NOW - timedelta(minutes=10)
+    repo.clock = NOW
+    assert repo.llm_spend_since(month_start(NOW))[0] == 5.0  # may still be running
+    repo.llm_calls[stuck]["created_at"] = NOW - timedelta(minutes=45)
+    assert repo.llm_spend_since(month_start(NOW))[0] == 0  # cut off: no longer counted
+    assert call(client(FakeSDK(response()), repo)).value == {"ok": True}
+
+
 def test_reservation_counts_against_the_budget_while_in_flight() -> None:
     repo = MemRepo()
     seen: list[float] = []

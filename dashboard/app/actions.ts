@@ -8,7 +8,6 @@ import { dispatch, WORKFLOWS } from "@/lib/github";
 import { LLM_CONFIG, monthStart, nextTopup } from "@/lib/logic/llm.ts";
 import type { VerifyReport } from "@/lib/types";
 import {
-  draftWithClaude,
   loadStory,
   pasteNarration,
   reverifyStory,
@@ -74,22 +73,26 @@ export async function pasteReply(_prev: ActionState, form: FormData): Promise<Ac
   });
 }
 
+/** Runs in GitHub Actions (story-draft.yml): one or two Claude calls plus verification take
+ * longer than Cloudflare lets a web request run. The story shows a note until it is done. */
 export async function regenerateWithClaude(_prev: ActionState, form: FormData): Promise<ActionState> {
   return guarded(async () => {
     const storyId = id(form, "story_id");
-    const outcome = await draftWithClaude(storyId);
+    const story = await loadStory(storyId);
+    if (story.status === "approved" || story.status === "published") {
+      throw new StoryOpError(`story is ${story.status}: use Revise first`);
+    }
+    await dispatch(WORKFLOWS.storyDraft, { story_id: storyId });
+    await db().from("stories").update({ draft_note: DRAFTING_NOTE }).eq("id", storyId);
     revalidatePath(`/stories/${storyId}`);
-    revalidatePath("/stories");
-    revalidatePath("/");
-    const messages = {
-      passed: `Drafted by Claude and verified. ${outcome.message}`,
-      failed: outcome.message,
-      budget: `${outcome.message}. Use Copy prompt / Paste result instead.`,
-      error: `Claude could not draft this story: ${outcome.message}`,
+    return {
+      ok: true,
+      message: "Claude is drafting this story. Refresh the page in about two minutes.",
     };
-    return { ok: outcome.status === "passed", message: messages[outcome.status] };
   });
 }
+
+const DRAFTING_NOTE = "Claude is drafting this story (started from the dashboard; about two minutes).";
 
 export async function saveEdits(_prev: ActionState, form: FormData): Promise<ActionState> {
   return guarded(async () => {

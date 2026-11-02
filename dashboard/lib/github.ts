@@ -14,6 +14,7 @@ const API = "https://api.github.com";
 export const WORKFLOWS = {
   publish: "publish.yml",
   storyNew: "story-new.yml",
+  storyDraft: "story-draft.yml",
   recipeApprove: "recipe-approve.yml",
   recipeDraft: "recipe-draft.yml",
   pipeline: "pipeline.yml",

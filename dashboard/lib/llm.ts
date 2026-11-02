@@ -7,6 +7,7 @@ import {
   budgetStatus,
   callClaude,
   LLMError,
+  staleReservation,
   type BudgetStatus,
   type CallArgs,
   type CallResult,
@@ -28,10 +29,13 @@ export const supabaseLlmLog: LlmLog = {
   async spendSince(since) {
     const { data, error } = await db()
       .from("llm_calls")
-      .select("estimated_cost, status")
+      .select("estimated_cost, status, created_at")
       .gte("created_at", since.toISOString());
     if (error) throw new LLMError(error.message);
-    const rows = (data ?? []) as { estimated_cost: number | string | null; status: string }[];
+    const now = new Date();
+    const rows = ((data ?? []) as { estimated_cost: number | string | null; status: string; created_at: string }[]).filter(
+      (r) => !staleReservation(r, now),
+    );
     return {
       spent: rows.reduce((sum, r) => sum + Number(r.estimated_cost ?? 0), 0),
       calls: rows.filter((r) => r.status === "ok" || r.status === "invalid_output").length,

@@ -54,7 +54,26 @@ RANK_WORDS: dict[str, tuple[str, ...]] = {
     "biggest": ("biggest_rise", "biggest_fall"),
     "largest": ("biggest_rise", "biggest_fall"),
 }
-RANK_RE = re.compile(r"\b(" + "|".join(RANK_WORDS) + r")\b", re.I)
+# "only" and "all" are everyday words ("covers only men", "may all play a part"); they make a
+# ranking claim only in phrases about a group of places: "the only nation", "only one of",
+# "all four regions", "all the countries". highest/lowest/biggest/largest always count.
+_GROUPS = (
+    r"(?:nations?|regions?|countries|country|places?|areas?|councils?|local\s+authorit(?:y|ies)"
+    r"|parts?\s+of)"
+)
+_COUNT = r"(?:\d+|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)"
+RANK_PHRASES = [
+    re.compile(r"\bthe\s+(only)\b", re.I),
+    re.compile(rf"\b(only)\s+(?:one|{_GROUPS})\b", re.I),
+    re.compile(rf"\b(all)\s+(?:(?:of\s+)?the\s+)?(?:{_COUNT}\s+)?(?:UK\s+)?{_GROUPS}\b", re.I),
+    re.compile(r"\b(highest|lowest|biggest|largest)\b", re.I),
+]
+
+
+def rank_matches(text: str) -> list[tuple[str, int]]:
+    """(rank word as written, its position) for each ranking use in `text`, in order."""
+    found = {m.start(1): m.group(1) for rx in RANK_PHRASES for m in rx.finditer(text)}
+    return sorted(((w, i) for i, w in found.items()), key=lambda x: x[1])
 
 
 @dataclass(frozen=True)
@@ -410,7 +429,7 @@ def _check_claims(
                 result["numbers"].append({"text": tok.text, "key": hit})
                 mismatched = mismatched or hit is None
             kinds = {c.get("kind") for c in checks}
-            words = sorted({w.lower() for w in RANK_RE.findall(sentence)})
+            words = sorted({w.lower() for w, _ in rank_matches(sentence)})
             missing = [w for w in words if not kinds & set(RANK_WORDS[w])]
             for c in checks:
                 ok, detail = evaluate(c, chart_data)
@@ -428,14 +447,10 @@ def _check_claims(
         report.claims.append(result)
 
     for name, text in texts.items():
-        for m in RANK_RE.finditer(text):
-            if not any(s <= m.start() < e for s, e in covered[name]):
+        for word, pos in rank_matches(text):
+            if not any(s <= pos < e for s, e in covered[name]):
                 report.uncovered.append(
-                    {
-                        "field": name,
-                        "text": m.group(0),
-                        "sentence": _sentence_around(text, m.start()),
-                    }
+                    {"field": name, "text": word, "sentence": _sentence_around(text, pos)}
                 )
 
     for name, toks in tokens.items():
