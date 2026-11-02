@@ -15,3 +15,54 @@ fetch:
   file_match: weekly-deaths-region
   format: CSV
 backlog_id: 83eab7e6-81aa-4a03-8ee3-c66cea851e33
+detect:
+  group: area
+  group_code: area_code
+  period: year
+  value: deaths
+  precision_pct: 2.0
+  slice_by:
+  - cause_of_death
+  - week
+  - geo_level
+  filters:
+    geo_level:
+    - country
+    - region
+  units: []
+  default_unit: deaths
+  polarity: []
+  labels:
+  - when:
+      cause_of_death:
+      - All causes
+    label: Deaths from all causes
+  - when:
+      cause_of_death:
+      - Deaths due to COVID-19 (U07.1, U07.2, U10.9)
+    label: Deaths due to COVID-19
+  - when:
+      cause_of_death:
+      - Deaths involving COVID-19 (U07.1, U07.2, U09.9, U10.9)
+    label: Deaths involving COVID-19
+  - when:
+      cause_of_death:
+      - Deaths due to diseases of the respiratory system (J00 to J99)
+    label: Deaths due to respiratory disease
+  - when:
+      cause_of_death:
+      - Deaths involving diseases of the respiratory system (J00 to J99)
+    label: Deaths involving respiratory disease
+  - when:
+      cause_of_death:
+      - Deaths due to influenza or pneumonia (J09 to J18)
+    label: Deaths due to influenza or pneumonia
+  - when:
+      cause_of_death:
+      - Deaths involving influenza or pneumonia (J09 to J18)
+    label: Deaths involving influenza or pneumonia
+  default_higher_is_better: false
+  min_groups_rank: 3
+  min_groups_outlier: 5
+  outlier_z: 2.5
+  top_n: 20
